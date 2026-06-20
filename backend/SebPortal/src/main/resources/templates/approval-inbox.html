@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head('Attestkorg')">
+    <title>Attestkorg</title>
+</head>
+<body>
+<div th:replace="layout :: navbar"></div>
+
+<div class="container-fluid" style="margin-top: 70px; padding: 20px;">
+
+    <div class="row">
+        <div class="col-sm-10 col-sm-offset-1">
+            <h2>Attestkorg</h2>
+
+            <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}">
+                Fel meddelande
+            </div>
+            <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}">
+                Bekräftelse
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading">Väntande attester</div>
+                <div class="panel-body">
+                    <p th:if="${#lists.isEmpty(pendingPayments)}">Inga betalningar väntar på din attest just nu.</p>
+
+                    <table class="table table-striped" th:unless="${#lists.isEmpty(pendingPayments)}">
+                        <thead>
+                        <tr>
+                            <th>Betalning</th>
+                            <th>Från konto</th>
+                            <th>Till IBAN</th>
+                            <th>Belopp</th>
+                            <th>Referens</th>
+                            <th>Skapad av</th>
+                            <th>Skapad</th>
+                            <th>Steg</th>
+                            <th>Åtgärd</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="pay : ${pendingPayments}">
+                            <td th:text="'#' + ${pay.id}">#1</td>
+                            <td th:text="${pay.account_name}">Konto</td>
+                            <td th:text="${pay.to_iban}">IBAN</td>
+                            <td th:text="${pay.amount} + ' ' + ${pay.currency}">0 SEK</td>
+                            <td th:text="${pay.reference}">Referens</td>
+                            <td th:text="${pay.created_by_name}">Namn</td>
+                            <td th:text="${pay.created_at}">2024-01-01</td>
+                            <td th:text="${pay.step_number} + ' / ' + ${pay.total_steps}">1 / 1</td>
+                            <td>
+                                <!-- BUG-011 (IDOR): approvalStepId is just a hidden field on the
+                                     form — the server never verifies it belongs to the logged-in
+                                     attestant, so any attestant who knows/guesses another step's id
+                                     can approve or reject it. -->
+                                <form method="post" action="/approvals" style="display:inline-block;">
+                                    <input type="hidden" name="paymentId" th:value="${pay.id}"/>
+                                    <input type="hidden" name="approvalStepId" th:value="${pay.step_id}"/>
+                                    <input type="hidden" name="action" value="approve"/>
+                                    <input type="text" name="comment" class="form-control input-sm"
+                                           placeholder="Kommentar (valfri)" style="display:inline-block;width:140px;"/>
+                                    <button type="submit" class="btn btn-sm"
+                                            style="background:#60b22c;color:#fff;font-weight:bold;">
+                                        Godkänn
+                                    </button>
+                                </form>
+                                <form method="post" action="/approvals" style="display:inline-block;">
+                                    <input type="hidden" name="paymentId" th:value="${pay.id}"/>
+                                    <input type="hidden" name="approvalStepId" th:value="${pay.step_id}"/>
+                                    <input type="hidden" name="action" value="reject"/>
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        Avvisa
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading">Senast hanterade (av dig)</div>
+                <div class="panel-body">
+                    <p th:if="${#lists.isEmpty(recentlyHandled)}">Inget hanterat ännu.</p>
+
+                    <table class="table table-condensed" th:unless="${#lists.isEmpty(recentlyHandled)}">
+                        <thead>
+                        <tr>
+                            <th>Betalning</th>
+                            <th>Belopp</th>
+                            <th>Status</th>
+                            <th>Avgjord</th>
+                            <th>Kommentar</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="h : ${recentlyHandled}">
+                            <td th:text="'#' + ${h.payment_id}">#1</td>
+                            <td th:text="${h.amount}">0</td>
+                            <td th:text="${h.status}">status</td>
+                            <td th:text="${h.decided_at}">-</td>
+                            <td th:text="${h.comment}">-</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
+</html>
