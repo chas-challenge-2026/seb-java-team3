@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head('Batch-uppladdning')">
+    <title>Batch-uppladdning</title>
+</head>
+<body>
+<div th:replace="layout :: navbar"></div>
+
+<div class="container-fluid" style="margin-top: 70px; padding: 20px;">
+
+    <div class="row">
+        <div class="col-sm-10 col-sm-offset-1">
+            <h2>Batch-uppladdning</h2>
+            <p class="text-muted">Ladda upp flera betalningar via CSV-fil</p>
+
+            <div th:if="${resultMessage}"
+                 th:class="${hasErrors} ? 'alert alert-warning' : 'alert alert-success'"
+                 th:text="${resultMessage}">
+                Resultatmeddelande
+            </div>
+
+            <div th:if="${errors != null and !errors.isEmpty()}" class="alert alert-danger">
+                <strong>Fel i CSV-filen:</strong>
+                <ul class="mb-0" style="margin-top:10px;">
+                    <li th:each="err : ${errors}" th:text="${err}">Felrad</li>
+                </ul>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-7">
+                    <div class="panel panel-default">
+                        <div class="panel-body">
+                            <form method="post" action="/batch" enctype="multipart/form-data">
+                                <div class="form-group">
+                                    <label for="file">CSV-fil</label>
+                                    <input type="file" class="form-control" id="file" name="file" accept=".csv" required/>
+                                    <p class="help-block">Max 1 MB. Kodning: UTF-8.</p>
+                                </div>
+                                <button type="submit" class="btn" style="background:#60b22c;color:#fff;font-weight:bold;">
+                                    Ladda upp och behandla
+                                </button>
+                                <a href="/dashboard" class="btn btn-default">Avbryt</a>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div th:if="${processedRows != null and !processedRows.isEmpty()}" class="panel panel-default">
+                        <div class="panel-heading">Resultat</div>
+                        <table class="table">
+                            <thead>
+                            <tr>
+                                <th>Rad</th>
+                                <th>Till IBAN</th>
+                                <th>Belopp</th>
+                                <th>Referens</th>
+                                <th>Status</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="row : ${processedRows}"
+                                th:class="${row.success} ? '' : 'danger'">
+                                <td th:text="${row.rowNumber}">1</td>
+                                <td><small th:text="${row.toIban}">IBAN</small></td>
+                                <td th:text="${row.amount}">0.00</td>
+                                <td th:text="${row.reference}">Referens</td>
+                                <td>
+                                    <span th:if="${row.success}" class="label label-success">OK</span>
+                                    <span th:unless="${row.success}" class="label label-danger" th:title="${row.error}">Fel</span>
+                                    <br th:unless="${row.success}"/>
+                                    <small th:unless="${row.success}" class="text-danger" th:text="${row.error}"></small>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="col-sm-5">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">CSV-format</div>
+                        <div class="panel-body">
+                            <p class="small">Filen ska ha följande kolumner:</p>
+                            <pre class="small">from_account_id,to_iban,amount,reference
+1,SE8550000000054910000003,5000.00,Faktura #2001
+1,SE8550000000054910000005,12500.00,Faktura #2002</pre>
+                            <div class="alert alert-warning small" style="margin-bottom:0;">
+                                <strong>OBS:</strong> Kommatecken i fält stöds inte. Undvik referenser som innehåller kommatecken.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Exempelfil</div>
+                        <div class="panel-body">
+                            <a href="/example-batch.csv" class="btn btn-default btn-sm">
+                                Ladda ned example-batch.csv
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+version: "3.9"
+name: seb-java
+
+services:
+  db:
+    image: postgres:12
+    environment:
+      POSTGRES_DB: seb
+      POSTGRES_USER: seb
+      POSTGRES_PASSWORD: seb123
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seb -d seb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5434:5432"
+
+  app:
+    build:
+      context: ../backend/SebPortal
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/seb
+      - SPRING_DATASOURCE_USERNAME=seb
+      - SPRING_DATASOURCE_PASSWORD=seb123
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
