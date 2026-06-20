@@ -23,8 +23,8 @@ services:
     build:
       context: ../backend/SebPortal
       dockerfile: Dockerfile
-    ports:
-      - "8084:8084"
+    expose:
+      - "8084"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/seb
       - SPRING_DATASOURCE_USERNAME=seb
