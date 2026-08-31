@@ -18,11 +18,6 @@ public class AuditController {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    // BUG-010: hardcoded connection string duplicated across controllers (fifth occurrence)
-    // TODO: read from config, not a constant in every file
-    static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
-
     @GetMapping("/audit")
     public String auditLog(HttpSession session, Model model) {
         if (session.getAttribute("userId") == null) {

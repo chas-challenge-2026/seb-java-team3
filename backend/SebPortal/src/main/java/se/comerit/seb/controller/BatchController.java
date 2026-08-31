@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import se.comerit.seb.config.PaymentThresholdProperties;
 
 import javax.servlet.http.HttpSession;
 import java.io.BufferedReader;
@@ -32,13 +33,8 @@ public class BatchController {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    // BUG-010: hardcoded connection string duplicated across controllers (fourth occurrence)
-    // TODO: read from config, not a constant in every file
-    static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
-
-    // SPAGHETTI: Approval threshold yet again — same magic number 50000, copy-pasted
-    private static final BigDecimal APPROVAL_THRESHOLD = new BigDecimal("50000");
+    @Autowired
+    private PaymentThresholdProperties paymentThresholds;
 
     // BUG-003: same weak IBAN regex as PaymentController — copy-pasted, not shared, no MOD97
     // TODO: implement proper MOD97 IBAN checksum validation
@@ -200,7 +196,7 @@ public class BatchController {
             // SPAGHETTI: No ownership check on fromAccountId — any account ID can be used,
             // only the tenant_id stamped on the row comes from the session.
             try {
-                String status = amount.compareTo(APPROVAL_THRESHOLD) > 0 ? "pending_approval" : "completed";
+                String status = amount.compareTo(paymentThresholds.getApprovalThreshold()) > 0 ? "pending_approval" : "completed";
 
                 String escapedReference = reference.trim().replace("'", "''");
                 String insertSql = "INSERT INTO payments (tenant_id, from_account_id, to_iban, amount, currency, reference, status, created_by, created_at) "

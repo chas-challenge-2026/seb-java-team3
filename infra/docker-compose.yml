@@ -18,10 +18,9 @@ services:
     environment:
       POSTGRES_DB: seb
       POSTGRES_USER: seb
-      POSTGRES_PASSWORD: seb123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U seb -d seb"]
       interval: 5s
@@ -39,7 +38,8 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/seb
       - SPRING_DATASOURCE_USERNAME=seb
-      - SPRING_DATASOURCE_PASSWORD=seb123
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - JWT_SIGNING_KEY=${JWT_SIGNING_KEY:-dev-only-change-me-dev-only-change-me-32}
     depends_on:
       db:
         condition: service_healthy

@@ -9,6 +9,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import se.comerit.seb.config.PaymentThresholdProperties;
+import se.comerit.seb.service.AuditService;
 
 import javax.servlet.http.HttpSession;
 import java.io.FileWriter;
@@ -33,18 +35,11 @@ public class PaymentController {
     @Autowired
     private JavaMailSender mailSender;
 
-    // BUG-010: hardcoded connection string duplicated across controllers
-    // TODO: read from config, not a constant in every file
-    static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
+    @Autowired
+    private PaymentThresholdProperties paymentThresholds;
 
-    // SPAGHETTI: Approval threshold duplicated here AND in ApprovalController — they can drift
-    private static final BigDecimal APPROVAL_THRESHOLD = new BigDecimal("50000");
-    // SPAGHETTI: Second threshold inconsistently defined — ApprovalController uses 200000 for "attestant2"
-    // BUG-006: this controller adds the second approval step at >500000, but ApprovalController
-    // checks >200000 for the second-attestant requirement — the thresholds drift and can deadlock.
-    // TODO: unify thresholds in one place
-    private static final BigDecimal DOUBLE_APPROVAL_THRESHOLD = new BigDecimal("500000");
+    @Autowired
+    private AuditService auditService;
 
     // BUG-003: IBAN validation regex only — no MOD97 checksum validation at all
     // SE IBANs are 24 chars but this accepts 11-30 alphanumeric chars after the 4-char prefix
@@ -107,7 +102,7 @@ public class PaymentController {
             }
 
             String status;
-            if (amount.compareTo(APPROVAL_THRESHOLD) > 0) {
+            if (amount.compareTo(paymentThresholds.getApprovalThreshold()) > 0) {
                 status = "pending_approval";
             } else {
                 // BUG-009: Immediate "completion" with no actual funds check — balance is NOT
@@ -122,11 +117,8 @@ public class PaymentController {
                     + ", 'SEK', '" + reference + "', '" + status + "', " + userId + ", NOW()) RETURNING id";
             Integer paymentId = jdbcTemplate.queryForObject(insertSql, Integer.class);
 
-            // Write audit entry to DB
-            String auditSql = "INSERT INTO audit_entries (user_id, action, entity_type, entity_id, description) "
-                    + "VALUES (" + userId + ", 'CREATE_PAYMENT', 'payment', " + paymentId + ", "
-                    + "'Skapade betalning " + amount + " SEK till " + ibanStripped + "')";
-            jdbcTemplate.update(auditSql);
+            auditService.record((Integer) userId, "CREATE_PAYMENT", paymentId,
+                    "Skapade betalning " + amount + " SEK till " + ibanStripped);
 
             // BUG-008 (established here, fully realized in Task 7): ALSO write to file —
             // dual audit log, already diverges from the DB log
@@ -146,10 +138,7 @@ public class PaymentController {
                             + "VALUES (" + paymentId + ", " + attestantId + ", 1, 'pending')";
                     jdbcTemplate.update(stepSql);
 
-                    // BUG-006: If amount requires double approval, add second step. We check
-                    // > DOUBLE_APPROVAL_THRESHOLD (500000) here, while ApprovalController checks
-                    // > 200000 — INCONSISTENCY preserved exactly from the .NET original, do not fix.
-                    if (amount.compareTo(DOUBLE_APPROVAL_THRESHOLD) > 0) {
+                    if (amount.compareTo(paymentThresholds.getDoubleApprovalThreshold()) > 0) {
                         // SPAGHETTI: Grab SAME attestant as step 1 if no second one exists
                         String step2Sql = "INSERT INTO approval_steps (payment_id, attestant_id, step_number, status) "
                                 + "VALUES (" + paymentId + ", " + attestantId + ", 2, 'pending')";

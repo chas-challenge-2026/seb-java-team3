@@ -9,6 +9,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import se.comerit.seb.config.PaymentThresholdProperties;
 
 import javax.servlet.http.HttpSession;
 import java.io.FileWriter;
@@ -34,23 +35,8 @@ public class ApprovalController {
     @Autowired
     private JavaMailSender mailSender;
 
-    // BUG-010: hardcoded connection string duplicated across controllers
-    // TODO: read from config, not a constant in every file
-    static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
-
-    // SPAGHETTI: Threshold hardcoded AGAIN — inconsistent with PaymentController (50000 there too,
-    // but kept as a separate constant so they can drift independently)
-    private static final BigDecimal REQUIRES_APPROVAL_THRESHOLD = new BigDecimal("50000");
-
-    // SPAGHETTI: Second attestant threshold DIFFERENT from PaymentController (500000 there, 200000 here)
-    // Business logic is now split across two files with different values — a real refactoring target.
-    // BUG-006: this controller expects double approval at amount > 200000 and will retroactively
-    // add a second approval_steps row. PaymentController only creates a second step at > 500000.
-    // A payment around 300000 SEK gets exactly one step from PaymentController, but this controller
-    // demands two before it considers the payment fully approved — it can never complete, and gets
-    // stuck permanently in 'pending_approval'. DO NOT reconcile these thresholds — preserve the deadlock.
-    private static final BigDecimal REQUIRES_DOUBLE_APPROVAL_THRESHOLD = new BigDecimal("200000");
+    @Autowired
+    private PaymentThresholdProperties paymentThresholds;
 
     // SPAGHETTI: Yet another hardcoded "max payment" rule that exists nowhere else
     private static final BigDecimal ABSOLUTE_MAX_SINGLE_PAYMENT = new BigDecimal("5000000");
@@ -183,11 +169,7 @@ public class ApprovalController {
                         "SELECT COUNT(*) FROM approval_steps WHERE payment_id = " + paymentId,
                         Integer.class);
 
-                // BUG-006: Threshold check AGAIN — this time using REQUIRES_DOUBLE_APPROVAL_THRESHOLD
-                // (200000), different from PaymentController's DOUBLE_APPROVAL_THRESHOLD (500000).
-                // A payment of ~300000 SEK gets one step created by PaymentController, but this
-                // controller thinks it needs two — so it will never be "fully approved".
-                if (paymentAmount.compareTo(REQUIRES_DOUBLE_APPROVAL_THRESHOLD) > 0 && totalSteps < 2) {
+                if (paymentAmount.compareTo(paymentThresholds.getDoubleApprovalThreshold()) > 0 && totalSteps < 2) {
                     // SPAGHETTI: Try to add a second approval step retroactively.
                     // Find another attestant — or reuse the same one if no other exists.
                     String secondAttestantSql = "SELECT id FROM users WHERE tenant_id = " + tenantId

@@ -18,11 +18,6 @@ public class DashboardController {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    // BUG-010: hardcoded connection string duplicated across controllers
-    // TODO: read from config, not a constant in every file
-    static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
-
     @GetMapping("/dashboard")
     public String dashboard(HttpSession session, Model model) {
         if (session.getAttribute("userId") == null) {
