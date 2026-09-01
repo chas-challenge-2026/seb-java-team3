@@ -3,6 +3,7 @@ import Styles from "./Button.module.css"
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>{
     children: React.ReactNode;
+    fullWidth?: boolean;
     variant?: "primary" | "secondary" | "dark";
     buttonStyle?: "text-only" | "icon-only" | "icon-text";
     // icon: null;
@@ -10,6 +11,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>{
 
 const Button: React.FC<ButtonProps> = ({
     children,
+    fullWidth = false,
     variant = "secondary",
     buttonStyle = "text-only",
     ...props
@@ -21,6 +23,7 @@ const Button: React.FC<ButtonProps> = ({
             ${Styles.btnBase}
             ${Styles[variant]}
             ${Styles[buttonStyle]}
+            ${fullWidth ? Styles.fullWidth : ""}
         `}
     >
         {children}

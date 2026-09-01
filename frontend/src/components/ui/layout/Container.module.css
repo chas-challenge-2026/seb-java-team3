@@ -1,0 +1,38 @@
+.container {
+    width: 100%;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* MAX WIDTHS */
+
+.sm {
+    max-width: 540px;
+}
+
+.md {
+    max-width: 720px;
+}
+
+.lg {
+    max-width: 960px;
+}
+
+.xl {
+    max-width: 1140px;
+}
+
+/* VARIANTS */
+
+.default {
+    background-color: transparent;
+}
+
+.surface {
+    background-color: #EEEEEE;
+    border-radius: 1.5rem;
+}
+
+.surface-nav {
+    background-color: #F8F8F8;
+}
