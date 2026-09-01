@@ -1,0 +1,47 @@
+.btnBase {
+    background: none;
+    border: none;
+    height: 2.5rem;
+    padding: 0 1.5rem;
+    border-radius: 2.5rem;
+    transition: background-color 0.3s ease;
+    cursor: pointer;
+}
+
+/* VARIANTS */
+
+.secondary{
+    background-color: #EAEBEB;
+    color: black;
+}
+
+.secondary:hover{
+    background-color: #DCDDDD;
+}
+
+.primary{
+    background-color: #003824;
+    color: white;
+}
+
+.primary:hover{
+    background-color: #336050;
+}
+
+.dark {
+    background-color: #1A1A1A;
+    color: white;
+    border-radius: 0;
+    text-align: left;
+    width: 15rem;
+    height: 5rem;
+    border-radius: 0.25rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark:hover {
+    transform: translateY(-0.15rem);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* BUTTON STYLES */
