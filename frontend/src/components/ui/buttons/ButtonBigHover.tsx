@@ -1,5 +1,6 @@
 import React from 'react'
 import Styles from "./ButtonBigHover.module.css"
+import { MoveRight } from "lucide-react";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>{
     children: React.ReactNode;
@@ -19,7 +20,11 @@ const ButtonBigHover: React.FC<ButtonProps> = ({
             ${Styles[variant]}
         `}
     >
-        {children}
+        <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+            {children}
+            <MoveRight size={20}/>
+
+        </div>
     </button>
   )
 }
