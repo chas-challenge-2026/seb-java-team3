@@ -1,24 +1,26 @@
 import React from 'react'
-import Styles from "./button.module.css"
+import Styles from "./Button.module.css"
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>{
     children: React.ReactNode;
     variant?: "primary" | "secondary" | "dark";
-    style?: "text-only" | "icon-only" | "icon-text";
-    icon: null;
+    buttonStyle?: "text-only" | "icon-only" | "icon-text";
+    // icon: null;
 }
 
-const button: React.FC<ButtonProps> = ({
+const Button: React.FC<ButtonProps> = ({
     children,
     variant = "secondary",
-    style = "text-only",
+    buttonStyle = "text-only",
+    ...props
 }) => {
   return (
     <button
+        {...props}
         className={`
             ${Styles.btnBase}
             ${Styles[variant]}
-            ${Styles[style]}
+            ${Styles[buttonStyle]}
         `}
     >
         {children}
@@ -26,4 +28,4 @@ const button: React.FC<ButtonProps> = ({
   )
 }
 
-export default button
+export default Button
