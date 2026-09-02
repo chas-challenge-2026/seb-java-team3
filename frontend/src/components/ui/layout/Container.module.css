@@ -6,6 +6,10 @@
 
 /* MAX WIDTHS */
 
+.xs {
+    max-width: 360px;
+}
+
 .sm {
     max-width: 540px;
 }
@@ -30,9 +34,14 @@
 
 .surface {
     background-color: var(--bg-surface);
-    border-radius: 1.5rem;
+    border-radius: 1.4rem;
 }
 
 .surface-nav {
     background-color: var(--bg-surface-nav);
+}
+
+.white {
+    background-color: white;
+    border-radius: 1.4rem;
 }

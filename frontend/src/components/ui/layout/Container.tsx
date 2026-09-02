@@ -2,9 +2,9 @@ import React from 'react'
 import Styles from "./Container.module.css"
 
 interface ContainerProps extends React.HTMLAttributes<HTMLElement>{
-    children: React.ReactNode;
-    maxWidth?: "sm" | "md" | "lg" | "xl";
-    variant?: "default" | "surface" | "surface-nav"
+    children?: React.ReactNode;
+    maxWidth?: "xs" | "sm" | "md" | "lg" | "xl";
+    variant?: "default" | "surface" | "surface-nav" | "white"
 }
 
 const Container: React.FC<ContainerProps> = ({

@@ -13,6 +13,11 @@
     font-weight: 400;
 }
 
+.btnBase:hover {
+    transform: translateY(-0.15rem);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
 /* VARIANTS */
 
 .primary{
@@ -20,28 +25,12 @@
     color: white;
 }
 
-.primary:hover{
-    /* background-color: var(--btn-primary-hover); */
-}
-
 .secondary{
     background-color: var(--btn-secondary);
     color: black;
-}
-
-.secondary:hover{
-    /* background-color: var(--btn-secondary-hover); */
 }
 
 .dark {
     background-color: var(--btn-dark);
     color: white;
 }
-
-.dark:hover {
-    /* background-color: var(--btn-dark-hover); */
-    transform: translateY(-0.15rem);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-}
-
-/* BUTTON STYLES */
