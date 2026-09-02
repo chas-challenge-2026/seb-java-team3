@@ -1,0 +1,16 @@
+.logo {
+    display: block;
+    height: auto;
+}
+
+.sm {
+    width: 4rem;
+}
+
+.md {
+    width: 8rem;
+}
+
+.lg {
+    width: 16rem;
+}

@@ -1,0 +1,16 @@
+:root {
+
+    --bg-primary: #ffffff;
+    --bg-surface: #EEEEEE;
+    --bg-surface-nav: #F8F8F8;
+
+    --btn-primary: #003824;
+    --btn-primary-hover: #336050;
+    --btn-secondary: #EAEBEB;
+    --btn-secondary-hover: #DCDDDD;
+    --btn-dark: #1A1A1A;
+    --btn-dark-hover: #393939;
+
+    --divider-clr: #ebebeb;
+
+}

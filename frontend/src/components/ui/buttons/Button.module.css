@@ -7,6 +7,11 @@
     transition: background-color 0.3s ease;
     font-weight: 400;
     font-size: .85rem;
+
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    justify-content: center;
     
 }
 
@@ -16,31 +21,36 @@
 
 /* VARIANTS */
 
-.secondary{
-    background-color: #EAEBEB;
-    color: black;
-}
-
-.secondary:hover{
-    background-color: #DCDDDD;
-}
-
 .primary{
-    background-color: #003824;
+    background-color: var(--btn-primary);
     color: white;
 }
 
 .primary:hover{
-    background-color: #336050;
+    background-color: var(--btn-primary-hover);
+}
+
+.secondary{
+    background-color: var(--btn-secondary);
+    color: black;
+}
+
+.secondary:hover{
+    background-color: var(--btn-secondary-hover);
 }
 
 .dark {
-    background-color: #1A1A1A;
+    background-color: var(--btn-dark);
     color: white;
 }
 
 .dark:hover {
-    background-color: #393939;
+    background-color: var(--btn-dark-hover);
 }
 
 /* BUTTON STYLES */
+
+.icon-only {
+    width: 2.5rem;
+    padding: 0;
+}

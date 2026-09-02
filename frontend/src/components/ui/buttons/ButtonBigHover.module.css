@@ -15,30 +15,31 @@
 
 /* VARIANTS */
 
-.secondary{
-    background-color: #EAEBEB;
-    color: black;
-}
-
-.secondary:hover{
-    background-color: #DCDDDD;
-}
-
 .primary{
-    background-color: #003824;
+    background-color: var(--btn-primary);
     color: white;
 }
 
 .primary:hover{
-    background-color: #336050;
+    /* background-color: var(--btn-primary-hover); */
+}
+
+.secondary{
+    background-color: var(--btn-secondary);
+    color: black;
+}
+
+.secondary:hover{
+    /* background-color: var(--btn-secondary-hover); */
 }
 
 .dark {
-    background-color: #1A1A1A;
+    background-color: var(--btn-dark);
     color: white;
 }
 
 .dark:hover {
+    /* background-color: var(--btn-dark-hover); */
     transform: translateY(-0.15rem);
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }

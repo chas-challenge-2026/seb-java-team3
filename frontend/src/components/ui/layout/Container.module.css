@@ -29,10 +29,10 @@
 }
 
 .surface {
-    background-color: #EEEEEE;
+    background-color: var(--bg-surface);
     border-radius: 1.5rem;
 }
 
 .surface-nav {
-    background-color: #F8F8F8;
+    background-color: var(--bg-surface-nav);
 }
