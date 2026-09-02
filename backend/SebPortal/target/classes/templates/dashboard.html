@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head('Översikt')">
+    <title>Dashboard</title>
+</head>
+<body>
+<div th:replace="layout :: navbar"></div>
+
+<div class="container-fluid" style="margin-top: 70px; padding: 20px;">
+
+    <!-- Header row -->
+    <div class="row">
+        <div class="col-sm-8">
+            <h2 th:text="${tenantName}">Företag</h2>
+            <p class="text-muted">Inloggad som <strong th:text="${userName}">Namn</strong>
+                (<span th:text="${userRole}">roll</span>)</p>
+        </div>
+    </div>
+
+    <!-- Accounts -->
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="panel panel-default">
+                <div class="panel-heading"><h4 class="panel-title">Konton</h4></div>
+                <div class="panel-body">
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                        <tr>
+                            <th>Kontonamn</th>
+                            <th>IBAN</th>
+                            <th>Saldo</th>
+                            <th>Valuta</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="acc : ${accounts}">
+                            <td th:text="${acc.account_name}">Kontonamn</td>
+                            <td th:text="${acc.iban}">SE00 0000 0000 0000 0000 0000</td>
+                            <td th:text="${acc.balance}">0.00</td>
+                            <td th:text="${acc.currency}">SEK</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending approvals (attestant/admin only) -->
+    <div class="row" th:if="${pendingApprovals != null}">
+        <div class="col-sm-12">
+            <div class="panel panel-warning">
+                <div class="panel-heading">
+                    <h4 class="panel-title">Väntande attester
+                        <a href="/approvals" class="pull-right btn btn-xs btn-default">Visa attestkorg</a>
+                    </h4>
+                </div>
+                <div class="panel-body">
+                    <p th:if="${#lists.isEmpty(pendingApprovals)}" class="text-muted">Inga väntande attester.</p>
+                    <table class="table table-condensed" th:if="${!#lists.isEmpty(pendingApprovals)}">
+                        <thead>
+                        <tr>
+                            <th>Mottagar-IBAN</th>
+                            <th>Belopp</th>
+                            <th>Valuta</th>
+                            <th>Referens</th>
+                            <th>Status</th>
+                            <th>Skapad</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="p : ${pendingApprovals}">
+                            <td th:text="${p.to_iban}">IBAN</td>
+                            <td th:text="${p.amount}">0.00</td>
+                            <td th:text="${p.currency}">SEK</td>
+                            <td th:text="${p.reference}">ref</td>
+                            <td><span class="label label-warning" th:text="${p.status}">pending</span></td>
+                            <td th:text="${p.created_at}">2026-01-01</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent payments -->
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h4 class="panel-title">Senaste betalningar
+                        <a href="/payments/new" class="pull-right btn btn-xs btn-primary">Ny betalning</a>
+                    </h4>
+                </div>
+                <div class="panel-body">
+                    <p th:if="${#lists.isEmpty(recentPayments)}" class="text-muted">Inga betalningar registrerade.</p>
+                    <table class="table table-striped table-hover" th:if="${!#lists.isEmpty(recentPayments)}">
+                        <thead>
+                        <tr>
+                            <th>Mottagar-IBAN</th>
+                            <th>Belopp</th>
+                            <th>Valuta</th>
+                            <th>Referens</th>
+                            <th>Status</th>
+                            <th>Skapad</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="p : ${recentPayments}">
+                            <td th:text="${p.to_iban}">IBAN</td>
+                            <td th:text="${p.amount}">0.00</td>
+                            <td th:text="${p.currency}">SEK</td>
+                            <td th:text="${p.reference}">ref</td>
+                            <td><span class="label label-info" th:text="${p.status}">status</span></td>
+                            <td th:text="${p.created_at}">2026-01-01</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
+</html>
