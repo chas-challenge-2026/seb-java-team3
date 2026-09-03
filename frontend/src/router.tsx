@@ -3,9 +3,7 @@ import {
   createRootRoute,
   createRoute,
   Outlet,
-  redirect,
 } from "@tanstack/react-router";
-import { getToken } from "./lib/api";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
@@ -36,11 +34,6 @@ const newPaymentRoute = createRoute({
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "auth",
-  beforeLoad: () => {
-    if (!getToken()) {
-      throw redirect({ to: '/login' });
-    }
-  },
   component: () => <Outlet />,
 });
 
