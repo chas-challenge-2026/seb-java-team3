@@ -10,7 +10,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 
 const rootRoute = createRootRoute({
-  component: () => <div>{/* <nav>{Lägg naven här}</nav> */}</div>,
+  component: () => <Outlet />,
 });
 
 const loginRoute = createRoute({
