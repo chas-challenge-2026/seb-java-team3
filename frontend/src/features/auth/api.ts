@@ -7,3 +7,8 @@ export function fetchLoginUser(input: LoginInput) {
     body: JSON.stringify(input),
   });
 }
+
+export function fetchCurrentUser() {
+    return api<UserResponse>("/auth/me", {
+    });
+}
