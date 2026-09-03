@@ -63,7 +63,7 @@ export function UITestPage() {
         <h3 style={{textAlign: "center"}}>User components</h3>   
         <Container maxWidth="xl">
             <div style={{textAlign: "center"}}>
-                <UserAvatar firstName="Marcus" lastName="Johansson"/>
+                <UserAvatar firstName="Marcus" lastName="Johansson" companyName="Mackans Mackor AB"/>
             </div>
         </Container>
 
