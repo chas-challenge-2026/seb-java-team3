@@ -28,6 +28,14 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 <!-- Nyast överst: klistra in ditt block direkt under den här raden. -->
 
+### 2026-09-03 — Flyway-migration + Java 21/Spring Boot 3.3.4-uppgradering (#46) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom hela #46 – förstå Flyway-koncept, planera uppdelning av migrationsfiler (V1–V5), granska säkerhetsvarningar (CVE:er) som IntelliJ flaggade i pom.xml, felsöka kompileringsfel och runtime-fel vid uppgradering till Java 21/Spring Boot 3.3.4, formulera commit-meddelande och PR-beskrivning.
+- **Genererades:** Innehåll i V1–V5 migrationsfilerna (baserat direkt på befintlig seed.sql, ingen ny datamodell), förslag på Dockerfile-ändringar (JDK-version i båda build-stegen), förklaring av varje CVE och bedömning av om den var relevant för projektets scope.
+- **Hur jag granskade/ändrade:** Jämförde varje migrationsfils SQL manuellt mot ursprungliga seed.sql för att säkerställa att inget ändrades i strukturen. Verifierade praktiskt att lösningen fungerade genom docker-compose up --build och läste igenom hela Flyway-loggen för att bekräfta att alla 5 migrationer applicerades korrekt och i rätt ordning. Förstod och kunde själv motivera varför javax→jakarta-bytet behövdes (Spring Boot 3.x namespace-byte) innan jag gjorde ändringen i de 6 controller-filerna. Tog själv beslutet att göra en samlad commit istället för flera, efter att ha förstått att mellanliggande tillstånd inte skulle kompilera.
+- **Valde bort:** Föreslagna CHECK-constraints på payments.status/amount i migrationen – bedömde att valideringslogik hör hemma i applikationslagret (#43), inte i databasschemat, för att hålla #46 avgränsad till sitt syfte. Föreslagen omskrivning av audit_entries.user_id till att inkludera FK mot users – valde att behålla utan FK för att inte riskera att audit-loggning någonsin blockeras.
+- **Spår:** PR #46 · issue #46
+
 ### 2026-08-27 Mall för Backlog Pontus.I
 - **Verktyg:** Claude
 - **Använde AI till:** Att snygga till våran backlog.md struktur och stavfel
