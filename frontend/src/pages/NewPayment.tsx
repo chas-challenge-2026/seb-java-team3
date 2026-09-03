@@ -8,7 +8,7 @@ import Select from "../components/ui/forms/Select"
 export function NewPayment() {
     return <>
         <main style={{ backgroundColor: "var(--bg-surface)", minHeight: "100vh" }}>
-            <Container maxWidth="xs" style={{display: "flex", justifyContent: "center", marginBottom: "1rem", marginTop: "2rem"}}>
+            <Container maxWidth="xs" style={{display: "flex", justifyContent: "center", marginBottom: "1rem"}}>
                 <SEBLogo size="md"/>
                 
             </Container>
