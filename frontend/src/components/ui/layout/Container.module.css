@@ -1,0 +1,47 @@
+.container {
+    width: 100%;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* MAX WIDTHS */
+
+.xs {
+    max-width: 360px;
+}
+
+.sm {
+    max-width: 540px;
+}
+
+.md {
+    max-width: 720px;
+}
+
+.lg {
+    max-width: 960px;
+}
+
+.xl {
+    max-width: 1140px;
+}
+
+/* VARIANTS */
+
+.default {
+    background-color: transparent;
+}
+
+.surface {
+    background-color: var(--bg-surface);
+    border-radius: 1.4rem;
+}
+
+.surface-nav {
+    background-color: var(--bg-surface-nav);
+}
+
+.white {
+    background-color: white;
+    border-radius: 1.4rem;
+}

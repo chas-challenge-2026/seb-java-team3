@@ -1,0 +1,36 @@
+.btnBase {
+    background: none;
+    border: none;
+    text-align: left;
+    width: 15rem;
+    height: 5rem;
+    border-radius: 0.25rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 0 1rem;
+    cursor: pointer;
+
+    font-size: 1.1rem;
+    font-weight: 400;
+}
+
+.btnBase:hover {
+    transform: translateY(-0.15rem);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* VARIANTS */
+
+.primary{
+    background-color: var(--btn-primary);
+    color: white;
+}
+
+.secondary{
+    background-color: var(--btn-secondary);
+    color: black;
+}
+
+.dark {
+    background-color: var(--btn-dark);
+    color: white;
+}

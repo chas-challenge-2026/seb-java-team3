@@ -1,0 +1,56 @@
+.btnBase {
+    background: none;
+    border: none;
+    height: 2.5rem;
+    padding: 0 1.5rem;
+    border-radius: 2.5rem;
+    transition: background-color 0.3s ease;
+    font-weight: 400;
+    font-size: .85rem;
+
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    justify-content: center;
+    
+}
+
+.fullWidth {
+    width: 100%;
+}
+
+/* VARIANTS */
+
+.primary{
+    background-color: var(--btn-primary);
+    color: white;
+}
+
+.primary:hover{
+    background-color: var(--btn-primary-hover);
+}
+
+.secondary{
+    background-color: var(--btn-secondary);
+    color: black;
+}
+
+.secondary:hover{
+    background-color: var(--btn-secondary-hover);
+}
+
+.dark {
+    background-color: var(--btn-dark);
+    color: white;
+}
+
+.dark:hover {
+    background-color: var(--btn-dark-hover);
+}
+
+/* BUTTON STYLES */
+
+.icon-only {
+    width: 2.5rem;
+    padding: 0;
+}
