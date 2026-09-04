@@ -26,7 +26,13 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
-<!-- Nyast överst: klistra in ditt block direkt under den här raden. -->
+### 2026-09-04 — Payment/ApprovalStep JPA-entities (#45) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #45 – felsöka en git-historikfråga när feature/45 skulle byggas ovanpå feature/46 innan PR #59 var godkänd, felsöka Maven-installation/PATH lokalt, samt formulera ADR 0007 och denna logg-post.
+- **Genererades:** Förslag på `Payment.java` och `PaymentStatus`/`PaymentStatusConverter` utifrån vårt befintliga `V3__create_payments_and_approval_steps.sql`. Resten (`ApprovalStep.java`, `ApprovalStepStatus`/`ApprovalStepStatusConverter`, samt `PaymentRepository`/`ApprovalStepRepository`) skrev jag själv utifrån samma mönster/logik som de genererade klasserna.
+- **Hur jag granskade/ändrade:** Kompilerade (`mvn compile`) efter varje enskild fil istället för allt på en gång, för att isolera fel till exakt en fil om något gick sönder. Körde fullständig `docker-compose up --build` mot riktig Postgres från tom volym som slutgiltig verifiering – bekräftade i loggen att alla 5 Flyway-migrationer applicerades och att Hibernates `EntityManagerFactory` initierades utan mappningsfel mot det verkliga schemat. Verifierade själv git-historikfrågan med `git merge-base --is-ancestor` istället för att bara lita på AI:s första förklaring, vilket visade att en tidigare slutsats (att en merge behövdes) faktiskt var fel.
+- **Valde bort:** `@Enumerated(EnumType.STRING)` som enklare alternativ till egna converters – hade skrivit enum-namnet i uppercase till databasen och inte matchat lowercase-värdena i schema/seed-data. Att bygga `Tenant`/`Account`/`User` som riktiga entiteter nu – utanför scope för #45, dokumenterat som avgränsning i ADR 0007 istället. Att lägga till `@Version`/optimistisk låsning redan nu – hör till Epic 3 (Java-2:s PaymentService-arbete) och kräver en migration som inte finns än.
+- **Spår:** PR #[fyll i när du öppnat den] · issue #45
 
 ### 2026-09-03 — Flyway-migration + Java 21/Spring Boot 3.3.4-uppgradering (#46) AdnanZasella
 - **Verktyg:** Claude
@@ -34,7 +40,7 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 - **Genererades:** Innehåll i V1–V5 migrationsfilerna (baserat direkt på befintlig seed.sql, ingen ny datamodell), förslag på Dockerfile-ändringar (JDK-version i båda build-stegen), förklaring av varje CVE och bedömning av om den var relevant för projektets scope.
 - **Hur jag granskade/ändrade:** Jämförde varje migrationsfils SQL manuellt mot ursprungliga seed.sql för att säkerställa att inget ändrades i strukturen. Verifierade praktiskt att lösningen fungerade genom docker-compose up --build och läste igenom hela Flyway-loggen för att bekräfta att alla 5 migrationer applicerades korrekt och i rätt ordning. Förstod och kunde själv motivera varför javax→jakarta-bytet behövdes (Spring Boot 3.x namespace-byte) innan jag gjorde ändringen i de 6 controller-filerna. Tog själv beslutet att göra en samlad commit istället för flera, efter att ha förstått att mellanliggande tillstånd inte skulle kompilera.
 - **Valde bort:** Föreslagna CHECK-constraints på payments.status/amount i migrationen – bedömde att valideringslogik hör hemma i applikationslagret (#43), inte i databasschemat, för att hålla #46 avgränsad till sitt syfte. Föreslagen omskrivning av audit_entries.user_id till att inkludera FK mot users – valde att behålla utan FK för att inte riskera att audit-loggning någonsin blockeras.
-- **Spår:** PR #46 · issue #46
+- **Spår:** PR #59 · issue #46
 
 ### 2026-08-27 Mall för Backlog Pontus.I
 - **Verktyg:** Claude
