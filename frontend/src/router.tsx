@@ -5,7 +5,7 @@ import {
   Outlet,
   redirect,
 } from "@tanstack/react-router";
-import { getToken } from "./lib/api";
+import { api } from "./lib/api";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 
@@ -22,8 +22,10 @@ const loginRoute = createRoute({
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "auth",
-  beforeLoad: () => {
-    if (!getToken()) {
+  beforeLoad: async () => {
+    try {
+      await api("/api/auth/me");
+    } catch {
       throw redirect({ to: '/login' });
     }
   },

@@ -40,12 +40,10 @@ public class AuthController {
                           Model model) {
         String md5 = md5Hash(password); // BUG-002: MD5 is cryptographically broken
 
-        // BUG-001: SQL injection — string concatenation instead of PreparedStatement
-        // TODO: use parameterized query
-        String sql = "SELECT id, name, email, role, tenant_id FROM users WHERE email = '"
-                + email + "' AND password_md5 = '" + md5 + "'";
+        String sql = "SELECT id, name, email, role, tenant_id FROM users "
+            + "WHERE email = ? AND password_md5 = ?";
 
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, email, md5);
         if (rows.isEmpty()) {
             model.addAttribute("error", "Fel e-post eller lösenord.");
             return "login";
