@@ -19,16 +19,19 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final ApprovalThresholds thresholds;
+    private final AuditService auditService;
 
     // Constructor injection: Spring skapar automatiskt en instans av
     // PaymentService och fyller i dessa tre beroenden åt dig, baserat
     // på att de redan är @Service/@Component/@Repository någon annanstans.
     public PaymentService(PaymentRepository paymentRepository,
                           UserRepository userRepository,
-                          ApprovalThresholds thresholds) {
+                          ApprovalThresholds thresholds,
+                          AuditService auditService) {
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
         this.thresholds = thresholds;
+        this.auditService = auditService;
     }
 
     private void validateAmount(BigDecimal amount) {
@@ -81,6 +84,19 @@ public class PaymentService {
         }
 
         Payment saved = paymentRepository.save(payment);
+
+        String description = "Betalning skapad: %s %s till %s (status: %s)".formatted(
+                saved.getAmount(), saved.getCurrency(), saved.getToIban(), saved.getStatus());
+
+        auditService.record(
+                saved.getTenantId(),
+                saved.getCreatedBy(),
+                "CREATE_PAYMENT",
+                "PAYMENT",
+                saved.getId(),
+                description
+        );
+
         return PaymentResponse.from(saved);
     }
 
