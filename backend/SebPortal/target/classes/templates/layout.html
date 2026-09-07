@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="${title} + ' – SEB Företagsbetalningar'">SEB Företagsbetalningar</title>
+    <!-- Bootstrap 3 from CDN — v4 is newer but we started with 3 and it works -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"/>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+
+<nav class="navbar navbar-default navbar-fixed-top" th:fragment="navbar">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                    data-target="#navbarCollapse">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/dashboard">SEB <span style="color:#60b22c;">Företagsbetalningar</span></a>
+        </div>
+        <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="nav navbar-nav">
+                <li><a href="/dashboard">Översikt</a></li>
+                <li><a href="/payments/new">Ny betalning</a></li>
+                <li><a href="/approvals">Attestkorg</a></li>
+                <li><a href="/batch">Batch</a></li>
+                <li><a href="/audit">Granskningslogg</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li class="navbar-text" th:text="'Inloggad: ' + ${userName}">Inloggad: -</li>
+                <li><a href="/logout">Logga ut</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
+</html>

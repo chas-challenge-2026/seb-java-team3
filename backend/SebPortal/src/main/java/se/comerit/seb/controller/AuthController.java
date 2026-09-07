@@ -13,8 +13,18 @@ import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import java.security.SecureRandom;
+import java.util.Base64;
+
 @Controller
 public class AuthController {
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     // TODO: this should be in a service/repository layer, but inline works for now
     @Autowired
@@ -38,25 +48,80 @@ public class AuthController {
                           @RequestParam String password,
                           HttpSession session,
                           Model model) {
-        String md5 = md5Hash(password); // BUG-002: MD5 is cryptographically broken
-
-        // BUG-001: SQL injection — string concatenation instead of PreparedStatement
-        // TODO: use parameterized query
-        String sql = "SELECT id, name, email, role, tenant_id FROM users WHERE email = '"
-                + email + "' AND password_md5 = '" + md5 + "'";
-
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+        List<Map<String, Object>> rows = findUser(email, password);
         if (rows.isEmpty()) {
-            model.addAttribute("error", "Fel e-post eller lösenord.");
+            model.addAttribute("error", "Invalid email or password.");
             return "login";
         }
-        Map<String, Object> u = rows.get(0);
-        session.setAttribute("userId", u.get("id"));
-        session.setAttribute("userName", u.get("name"));
-        session.setAttribute("userEmail", u.get("email"));
-        session.setAttribute("role", u.get("role"));
-        session.setAttribute("tenantId", u.get("tenant_id"));
+
+        storeAuthenticatedUser(session, rows.get(0));
         return "redirect:/dashboard";
+    }
+
+    @PostMapping("/api/login")
+    @ResponseBody
+    public ResponseEntity<?> apiLogin(@RequestBody LoginRequest request,
+                                      HttpSession session) {
+        List<Map<String, Object>> users =
+                findUser(request.getEmail(), request.getPassword());
+
+        if (users.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid email or password"));
+        }
+
+        storeAuthenticatedUser(session, users.get(0));
+
+        byte[] tokenBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(tokenBytes);
+
+        String token = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(tokenBytes);
+
+        session.setAttribute("authToken", token);
+
+        return ResponseEntity.ok(Map.of("token", token));
+    }
+
+    private List<Map<String, Object>> findUser(String email, String password) {
+        String sql =
+                "SELECT id, name, email, role, tenant_id " +
+                "FROM users " +
+                "WHERE email = ? AND password_md5 = ?";
+
+        return jdbcTemplate.queryForList(sql, email, md5Hash(password));
+    }
+
+    private void storeAuthenticatedUser(HttpSession session,
+                                        Map<String, Object> user) {
+        session.setAttribute("userId", user.get("id"));
+        session.setAttribute("userName", user.get("name"));
+        session.setAttribute("userEmail", user.get("email"));
+        session.setAttribute("role", user.get("role"));
+        session.setAttribute("tenantId", user.get("tenant_id"));
+    }
+
+    public static class LoginRequest {
+        private String email;
+        private String password;
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
     }
 
     @GetMapping("/logout")
