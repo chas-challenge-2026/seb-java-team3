@@ -6,7 +6,7 @@ interface SidebarItemProps {
     icon?: React.ReactNode;
     badge?: number;
     active?: boolean;
-    route: string;
+    route?: string;
 }
 
 const SideBarItem = ({
