@@ -1,18 +1,23 @@
 import {
   createRouter,
-  createRootRoute,
+  createRootRouteWithContext,
   createRoute,
   Outlet,
-  redirect,
 } from "@tanstack/react-router";
-import { getToken } from "./lib/api";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
-import { NewPayment } from "./pages/NewPayment"
+import { NewPayment } from "./pages/NewPayment";
+import type { QueryClient } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { requireAuth } from "./lib/requireAuth";
 
-const rootRoute = createRootRoute({
-  component: () => <div>{/* <nav>{Lägg naven här}</nav> */}<Outlet/></div>,
+interface RouterContext {
+  queryClient: QueryClient;
+}
+
+const rootRoute = createRootRouteWithContext<RouterContext>()({
+  component: () => <Outlet />,
 });
 
 const loginRoute = createRoute({
@@ -36,11 +41,7 @@ const newPaymentRoute = createRoute({
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "auth",
-  beforeLoad: () => {
-    if (!getToken()) {
-      throw redirect({ to: '/login' });
-    }
-  },
+  beforeLoad: ({ context }) => requireAuth(context.queryClient),
   component: () => <Outlet />,
 });
 
@@ -57,8 +58,10 @@ const routeTree = rootRoute.addChildren([
   authRoute.addChildren([dashboardRoute]),
 ]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({ routeTree, context: { queryClient } });
 
-declare module '@tanstack/react-router' {
-    interface Register { router: typeof router; }
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
 }
