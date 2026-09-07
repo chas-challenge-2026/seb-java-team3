@@ -20,9 +20,11 @@
 }
 
 .approve {
-    background-color: green;
+    background: green;
+    cursor: pointer;
 }
 
 .reject {
-    background-color: red;
+    background: red;
+    cursor: pointer;
 }
