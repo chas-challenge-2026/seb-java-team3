@@ -9,10 +9,12 @@ export function NewPayment() {
     return <>
         <main style={{ backgroundColor: "var(--bg-surface)", minHeight: "100vh" }}>
             <Container maxWidth="xs" style={{display: "flex", justifyContent: "center", marginBottom: "1rem"}}>
-                <SEBLogo size="md"/>
                 
             </Container>
             <Container maxWidth="sm" variant="white">
+                <div style={{display: "flex", justifyContent: "center", marginTop: "1rem", marginBottom: "2rem"}}>
+                    <SEBLogo size="md"/>
+                </div>
                 <h2 style={{textAlign: "center"}}>Ny betalning</h2>
                 
                 <Select
