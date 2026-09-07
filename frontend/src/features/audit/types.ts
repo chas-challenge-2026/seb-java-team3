@@ -1,4 +1,12 @@
-import type { AuditEntry } from "./AuditGrid";
+
+export type AuditEntry = {
+  id: string;
+  tid: string;
+  vem: string;
+  handelse: string;
+  betalning: string;
+};
+
 export type AuditApiEntry = {
   id: number;
   action: string;

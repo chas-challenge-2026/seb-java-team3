@@ -1,12 +1,5 @@
 import styles from "./AuditGrid.module.css";
-
-export type AuditEntry = {
-  id: string;
-  tid: string;
-  vem: string;
-  handelse: string;
-  betalning: string;
-};
+import type { AuditEntry } from "./types";
 
 type AuditGridProps = {
   entries: AuditEntry[];
