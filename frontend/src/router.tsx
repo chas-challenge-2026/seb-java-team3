@@ -11,6 +11,7 @@ import { NewPayment } from "./pages/NewPayment";
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { requireAuth } from "./lib/requireAuth";
+import AttestPage from "./pages/AttestPage";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -38,6 +39,12 @@ const newPaymentRoute = createRoute({
   component: NewPayment,
 });
 
+const attest = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/attest",
+  component: AttestPage
+});
+
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "auth",
@@ -55,6 +62,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   uiTestRoute,
   newPaymentRoute,
+  attest,
   authRoute.addChildren([dashboardRoute]),
 ]);
 
