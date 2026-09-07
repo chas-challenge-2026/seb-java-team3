@@ -26,6 +26,14 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-09-07 — PaymentService.createPayment (#43) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #43 – ide design av tröskellogik för attestant-krav (0/1/2-attestant-trappa), hur `User`-entity/`Role`-enum/`RoleConverter` skulle byggas ovanpå befintlig `users`-tabell, varför tröskelvärden bör ligga i config (`ApprovalThresholds`) istället för hårdkodade i koden, samt felsökning av tre separata build-fel: saknad `spring-boot-starter-test`-dependency i `pom.xml`, testfil felaktigt placerad i `src/main/java` istället för `src/test/java`, och en saknad `java.util.List`-import.
+- **Genererades:** Ide bollninig och förslag på `Role.java`, `RoleConverter.java`, `User.java`, `CreatePaymentRequest`/`PaymentResponse` (DTO:er), `ApprovalThresholds.java`, `PaymentService.createPayment` samt tre unit-tester i `PaymentServiceTest`.
+- **Hur jag granskade/ändrade:** Byggde och kompilerade (`mvn compile`) efter varje enskild fil istället för allt på en gång, samma metod som i #45, för att isolera fel direkt. Verifierade `UserRepository.findByTenantIdAndRole` mot den faktiska seed-datan (tenant 1, attestant Johan Berg id 2) istället för att bara lita på att signaturen såg rätt ut. Körde `mvn test` och läste igenom stack traces själv för att förstå varje kompileringsfel (t.ex. att `Cannot find symbol: class Test` berodde på fel filplacering, inte fel kod) innan jag åtgärdade – flyttade testfilen till `src/test/java` och markerade den som Test Sources Root i IntelliJ. Gick igenom samtliga IDE-varningar (databasmappning, config-properties, CVE:er från Mend.io) och bedömde själv vilka som var reella problem kontra kosmetiska IDE-begränsningar.
+- **Valde bort:** Att bygga hela 0/1/2-attestant-trappan nu – begränsade #43 till 0/1-attestant-fallet, dokumenterat som TODO i koden, eftersom kundcaset själv listar "dubbel attest" som post-MVP. Att mappa `password_md5`-fältet i `User`-entityn – #43 hanterar inte autentisering, så fältet utelämnades medvetet istället för att mappas "för säkerhets skull". Att bygga en riktig fördelningsalgoritm för attestant-urval vid flera attestanter – valde enklaste möjliga regel (första träffade) och dokumenterade det som avgränsning snarare än att gissa mig till en mer komplex lösning som inte efterfrågats. Att åtgärda CVE-varningarna i `pom.xml` nu – bedömde att de ligger i transitiva Spring Boot-beroenden utanför vår kontroll, dokumenterade som känt problem istället för att lägga tid på en versionsuppgradering utanför scope.
+- **Spår:** PR #67 · issue #43
+
 ### 2026-09-04 — Payment/ApprovalStep JPA-entities (#45) AdnanZasella
 - **Verktyg:** Claude
 - **Använde AI till:** Vägledning genom #45 – felsöka en git-historikfråga när feature/45 skulle byggas ovanpå feature/46 innan PR #59 var godkänd, felsöka Maven-installation/PATH lokalt, samt formulera ADR 0007 och denna logg-post.
