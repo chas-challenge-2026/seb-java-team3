@@ -1,0 +1,5 @@
+.sideBar {
+    background-color: var(--bg-surface);
+    width: 15rem;
+    height: 100%;
+}

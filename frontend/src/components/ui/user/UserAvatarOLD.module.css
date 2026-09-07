@@ -3,33 +3,24 @@
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: .4rem;
+    gap: 1rem;
 }
 
 .avatar {
-    width: 2rem;
-    height: 2rem;
+    width: 4rem;
+    height: 4rem;
     border-radius: 50%;
     object-fit: cover;
     background-color: var(--btn-primary-hover);
     color: white;
     user-select: none;
+    /* box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1); */
 
     font-weight: 600;
-    font-size: .85rem;
+    font-size: 1.2rem;
 
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.userName {
-    font-size: 1rem;
-    font-weight: 600;
-}
-
-.companyName {
-    font-size: .85rem;
-    /* color: var(--text-secondary); */
 }
 
