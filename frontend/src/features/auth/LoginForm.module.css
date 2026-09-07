@@ -1,0 +1,9 @@
+.loginBtn {
+    gap: 2rem;
+}
+
+.btnContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
