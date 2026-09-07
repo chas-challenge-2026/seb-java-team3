@@ -1,5 +1,10 @@
 .sideBar {
     background-color: var(--bg-surface);
-    width: 15rem;
-    height: 100%;
+    width: 20rem;
+    height: 42rem;
+    padding: .8rem;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }

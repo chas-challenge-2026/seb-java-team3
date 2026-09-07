@@ -22,7 +22,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
             </div>
             <div className={Styles.textWrapper}>
                 <h2 className={Styles.userName}>{firstName} {lastName}</h2>
-                <h3 className={Styles.companyName}>{companyName}</h3>
+                <h3 className={Styles.userWorkplace}>{companyName}</h3>
             </div>
         </div>
     )

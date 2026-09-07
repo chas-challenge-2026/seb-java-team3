@@ -13,6 +13,9 @@
     text-decoration: none;
     color: inherit;
     border-radius: 0.5rem;
+    transition: background-color 0.2s ease;
+    user-select: none;
+    cursor: pointer;
 }
 
 .link:hover {
@@ -34,6 +37,14 @@
 }
 
 .badge {
-    min-width: 1.5rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    color: white;
     text-align: center;
+    background-color: var(--btn-primary-hover);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

@@ -2,30 +2,43 @@ import React from 'react'
 import Styles from "./SideBar.module.css"
 import SideBarItem from './SideBarItem'
 import UserAvatar from '../user/UserAvatar'
+import SEBLogo from '../../SEBLogo'
+
+import { LayoutDashboard, CreditCard, CreditCardCheck, Timeline, Settings, LogOut } from "lucide-react";
+
 
 const SideBar = () => {
-  return (
-    <aside className={Styles.sideBar}>
+    const iconSize = 16;
 
-        <h2>Företagsbetalningar</h2>
+    return (
+        <aside className={Styles.sideBar}>
 
-        <nav>
-            <SideBarItem label='Översikt'/>
-            <div style={{marginBottom: "1.5rem"}}/>
-            <SideBarItem/>
-            <SideBarItem/>
-            <SideBarItem/>
-        </nav>
+            <div>
+                <div style={{display: "flex", flexDirection: "column", alignItems: "center", marginTop: "1rem", marginBottom: "2rem"}}>
+                    <SEBLogo size='sm'/>
+                    <h2 style={{fontSize: "1.2rem"}}>Företagsbetalningar</h2>
+                    <hr style={{ width: "100%", marginTop: "1.5rem" }} />
+                </div>
 
-        <div style={{marginBottom: "1.5rem"}}/>
-
-        <nav>
-            <SideBarItem/>
-        </nav>
-         {/* <hr style={{ width: "100%", margin: "1.5rem 0" }} /> */}
-         <UserAvatar firstName="Marcus" lastName="Johansson" companyName='Malmö Bygg'/>
-    </aside>
-  )
+                <nav>
+                    <SideBarItem label='Översikt' icon={<LayoutDashboard size={iconSize}/>}/>
+                    <div style={{marginBottom: "1rem"}}/>
+                    <SideBarItem label="Betalningar" icon={<CreditCard size={iconSize}/>}/>
+                    <SideBarItem label="Attestera" badge={2} icon={<CreditCardCheck size={iconSize}/>}/>
+                    <SideBarItem label='Historik' icon={<Timeline size={iconSize}/>}/>
+                </nav>
+            </div>
+            <div>
+                <nav>
+                    <div style={{marginBottom: "1rem"}}/>
+                    <SideBarItem label='Inställningar' icon={<Settings size={iconSize}/>}/>
+                    <SideBarItem label='Logga ut' icon={<LogOut size={iconSize}/>}/>
+                </nav>
+                <hr style={{ width: "100%", margin: "1rem 0" }} />
+                <UserAvatar firstName="Marcus" lastName="Johansson" companyName='Malmö Bygg'/>
+            </div>
+        </aside>
+    )
 }
 
 export default SideBar
