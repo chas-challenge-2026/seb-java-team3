@@ -26,6 +26,14 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-09-07 — Audit-post CREATE_PAYMENT via AuditService.record (#44) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #44 – bygga audit-lagret (AuditEntry/AuditRepository/AuditService) och koppla in det i PaymentService.createPayment, med egen gransking av förslaget och lite ändringar som kom jag fram till de filerna jag har, samt felsökning av build-fel och Docker/Maven-kommandon körda från fel mapp.
+- **Genererades:** Förslag på AuditEntry.java, AuditRepository.java, AuditService.record(...), kopplingen i PaymentService, samt ett nytt Mockito-test som verifierar att record(...) anropas med rätt värden.
+- **Hur jag granskade/ändrade:** Jämförde AI:s förslag mot den faktiska V4-migrationen och upptäckte att tenant_id saknades i audit_entries – en känd bugg enligt AuditControllers egna kommentarer. Valde att fixa det nu med en ny migration (V6) istället för att skjuta upp. Körde mvn test och docker compose up --build för att verifiera innan commit, och kollade git status för att undvika att checka in target/-byggfiler.
+- **Valde bort:** Att bygga om granskningsloggens visningssida – utanför scope för #44. Att göra action/entityType till enum – onödig komplexitet för en enda action i MVP.
+- **Spår:** PR 68, issue #44
+
 ### 2026-09-07 — PaymentService.createPayment (#43) AdnanZasella
 - **Verktyg:** Claude
 - **Använde AI till:** Vägledning genom #43 – ide design av tröskellogik för attestant-krav (0/1/2-attestant-trappa), hur `User`-entity/`Role`-enum/`RoleConverter` skulle byggas ovanpå befintlig `users`-tabell, varför tröskelvärden bör ligga i config (`ApprovalThresholds`) istället för hårdkodade i koden, samt felsökning av tre separata build-fel: saknad `spring-boot-starter-test`-dependency i `pom.xml`, testfil felaktigt placerad i `src/main/java` istället för `src/test/java`, och en saknad `java.util.List`-import.
