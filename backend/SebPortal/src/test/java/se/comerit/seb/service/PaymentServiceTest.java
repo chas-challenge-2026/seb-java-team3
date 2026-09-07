@@ -9,6 +9,7 @@ import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
@@ -46,5 +47,43 @@ class PaymentServiceTest {
         assertEquals(PaymentStatus.COMPLETED, response.status());
         verify(userRepo, never()).findByTenantIdAndRole(any(), any());
         // ^ vi ska ALDRIG slå upp en attestant för ett belopp under tröskeln
+    }
+
+    @Test
+    void amountOverThreshold_shouldRequireAttestant() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        // Bygg en "låtsas-attestant" som vår mock ska returnera
+        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", Role.ATTESTANT);
+
+        // "När userRepository.findByTenantIdAndRole anropas med
+        //  tenant 1 och ATTESTANT, ge tillbaka en lista med vår
+        //  låtsas-attestant" - vi testar inte den riktiga databasen,
+        //  bara att PaymentService använder svaret rätt.
+        when(userRepo.findByTenantIdAndRole(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant));
+
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds);
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("7500"), "Testfaktura", 1L
+        );
+
+        // ACT
+        PaymentResponse response = service.createPayment(request);
+
+        // ASSERT
+        assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
     }
 }
