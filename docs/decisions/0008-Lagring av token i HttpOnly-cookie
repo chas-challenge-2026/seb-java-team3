@@ -1,0 +1,58 @@
+# ADR 0008 Lagring av token i HttpOnly-cookie
+
+- **Status:** Accpterad
+- **Datum:** 2026-09-07
+- **Deltagare:** Samuel.L · drivande: Pontus Ingenius
+- **Berör:** Auth & behörighet
+- **Relaterade issues:** #29, #33
+
+## Kontext
+
+Applikationen behöver lagra och skicka autentiseringstoken mellan klienten och backend för att identifiera en inloggad användare.
+
+Vi behövde därför välja hur autentiseringstoken ska lagras i webbläsaren. De huvudsakliga alternativen som övervägdes var att lagra token i localStorage eller i en cookie.
+
+Eftersom applikationen hanterar bankrelaterad information är säkerhet och skydd av autentiseringsuppgifter viktiga krav. En token som lagras i localStorage kan läsas av JavaScript i webbläsaren. Om applikationen utsätts för en XSS-attack kan en angripare därför potentiellt läsa och stjäla token.
+
+En HttpOnly-cookie kan däremot inte läsas direkt från JavaScript och kan konfigureras med ytterligare säkerhetsinställningar såsom Secure och SameSite.
+
+## Beslut
+
+Vi väljer att lagra autentiseringstoken i en HttpOnly-cookie i stället för i localStorage.
+
+Cookien ska där det är möjligt konfigureras med HttpOnly, Secure och en lämplig SameSite-policy.
+
+## Alternativ vi övervägde
+
+- **HttpOnly-Cookie** - valdes eftersom token inte är direkt tillgänglig för JavaScript, vilket minskar risken att autentiseringstoken stjäls vid en XSS-attack. Cookies kan dessutom skickas automatiskt med relevanta requests till backend.
+- **localStorage** - valdes bort eftersom innehållet är tillgängligt via JavaScript. Vid en lyckad XSS-attack skulle en angripare därför kunna läsa och kopiera autentiseringstoken och använda den utanför applikationen.
+
+## Konsekvenser
+
+**Positiva**
+- Autentiseringstoken kan inte läsas direkt via JavaScript när HttpOnly används.
+- Risken för tokenstöld vid XSS-attacker minskar.
+- Secure gör att cookien endast skickas över HTTPS.
+- SameSite kan minska risken för vissa typer av CSRF-attacker.
+- Backend kan hantera autentisering utan att frontend manuellt behöver läsa token och lägga till den i varje request.
+- Lösningen ger en tydligare separation mellan frontend-kod och hanteringen av autentiseringstoken.
+
+**Negativa / risker**
+- Cookies skickas automatiskt av webbläsaren, vilket innebär att CSRF behöver tas i beaktning.
+**Lösning:** Vi använder en lämplig SameSite-policy och kompletterande CSRF-skydd om applikationens arkitektur kräver det.
+- Frontend kan inte läsa en HttpOnly-token direkt.
+**Lösning:** Information om användarens inloggningsstatus behöver i stället hämtas via backend eller hanteras genom separat applikationsstate.
+- Cookie-konfiguration kan bli mer komplex vid kommunikation mellan olika domäner eller origins.
+**Lösning:** CORS, SameSite, Secure och cookie-domän behöver konfigureras korrekt.
+- HttpOnly-cookies eliminerar inte risken för XSS. En XSS-attack kan fortfarande utföra handlingar i användarens aktiva session.
+**Lösning:** Inputvalidering, output-encoding och övrigt XSS-skydd behövs fortfarande.
+
+## Uppföljning
+
+- Verifiera att autentiseringstoken lagras i en cookie med HttpOnly.
+- Verifiera att Secure används i produktionsmiljö.
+- Kontrollera att rätt SameSite-policy används utifrån applikationens arkitektur.
+- Säkerställ att autentiseringstoken inte lagras i localStorage eller sessionStorage.
+- Testa att skyddade API-anrop fungerar korrekt med cookie-baserad autentisering.
+- Genomför tester för XSS- och CSRF-relaterade risker innan leverans.
+- Beslutet omvärderas om autentiseringsarkitekturen, domänstrukturen eller säkerhetskraven förändras.
