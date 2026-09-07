@@ -1,5 +1,5 @@
 import Container from "../components/ui/layout/Container"
-import SEBLogo from "../components/SEBLogo"
+// import SEBLogo from "../components/SEBLogo"
 import Button from "../components/ui/buttons/Button"
 import Divider from "../components/ui/layout/Divider"
 import Input from "../components/ui/forms/Input"
@@ -8,13 +8,13 @@ import Select from "../components/ui/forms/Select"
 export function NewPayment() {
     return <>
         <main style={{ backgroundColor: "var(--bg-surface)", minHeight: "100vh" }}>
-            <Container maxWidth="xs" style={{display: "flex", justifyContent: "center", marginBottom: "1rem"}}>
+            {/* <Container maxWidth="xs" style={{display: "flex", justifyContent: "center", marginBottom: "1rem"}}>
                 
-            </Container>
+            </Container> */}
             <Container maxWidth="sm" variant="white">
-                <div style={{display: "flex", justifyContent: "center", marginTop: "1rem", marginBottom: "2rem"}}>
+                {/* <div style={{display: "flex", justifyContent: "center", marginTop: "1rem", marginBottom: "2rem"}}>
                     <SEBLogo size="md"/>
-                </div>
+                </div> */}
                 <h2 style={{textAlign: "center"}}>Ny betalning</h2>
                 
                 <Select
