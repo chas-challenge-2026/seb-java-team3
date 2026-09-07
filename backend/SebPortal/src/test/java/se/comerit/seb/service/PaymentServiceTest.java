@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 class PaymentServiceTest {
@@ -85,5 +86,24 @@ class PaymentServiceTest {
 
         // ASSERT
         assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
+    }
+
+    @Test
+    void zeroAmount_shouldThrowException() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds);
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                BigDecimal.ZERO, "Testfaktura", 1L
+        );
+
+        // ACT + ASSERT (i samma rad denna gång - se förklaring nedan)
+        assertThrows(IllegalArgumentException.class, () -> service.createPayment(request));
     }
 }
