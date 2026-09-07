@@ -19,7 +19,7 @@
 }
 
 .link:hover {
-    background-color: #f5f5f5;
+    background-color: var(--bg-surface);
     /* transform: translateX(4px); */
     padding-left: 1.25rem;
 }

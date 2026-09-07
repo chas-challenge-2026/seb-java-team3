@@ -12,7 +12,7 @@
 
 .avatarContainer:hover {
     cursor: pointer;
-    background-color: #f5f5f5;
+    background-color: var(--bg-surface);
 }
 
 .avatar {
