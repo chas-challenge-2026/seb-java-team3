@@ -8,7 +8,6 @@ import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./pages/NewPayment";
-import {UINavTests} from "./pages/NavigationTests"
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { requireAuth } from "./lib/requireAuth";
@@ -31,12 +30,6 @@ const uiTestRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/uitest",
   component: UITestPage,
-});
-
-const uiNavTestRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/uinavtest",
-  component: UINavTests,
 });
 
 const newPaymentRoute = createRoute({
@@ -62,7 +55,6 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   uiTestRoute,
   newPaymentRoute,
-  uiNavTestRoute,
   authRoute.addChildren([dashboardRoute]),
 ]);
 

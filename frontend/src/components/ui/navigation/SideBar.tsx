@@ -2,7 +2,7 @@ import React from 'react'
 import Styles from "./SideBar.module.css"
 import SideBarItem from './SideBarItem'
 import UserAvatar from '../user/UserAvatar'
-import SEBLogo from '../../SEBLogo'
+// import SEBLogo from '../../SEBLogo'
 
 import { LayoutDashboard, CreditCard, CreditCardCheck, Timeline, Settings, LogOut } from "lucide-react";
 
@@ -15,7 +15,7 @@ const SideBar = () => {
 
             <div>
                 <div style={{display: "flex", flexDirection: "column", alignItems: "center", marginTop: "1rem", marginBottom: "2rem"}}>
-                    <SEBLogo size='sm'/>
+                    {/* <SEBLogo size='sm'/> */}
                     <h2 style={{fontSize: "1.2rem"}}>Företagsbetalningar</h2>
                     <hr style={{ width: "100%", marginTop: "1.5rem" }} />
                 </div>
@@ -25,7 +25,7 @@ const SideBar = () => {
                     <div style={{marginBottom: "1rem"}}/>
                     <SideBarItem label="Betalningar" icon={<CreditCard size={iconSize}/>}/>
                     <SideBarItem label="Attestera" badge={2} icon={<CreditCardCheck size={iconSize}/>}/>
-                    <SideBarItem label='Historik' icon={<Timeline size={iconSize}/>}/>
+                    <SideBarItem label='Historik' icon={<Timeline size={iconSize}/>} route={"/uitest"}/>
                 </nav>
             </div>
             <div>

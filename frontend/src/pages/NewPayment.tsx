@@ -13,9 +13,9 @@ export function NewPayment() {
             <SideBar/>
 
             <main className="main">
-                {/* <Container maxWidth="xs" style={{display: "flex", justifyContent: "center", marginBottom: "1rem", marginTop: "2rem"}}>
+                <Container maxWidth="xs" style={{display: "flex", justifyContent: "center", marginBottom: "1rem", marginTop: "2rem"}}>
                     <SEBLogo size="md"/>
-                </Container> */}
+                </Container>
                 <Container maxWidth="sm" variant="white" style={{marginTop: "10rem"}}>
                     <h2 style={{textAlign: "center"}}>Ny betalning</h2>
                     <Select
