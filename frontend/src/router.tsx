@@ -12,6 +12,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { requireAuth } from "./lib/requireAuth";
 import AuditPage from "./features/audit/AuditPage";
+import AttestPage from "./pages/AttestPage";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -44,6 +45,11 @@ const auditVy = createRoute({
   path: "/audit",
   component: AuditPage,
 })
+const attest = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/attest",
+  component: AttestPage,
+});
 
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -63,6 +69,7 @@ const routeTree = rootRoute.addChildren([
   uiTestRoute,
   newPaymentRoute,
   auditVy,
+  attest,
   authRoute.addChildren([dashboardRoute]),
 ]);
 
