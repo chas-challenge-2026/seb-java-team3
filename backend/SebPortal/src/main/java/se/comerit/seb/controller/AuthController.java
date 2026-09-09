@@ -68,6 +68,18 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("email", user.get().getEmail()));
     }
 
+    @GetMapping("/api/auth/me")
+    @ResponseBody
+    public ResponseEntity<?> currentUser(HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Not logged in"));
+        }
+
+        return ResponseEntity.ok(Map.of("email", session.getAttribute("userEmail")));
+    }
+
     private void storeAuthenticatedUser(HttpSession session, User user) {
         session.setAttribute("userId", user.getId());
         session.setAttribute("userName", user.getName());
