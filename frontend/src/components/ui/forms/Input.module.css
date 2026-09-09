@@ -13,14 +13,15 @@
 }
 
 .inputField {
-  width: 100%;
-  height: 2.4rem;
-  padding-left: 1rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--divider-clr);
-  background-color: white;
-  color: var(--text-primary);
-  font-size: 1rem;
+    width: 100%;
+    height: 2.4rem;
+    padding-left: 1rem;
+    border-radius: 0.4rem;
+    border: 1px solid var(--divider-clr);
+    background-color: white;
+    color: var(--text-primary);
+    font-size: 1rem;
+    box-sizing: border-box;
 }
 
 .option {
