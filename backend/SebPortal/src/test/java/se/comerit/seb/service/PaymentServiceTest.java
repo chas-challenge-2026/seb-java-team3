@@ -64,7 +64,7 @@ class PaymentServiceTest {
         thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
 
         // Bygg en "låtsas-attestant" som vår mock ska returnera
-        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", Role.ATTESTANT);
+        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
 
         // "När userRepository.findByTenantIdAndRole anropas med
         //  tenant 1 och ATTESTANT, ge tillbaka en lista med vår

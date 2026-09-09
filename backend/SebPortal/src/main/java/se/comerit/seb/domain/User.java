@@ -19,10 +19,8 @@ public class User {
     @Column(name = "email")
     private String email;
 
-    // OBS: password_md5 mappas INTE här.
-    // #43 hanterar inte autentisering, så vi rör inte det fältet
-    // alls - det är bättre att medvetet utelämna det än att mappa
-    // det "för säkerhets skull" och sen glömma varför det finns där.
+    @Column(name = "password_md5")
+    private String passwordHash;
 
     @Convert(converter = RoleConverter.class)
     @Column(name = "role", length = 20)
@@ -35,10 +33,11 @@ public class User {
     }
 
     // Det här är konstruktorn din egen kod faktiskt använder.
-    public User(Long tenantId, String name, String email, Role role) {
+    public User(Long tenantId, String name, String email, String passwordHash, Role role) {
         this.tenantId = tenantId;
         this.name = name;
         this.email = email;
+        this.passwordHash = passwordHash;
         this.role = role;
     }
 
@@ -46,5 +45,6 @@ public class User {
     public Long getTenantId() { return tenantId; }
     public String getName() { return name; }
     public String getEmail() { return email; }
+    public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
 }
