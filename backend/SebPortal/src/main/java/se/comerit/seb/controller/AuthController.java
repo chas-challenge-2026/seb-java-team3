@@ -15,16 +15,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.security.SecureRandom;
-import java.util.Base64;
-
 import se.comerit.seb.domain.User;
 import se.comerit.seb.service.AuthService;
 
 @Controller
 public class AuthController {
-
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final AuthService authService;
 
@@ -55,7 +50,7 @@ public class AuthController {
         return "redirect:/dashboard";
     }
 
-    @PostMapping("/api/login")
+    @PostMapping("/api/auth/login")
     @ResponseBody
     public ResponseEntity<?> apiLogin(@RequestBody LoginRequest request,
                                       HttpSession session) {
@@ -70,16 +65,7 @@ public class AuthController {
 
         storeAuthenticatedUser(session, user.get());
 
-        byte[] tokenBytes = new byte[32];
-        SECURE_RANDOM.nextBytes(tokenBytes);
-
-        String token = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(tokenBytes);
-
-        session.setAttribute("authToken", token);
-
-        return ResponseEntity.ok(Map.of("token", token));
+        return ResponseEntity.ok(Map.of("email", user.get().getEmail()));
     }
 
     private void storeAuthenticatedUser(HttpSession session, User user) {
