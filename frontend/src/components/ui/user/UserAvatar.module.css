@@ -3,14 +3,21 @@
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 1rem;
+    gap: .5rem;
     /* background-color: blue; */
     height: 4rem;
+    border-radius: .6rem;
+    transition: background-color 0.2s ease;
+}
+
+.avatarContainer:hover {
+    cursor: pointer;
+    background-color: var(--bg-surface);
 }
 
 .avatar {
-    width: 4rem;
-    height: 4rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 50%;
     object-fit: cover;
     background-color: var(--btn-primary-hover);
@@ -19,7 +26,7 @@
     /* box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1); */
 
     font-weight: 600;
-    font-size: 1.2rem;
+    font-size: 1rem;
 
     display: flex;
     align-items: center;
@@ -38,7 +45,7 @@
 
 .userName {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.2;
@@ -47,7 +54,7 @@
 
 .userWorkplace {
     margin: 0;
-    font-size: 1rem;
+    font-size: .875rem;
     font-weight: 400;
     color: var(--text-secondary);
     line-height: 1.2;

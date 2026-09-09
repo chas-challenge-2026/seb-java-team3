@@ -1,7 +1,8 @@
 :root {
 
     --bg-primary: #ffffff;
-    --bg-surface: #EEEEEE;
+    --bg-surface: #dbdbdb;
+    /* --bg-surface: #EEEEEE; */
     --bg-surface-nav: #F8F8F8;
 
     --btn-primary: #003824;

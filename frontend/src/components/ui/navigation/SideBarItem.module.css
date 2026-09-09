@@ -1,0 +1,54 @@
+.item {
+    list-style: none;
+}
+
+.link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    box-sizing: border-box;
+
+    text-decoration: none;
+    color: inherit;
+    border-radius: 0.5rem;
+    transition: background-color 0.3s ease, padding-left 0.3s ease;
+    user-select: none;
+    cursor: pointer;
+}
+
+.link:hover {
+    background-color: var(--bg-surface);
+    /* transform: translateX(4px); */
+    padding-left: 1.25rem;
+}
+
+.active {
+    background-color: #eeeeee;
+}
+
+.icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.label {
+    flex: 1;
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.badge {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    color: white;
+    text-align: center;
+    background-color: var(--btn-primary-hover);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

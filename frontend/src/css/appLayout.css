@@ -1,0 +1,16 @@
+.appLayout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* margin-top: 4rem; */
+    background-color: var(--bg-surface);
+}
