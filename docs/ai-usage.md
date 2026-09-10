@@ -74,6 +74,16 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 - **Valde bort:** 
 - **Spår:** PR #42 · issue #16
 
+---
+### 2026-09-9 — Migrering till JPA för Inloggning(Backend) + Endpoint fix — Jonathan Isaksson
+- **Verktyg:** Claude
+- **Använde AI till:** Att få översikt över koden och se till att testa kod flödet samt ge förslag där det behövdes.
+- **Genererades:** Förslag på förbättringar i koden.
+- **Hur jag granskade/ändrade:** Fick översikt med hjälp av AI, gick sedan igenom bitar av koden och började ändra. Sedan fick AI testa flödet och ge mig feedback på förslag av ändringar.
+- **Valde bort (om något):** -
+- **Spår:** PR #95, issue #33
+---
+
 ## Tips
 
 - Loggar du löpande  t.ex. samtidigt som du skriver PR-beskrivningen blir det aldrig ett berg att beta av i v12.
