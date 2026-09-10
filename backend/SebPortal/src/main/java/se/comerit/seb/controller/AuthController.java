@@ -1,7 +1,5 @@
 package se.comerit.seb.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,31 +7,25 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import jakarta.servlet.http.HttpSession;
-import java.security.MessageDigest;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.security.SecureRandom;
-import java.util.Base64;
+import se.comerit.seb.domain.User;
+import se.comerit.seb.service.AuthService;
 
 @Controller
 public class AuthController {
 
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private final AuthService authService;
 
-    // TODO: this should be in a service/repository layer, but inline works for now
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    // BUG-010: hardcoded connection string duplicated across controllers
-    // TODO: read from config, not a constant in every file
-    static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @GetMapping({"/", "/login"})
     public String loginPage(HttpSession session) {
@@ -48,59 +40,52 @@ public class AuthController {
                           @RequestParam String password,
                           HttpSession session,
                           Model model) {
-        List<Map<String, Object>> rows = findUser(email, password);
-        if (rows.isEmpty()) {
+        Optional<User> user = authService.authenticate(email, password);
+        if (user.isEmpty()) {
             model.addAttribute("error", "Invalid email or password.");
             return "login";
         }
 
-        storeAuthenticatedUser(session, rows.get(0));
+        storeAuthenticatedUser(session, user.get());
         return "redirect:/dashboard";
     }
 
-    @PostMapping("/api/login")
+    @PostMapping("/api/auth/login")
     @ResponseBody
     public ResponseEntity<?> apiLogin(@RequestBody LoginRequest request,
                                       HttpSession session) {
-        List<Map<String, Object>> users =
-                findUser(request.getEmail(), request.getPassword());
+        Optional<User> user =
+                authService.authenticate(request.getEmail(), request.getPassword());
 
-        if (users.isEmpty()) {
+        if (user.isEmpty()) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid email or password"));
         }
 
-        storeAuthenticatedUser(session, users.get(0));
+        storeAuthenticatedUser(session, user.get());
 
-        byte[] tokenBytes = new byte[32];
-        SECURE_RANDOM.nextBytes(tokenBytes);
-
-        String token = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(tokenBytes);
-
-        session.setAttribute("authToken", token);
-
-        return ResponseEntity.ok(Map.of("token", token));
+        return ResponseEntity.ok(Map.of("email", user.get().getEmail()));
     }
 
-    private List<Map<String, Object>> findUser(String email, String password) {
-        String sql =
-                "SELECT id, name, email, role, tenant_id " +
-                "FROM users " +
-                "WHERE email = ? AND password_md5 = ?";
+    @GetMapping("/api/auth/me")
+    @ResponseBody
+    public ResponseEntity<?> currentUser(HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Not logged in"));
+        }
 
-        return jdbcTemplate.queryForList(sql, email, md5Hash(password));
+        return ResponseEntity.ok(Map.of("email", session.getAttribute("userEmail")));
     }
 
-    private void storeAuthenticatedUser(HttpSession session,
-                                        Map<String, Object> user) {
-        session.setAttribute("userId", user.get("id"));
-        session.setAttribute("userName", user.get("name"));
-        session.setAttribute("userEmail", user.get("email"));
-        session.setAttribute("role", user.get("role"));
-        session.setAttribute("tenantId", user.get("tenant_id"));
+    private void storeAuthenticatedUser(HttpSession session, User user) {
+        session.setAttribute("userId", user.getId());
+        session.setAttribute("userName", user.getName());
+        session.setAttribute("userEmail", user.getEmail());
+        session.setAttribute("role", user.getRole());
+        session.setAttribute("tenantId", user.getTenantId());
     }
 
     public static class LoginRequest {
@@ -128,18 +113,5 @@ public class AuthController {
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:/login";
-    }
-
-    // TODO: upgrade to bcrypt/argon2 — copy in every controller (BUG-002/010)
-    static String md5Hash(String s) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] d = md.digest(s.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : d) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (Exception e) {
-            return null;
-        }
     }
 }
