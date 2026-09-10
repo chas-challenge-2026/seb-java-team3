@@ -4,16 +4,16 @@ import {
   createRoute,
   Outlet,
 } from "@tanstack/react-router";
+import AppLayout from "./components/ui/layout/AppLayout";
 
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
-import { NewPaymentPage } from "./features/payment/NewPaymentPage";
+import { NewPaymentPage } from "./features/payment/NewPaymentPage"
 
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { requireAuth } from "./lib/requireAuth";
-import AppLayout from "./components/ui/layout/AppLayout";
 
 interface RouterContext {
   queryClient: QueryClient;

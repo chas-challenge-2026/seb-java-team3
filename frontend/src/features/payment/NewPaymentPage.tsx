@@ -3,7 +3,6 @@ import Button from "../../components/ui/buttons/Button"
 import Divider from "../../components/ui/layout/Divider"
 import Input from "../../components/ui/forms/Input"
 import Select from "../../components/ui/forms/Select"
-import "../css/appLayout.css"
 
 export function NewPaymentPage() {
     return <>
