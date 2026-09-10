@@ -1,11 +1,11 @@
-import Container from "../components/ui/layout/Container"
-import Button from "../components/ui/buttons/Button"
-import Divider from "../components/ui/layout/Divider"
-import Input from "../components/ui/forms/Input"
-import Select from "../components/ui/forms/Select"
+import Container from "../../components/ui/layout/Container"
+import Button from "../../components/ui/buttons/Button"
+import Divider from "../../components/ui/layout/Divider"
+import Input from "../../components/ui/forms/Input"
+import Select from "../../components/ui/forms/Select"
 import "../css/appLayout.css"
 
-export function NewPayment() {
+export function NewPaymentPage() {
     return <>
                 <Container maxWidth="sm" variant="white" style={{marginTop: "10rem"}}>
                     <h2 style={{textAlign: "center"}}>Ny betalning</h2>

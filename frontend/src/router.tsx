@@ -8,7 +8,7 @@ import {
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
-import { NewPayment } from "./pages/NewPayment";
+import { NewPaymentPage } from "./features/payment/NewPaymentPage";
 
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -47,7 +47,7 @@ const uiTestRoute = createRoute({
 const newPaymentRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/payments/new",
-  component: NewPayment,
+  component: NewPaymentPage,
 });
 
 const dashboardRoute = createRoute({
