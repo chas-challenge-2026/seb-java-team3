@@ -18,11 +18,14 @@ public class ApprovalService {
 
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
+    private final AuditService auditService;
 
     public ApprovalService(PaymentRepository paymentRepository,
-                           AccountRepository accountRepository) {
+                           AccountRepository accountRepository,
+                           AuditService auditService) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -77,6 +80,21 @@ public class ApprovalService {
             account.setBalance(account.getBalance().subtract(payment.getAmount()));
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
+
+            String description = "Betalning godkänd: %s %s till %s (status: %s)".formatted(
+                    payment.getAmount(),
+                    payment.getCurrency(),
+                    payment.getToIban(),
+                    payment.getStatus());
+
+            auditService.record(
+                    payment.getTenantId(),
+                    actorId,
+                    "APPROVE_PAYMENT",
+                    "PAYMENT",
+                    payment.getId(),
+                    description
+            );
         }
     }
 }
