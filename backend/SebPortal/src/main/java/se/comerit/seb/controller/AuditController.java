@@ -5,10 +5,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
 import java.util.Map;
+
+import se.comerit.seb.domain.AuditEntry;
+import se.comerit.seb.service.AuditService;
 
 // SPAGHETTI: ported straight from AuditLog.cshtml.cs — all data access inline, no service layer.
 @Controller
@@ -18,10 +24,16 @@ public class AuditController {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    private final AuditService auditService;
+
+    public AuditController(AuditService auditService) {
+        this.auditService = auditService;
+    }
+
     // BUG-010: hardcoded connection string duplicated across controllers (fifth occurrence)
     // TODO: read from config, not a constant in every file
     static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
+            "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
 
     @GetMapping("/audit")
     public String auditLog(HttpSession session, Model model) {
@@ -54,5 +66,17 @@ public class AuditController {
         }
 
         return "audit-log";
+    }
+
+    @GetMapping("/api/audit")
+    @ResponseBody
+    public List<AuditEntry> getAuditEntries(HttpSession session) {
+        Long tenantId = (Long) session.getAttribute("tenantId");
+
+        if (tenantId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+
+        return auditService.getAuditEntries(tenantId);
     }
 }
