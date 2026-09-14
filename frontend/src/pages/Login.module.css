@@ -4,6 +4,10 @@
     align-items: center;
 }
 
+.body {
+    background-color: var(--bg-surface);
+}
+
 .textField {
     text-align: center;
 }

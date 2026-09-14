@@ -1,0 +1,12 @@
+.paymentActions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.fieldError {
+  color: red;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+}

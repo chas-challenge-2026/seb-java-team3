@@ -4,12 +4,12 @@ import styles from "./Login.module.css";
 
 export function Login() {
   return (
-    <main className={styles.mainContainer}>
+    <main>
+      <Container maxWidth="sm" variant="white">
         <div className={styles.textField}>
-      <h1>Välkommen tillbaka</h1>
-      <p>Logga in för att komma åt ditt konto och dina tjänster.</p>
+          <h1>Välkommen tillbaka</h1>
+          <p>Logga in för att komma åt ditt konto och dina tjänster.</p>
         </div>
-      <Container maxWidth="md">
         <LoginForm />
       </Container>
     </main>

@@ -7,6 +7,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { router } from "./router";
 import "./index.css";
 import "./css/colors.css"
+import "./css/appLayout.css";
 {/* <link href="https://db.onlinewebfonts.com/c/430a1a5763e20669c43bf9a19aa3009e?family=SEB+SansSerif+Regular" rel="stylesheet"></link> */}
 
 
