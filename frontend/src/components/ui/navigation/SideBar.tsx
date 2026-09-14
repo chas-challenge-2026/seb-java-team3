@@ -1,4 +1,3 @@
-import React from 'react'
 import Styles from "./SideBar.module.css"
 import SideBarItem from './SideBarItem'
 import UserAvatar from '../user/UserAvatar'

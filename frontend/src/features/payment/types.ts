@@ -13,10 +13,16 @@ export interface PaymentFormErrors {
 }
 
 export interface CreatePaymentRequest {
-  tenantId: number;
   fromAccountId: number;
   toIban: string;
   amount: number;
   reference: string;
-  createdBy: number;
+}
+
+export interface PaymentResponse {
+  id: number;
+  amount: number;
+  toIban: string;
+  status: string;
+  createdAt: string;
 }
