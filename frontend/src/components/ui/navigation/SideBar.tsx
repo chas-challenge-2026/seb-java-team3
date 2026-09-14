@@ -25,7 +25,7 @@ const SideBar = () => {
                     <div style={{marginBottom: "1rem"}}/>
                     <SideBarItem label="Ny Betalning" icon={<CreditCard size={iconSize}/>} route={"/payments/new"}/>
                     <SideBarItem label="Attestera" badge={2} icon={<CreditCardCheck size={iconSize}/>}/>
-                    <SideBarItem label='Historik' icon={<Timeline size={iconSize}/>} route={"/uitest"}/>
+                    <SideBarItem label='Historik' icon={<Timeline size={iconSize}/>} route={"/audit"}/>
                 </nav>
             </div>
             <div>
