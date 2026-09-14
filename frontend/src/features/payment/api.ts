@@ -3,6 +3,8 @@ import type {
   PaymentFormData,
 } from "./types";
 
+const API_URL = "http://localhost:8084";
+
 export async function createPayment(
   payment: PaymentFormData
 ): Promise<void> {
@@ -15,7 +17,7 @@ export async function createPayment(
     createdBy: 1,
   };
 
-  const response = await fetch("/api/payments", {
+  const response = await fetch(`${API_URL}/api/payments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -24,7 +26,9 @@ export async function createPayment(
   });
 
   if (!response.ok) {
-    throw new Error("Kunde inte skapa betalningen.");
+    throw new Error(
+      `Kunde inte skapa betalningen. Status: ${response.status}`
+    );
   }
 }
 
