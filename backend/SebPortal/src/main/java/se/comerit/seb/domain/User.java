@@ -19,7 +19,7 @@ public class User {
     @Column(name = "email")
     private String email;
 
-    @Column(name = "password_md5")
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @Convert(converter = RoleConverter.class)
