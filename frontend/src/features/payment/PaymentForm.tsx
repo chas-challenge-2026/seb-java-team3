@@ -1,16 +1,20 @@
-import {useState, type FormEvent} from "react";
-import {useNavigate} from "@tanstack/react-router"
+import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 
-import Container from "../../components/ui/layout/Container"
-import Button from "../../components/ui/buttons/Button"
-import Divider from "../../components/ui/layout/Divider"
-import Input from "../../components/ui/forms/Input"
-import Select from "../../components/ui/forms/Select"
+import Container from "../../components/ui/layout/Container";
+import Button from "../../components/ui/buttons/Button";
+import Divider from "../../components/ui/layout/Divider";
+import Input from "../../components/ui/forms/Input";
+import Select from "../../components/ui/forms/Select";
+
 import styles from "./PaymentForm.module.css";
 
-import type {PaymentFormData, PaymentFormErrors} from "./types";
+import type {
+  PaymentFormData,
+  PaymentFormErrors,
+} from "./types";
 
-import {createPayment} from "./api";
+import { createPayment } from "./api";
 
 function PaymentForm() {
   const navigate = useNavigate();
@@ -25,22 +29,25 @@ function PaymentForm() {
   const [errors, setErrors] = useState<PaymentFormErrors>({});
 
   const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
+    event: React.SubmitEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
     const newErrors: PaymentFormErrors = {};
 
+    // Validera konto
     if (!formData.account) {
       newErrors.account =
         "Välj vilket konto betalningen ska dras från.";
     }
 
+    // Validera IBAN
     if (!formData.recipientIban.trim()) {
       newErrors.recipientIban =
         "Ange mottagarens IBAN.";
     }
 
+    // Validera belopp
     if (!formData.amount.trim()) {
       newErrors.amount = "Ange ett belopp.";
     } else if (
@@ -55,6 +62,7 @@ function PaymentForm() {
 
     setErrors(newErrors);
 
+    // Avbryt om formuläret innehåller fel
     if (Object.keys(newErrors).length > 0) {
       return;
     }
@@ -62,9 +70,14 @@ function PaymentForm() {
     try {
       await createPayment(formData);
 
+      // Tillfälligt: gå tillbaka till dashboard
+      // efter att betalningen har skickats.
       navigate({ to: "/" });
     } catch (error) {
-      console.error("Failed to create payment:", error);
+      console.error(
+        "Failed to create payment:",
+        error
+      );
     }
   };
 
@@ -87,15 +100,15 @@ function PaymentForm() {
           label="Konto"
           value={formData.account}
           onChange={(event) => {
-            setFormData({
-              ...formData,
+            setFormData((prev) => ({
+              ...prev,
               account: event.target.value,
-            });
+            }));
 
-            setErrors({
-              ...errors,
+            setErrors((prev) => ({
+              ...prev,
               account: undefined,
-            });
+            }));
           }}
           options={[
             {
@@ -127,15 +140,15 @@ function PaymentForm() {
           placeholder="SE45 5000 0000 0583 9825 7466"
           value={formData.recipientIban}
           onChange={(event) => {
-            setFormData({
-              ...formData,
+            setFormData((prev) => ({
+              ...prev,
               recipientIban: event.target.value,
-            });
+            }));
 
-            setErrors({
-              ...errors,
+            setErrors((prev) => ({
+              ...prev,
               recipientIban: undefined,
-            });
+            }));
           }}
           error={errors.recipientIban}
         />
@@ -145,15 +158,15 @@ function PaymentForm() {
           placeholder="1000.00"
           value={formData.amount}
           onChange={(event) => {
-            setFormData({
-              ...formData,
+            setFormData((prev) => ({
+              ...prev,
               amount: event.target.value,
-            });
+            }));
 
-            setErrors({
-              ...errors,
+            setErrors((prev) => ({
+              ...prev,
               amount: undefined,
-            });
+            }));
           }}
           error={errors.amount}
           inputMode="decimal"
@@ -164,15 +177,15 @@ function PaymentForm() {
           placeholder="Faktura #1234"
           value={formData.reference}
           onChange={(event) => {
-            setFormData({
-              ...formData,
+            setFormData((prev) => ({
+              ...prev,
               reference: event.target.value,
-            });
+            }));
 
-            setErrors({
-              ...errors,
+            setErrors((prev) => ({
+              ...prev,
               reference: undefined,
-            });
+            }));
           }}
           error={errors.reference}
         />
