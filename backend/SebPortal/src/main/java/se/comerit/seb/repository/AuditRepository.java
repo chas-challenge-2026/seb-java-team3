@@ -6,5 +6,5 @@ import se.comerit.seb.domain.AuditEntry;
 
 public interface AuditRepository extends JpaRepository<AuditEntry, Long> {
 
-    List<AuditEntry> findByTenantIdOrderByCreatedAtDesc(Long tenantId);
+    List<AuditEntry> findTop200ByTenantIdOrderByCreatedAtDesc(Long tenantId);
 }
