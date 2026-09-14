@@ -1,35 +1,24 @@
 import type {
   CreatePaymentRequest,
   PaymentFormData,
+  PaymentResponse,
 } from "./types";
-
-const API_URL = "http://localhost:8084";
+import { api } from "../../lib/api";
 
 export async function createPayment(
   payment: PaymentFormData
-): Promise<void> {
+): Promise<PaymentResponse> {
   const request: CreatePaymentRequest = {
-    tenantId: 1,
     fromAccountId: getAccountId(payment.account),
-    toIban: payment.recipientIban,
+    toIban: payment.recipientIban.replaceAll(" ", ""),
     amount: Number(payment.amount),
     reference: payment.reference,
-    createdBy: 1,
   };
 
-  const response = await fetch(`${API_URL}/api/payments`, {
+  return api<PaymentResponse>("/api/payments", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(request),
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `Kunde inte skapa betalningen. Status: ${response.status}`
-    );
-  }
 }
 
 function getAccountId(account: string): number {
