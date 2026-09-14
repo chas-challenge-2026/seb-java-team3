@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import se.comerit.seb.domain.AuditEntry;
 import se.comerit.seb.repository.AuditRepository;
 
+import java.util.List;
+
 @Service
 public class AuditService {
 
@@ -15,7 +17,19 @@ public class AuditService {
 
     public AuditEntry record(Long tenantId, Long userId, String action,
                              String entityType, Long entityId, String description) {
-        AuditEntry entry = new AuditEntry(tenantId, userId, action, entityType, entityId, description);
+        AuditEntry entry = new AuditEntry(
+                tenantId,
+                userId,
+                action,
+                entityType,
+                entityId,
+                description
+        );
+
         return auditRepository.save(entry);
+    }
+
+    public List<AuditEntry> getAuditEntries(Long tenantId) {
+        return auditRepository.findTop200ByTenantIdOrderByCreatedAtDesc(tenantId);
     }
 }
