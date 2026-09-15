@@ -81,11 +81,10 @@ public class ApprovalService {
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 
-            String description = "Betalning godkänd: %s %s till %s (status: %s)".formatted(
+            String description = "Betalning godkänd: %s %s till %s".formatted(
                     payment.getAmount(),
                     payment.getCurrency(),
-                    payment.getToIban(),
-                    payment.getStatus());
+                    payment.getToIban());
 
             auditService.record(
                     payment.getTenantId(),
@@ -96,5 +95,63 @@ public class ApprovalService {
                     description
             );
         }
+    }
+
+    @Transactional
+    public void reject(Long approvalStepId, Long actorId, String comment) {
+        if (approvalStepId == null) {
+            throw new IllegalArgumentException("Approval step id is required");
+        }
+
+        if (actorId == null) {
+            throw new IllegalArgumentException("Actor id is required");
+        }
+
+        Payment payment = paymentRepository.findByApprovalStepIdForUpdate(approvalStepId)
+                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+
+        if (payment.getStatus() != PaymentStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException("Payment is not pending approval: " + payment.getId());
+        }
+
+        ApprovalStep approvalStep = payment.getApprovalSteps().stream()
+                .filter(step -> Objects.equals(step.getId(), approvalStepId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+
+        if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
+            throw new IllegalStateException("Approval step is not pending: " + approvalStepId);
+        }
+
+        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
+            throw new IllegalStateException("Approval step is not assigned to actor: " + actorId);
+        }
+
+        approvalStep.setStatus(ApprovalStepStatus.REJECTED);
+        approvalStep.setDecidedAt(LocalDateTime.now());
+        approvalStep.setComment(comment);
+
+        payment.getApprovalSteps().stream()
+                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
+                .forEach(step -> {
+                    step.setStatus(ApprovalStepStatus.REJECTED);
+                    step.setDecidedAt(LocalDateTime.now());
+                });
+
+        payment.setStatus(PaymentStatus.REJECTED);
+
+        String description = "Betalning avvisad: %s %s till %s".formatted(
+                payment.getAmount(),
+                payment.getCurrency(),
+                payment.getToIban());
+
+        auditService.record(
+                payment.getTenantId(),
+                actorId,
+                "REJECT_PAYMENT",
+                "PAYMENT",
+                payment.getId(),
+                description
+        );
     }
 }

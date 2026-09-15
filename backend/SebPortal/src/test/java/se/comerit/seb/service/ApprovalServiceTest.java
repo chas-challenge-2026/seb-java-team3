@@ -72,7 +72,7 @@ class ApprovalServiceTest {
                 "APPROVE_PAYMENT",
                 "PAYMENT",
                 paymentId,
-                "Betalning godkänd: 200.00 SEK till SE8550000000054910000003 (status: COMPLETED)"
+                "Betalning godkänd: 200.00 SEK till SE8550000000054910000003"
         );
     }
 }

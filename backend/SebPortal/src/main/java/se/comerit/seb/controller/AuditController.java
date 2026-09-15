@@ -3,23 +3,28 @@ package se.comerit.seb.controller;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
 
 import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
+import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.SessionUserContext;
 import se.comerit.seb.service.AuditService;
 
 @Controller
 public class AuditController {
 
     private final AuditService auditService;
+    private final SessionUserContext sessionUserContext;
 
-    public AuditController(AuditService auditService) {
+    public AuditController(AuditService auditService,
+                           SessionUserContext sessionUserContext) {
         this.auditService = auditService;
+        this.sessionUserContext = sessionUserContext;
     }
 
     @GetMapping("/audit")
@@ -28,14 +33,9 @@ public class AuditController {
             return "redirect:/login";
         }
 
-        Long tenantId = (Long) session.getAttribute("tenantId");
-        if (tenantId == null) {
-            model.addAttribute("errorMessage", "Ingen tenant kopplad till användaren.");
-            return "audit-log";
-        }
-
         try {
-            List<AuditEntryResponse> entries = auditService.getAuditEntries(tenantId);
+            AuthenticatedUserContext user = sessionUserContext.requireAdminOrAttestant(session);
+            List<AuditEntryResponse> entries = auditService.getAuditEntries(user);
             model.addAttribute("entries", entries);
         } catch (Exception e) {
             model.addAttribute("errorMessage", "Kunde inte hämta loggdata: " + e.getMessage());
@@ -47,22 +47,17 @@ public class AuditController {
     @GetMapping("/api/audit")
     @ResponseBody
     public List<AuditEntryResponse> getAuditEntries(HttpSession session) {
-        if (session.getAttribute("userId") == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Not logged in"
-            );
-        }
+        AuthenticatedUserContext user = sessionUserContext.requireAdminOrAttestant(session);
+        return auditService.getAuditEntries(user);
+    }
 
-        Long tenantId = (Long) session.getAttribute("tenantId");
-
-        if (tenantId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "No tenant associated with user"
-            );
-        }
-
-        return auditService.getAuditEntries(tenantId);
+    @GetMapping("/api/payments/{paymentId}/audit")
+    @ResponseBody
+    public List<PaymentAuditTimelineEntryResponse> getPaymentAuditTimeline(
+            @PathVariable Long paymentId,
+            HttpSession session
+    ) {
+        AuthenticatedUserContext user = sessionUserContext.requireAdmin(session);
+        return auditService.getPaymentAuditTimeline(user, paymentId);
     }
 }

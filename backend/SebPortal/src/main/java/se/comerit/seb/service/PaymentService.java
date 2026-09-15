@@ -85,8 +85,8 @@ public class PaymentService {
 
         Payment saved = paymentRepository.save(payment);
 
-        String description = "Betalning skapad: %s %s till %s (status: %s)".formatted(
-                saved.getAmount(), saved.getCurrency(), saved.getToIban(), saved.getStatus());
+        String description = "Betalning skapad: %s %s till %s".formatted(
+                saved.getAmount(), saved.getCurrency(), saved.getToIban());
 
         auditService.record(
                 saved.getTenantId(),

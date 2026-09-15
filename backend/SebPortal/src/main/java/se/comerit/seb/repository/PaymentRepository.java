@@ -15,6 +15,31 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByTenantId(Long tenantId);
 
+    @Query("""
+            SELECT payment
+            FROM Payment payment
+            LEFT JOIN FETCH payment.approvalSteps
+            WHERE payment.id = :paymentId
+              AND payment.tenantId = :tenantId
+            """)
+    Optional<Payment> findByIdAndTenantIdWithApprovalSteps(
+            @Param("paymentId") Long paymentId,
+            @Param("tenantId") Long tenantId);
+
+    @Query("""
+            SELECT DISTINCT p
+            FROM Payment p
+            JOIN FETCH p.approvalSteps step
+            WHERE p.tenantId = :tenantId
+              AND p.status = se.comerit.seb.domain.PaymentStatus.PENDING_APPROVAL
+              AND step.attestantId = :attestantId
+              AND step.status = se.comerit.seb.domain.ApprovalStepStatus.PENDING
+            ORDER BY p.createdAt ASC
+            """)
+    List<Payment> findPendingApprovalsForAttestant(
+            @Param("tenantId") Long tenantId,
+            @Param("attestantId") Long attestantId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT p
