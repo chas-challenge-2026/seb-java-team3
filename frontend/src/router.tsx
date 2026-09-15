@@ -10,7 +10,9 @@ import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./features/payment/NewPayment"
-import AuditPage from "./features/audit/AuditPage"
+import AuditPage from "./features/audit/pages/AuditPage"
+import PaymentAuditTimelinePage from "./features/audit/pages/PaymentAuditTimelinePage";
+import AttestPage from "./pages/AttestPage";
 
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -63,6 +65,18 @@ const auditRoute = createRoute({
   component: AuditPage,
 });
 
+const attestRoute = createRoute({
+  getParentRoute: () => authRoute,
+  path: "/attest",
+  component: AttestPage,
+})
+
+const paymentAuditRoute = createRoute({
+  getParentRoute: () => authRoute,
+  path: "/payments/$paymentId/audit",
+  component: PaymentAuditTimelinePage,
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
 
@@ -71,6 +85,8 @@ const routeTree = rootRoute.addChildren([
     uiTestRoute,
     newPaymentRoute,
     auditRoute,
+    attestRoute,
+    paymentAuditRoute,
   ]),
 ]);
 
