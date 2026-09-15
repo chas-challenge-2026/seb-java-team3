@@ -145,4 +145,43 @@ class PaymentServiceTest {
                 anyString()             // description
         );
     }
+
+    @Test
+    void amountEqualToThreshold_shouldRequireAttestant() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
+
+        when(userRepo.findByTenantIdAndRole(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant));
+
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService);
+
+        // Beloppet är EXAKT lika med tröskeln - det är själva gränsfallet vi testar
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("5000"), "Testfaktura", 1L
+        );
+
+        // ACT
+        PaymentResponse response = service.createPayment(request);
+
+        // ASSERT: exakt 5000 är INTE "< 5000", så det räknas som "över tröskeln"
+        // och kräver attestant - detta bekräftar det medvetna valet i PaymentService
+        // (compareTo(...) < 0 => strikt mindre än krävs för att slippa attest)
+        assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
+        verify(userRepo, times(1)).findByTenantIdAndRole(1L, Role.ATTESTANT);
+    }
+
 }
