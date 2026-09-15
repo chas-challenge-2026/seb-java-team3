@@ -39,4 +39,16 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
+
+    @ExceptionHandler(se.comerit.seb.exception.ApprovalStepAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleApprovalStepAccessDenied(
+            se.comerit.seb.exception.ApprovalStepAccessDeniedException ex) {
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.FORBIDDEN.value(),
+                "Forbidden",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
 }
