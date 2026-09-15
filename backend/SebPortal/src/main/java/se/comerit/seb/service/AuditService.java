@@ -1,5 +1,6 @@
 package se.comerit.seb.service;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +60,7 @@ public class AuditService {
         return auditRepository.save(entry);
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional(readOnly = true)
     public List<AuditEntryResponse> getAuditEntries(AuthenticatedUserContext user) {
         List<AuditEntry> entries = user.isAdmin()
@@ -99,6 +101,7 @@ public class AuditService {
                 .collect(Collectors.toList());
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional(readOnly = true)
     public List<PaymentAuditTimelineEntryResponse> getPaymentAuditTimeline(
             AuthenticatedUserContext user,

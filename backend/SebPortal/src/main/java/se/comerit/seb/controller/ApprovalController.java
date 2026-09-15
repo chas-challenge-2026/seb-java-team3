@@ -4,11 +4,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import se.comerit.seb.security.CurrentUserRoles;
 
 import jakarta.servlet.http.HttpSession;
 import java.io.FileWriter;
@@ -34,6 +36,9 @@ public class ApprovalController {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Autowired
+    private CurrentUserRoles currentUserRoles;
+
     // BUG-010: hardcoded connection string duplicated across controllers
     // TODO: read from config, not a constant in every file
     static final String JDBC_FALLBACK =
@@ -55,16 +60,11 @@ public class ApprovalController {
     // SPAGHETTI: Yet another hardcoded "max payment" rule that exists nowhere else
     private static final BigDecimal ABSOLUTE_MAX_SINGLE_PAYMENT = new BigDecimal("5000000");
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/approvals")
     public String approvalInbox(HttpSession session, Model model) {
         if (session.getAttribute("userId") == null) {
             return "redirect:/login";
-        }
-
-        // SPAGHETTI: Role check via string comparison — no claims, no policy, no roles system
-        String role = (String) session.getAttribute("role");
-        if (!"attestant".equals(role) && !"admin".equals(role)) {
-            return "redirect:/dashboard";
         }
 
         Object userId = session.getAttribute("userId");
@@ -74,6 +74,7 @@ public class ApprovalController {
         return "approval-inbox";
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @PostMapping("/approvals")
     public String handleApproval(@RequestParam Integer paymentId,
                                   @RequestParam Integer approvalStepId,
@@ -83,11 +84,6 @@ public class ApprovalController {
                                   Model model) {
         if (session.getAttribute("userId") == null) {
             return "redirect:/login";
-        }
-
-        String role = (String) session.getAttribute("role");
-        if (!"attestant".equals(role) && !"admin".equals(role)) {
-            return "redirect:/dashboard";
         }
 
         Object userId = session.getAttribute("userId");
@@ -118,7 +114,7 @@ public class ApprovalController {
             Integer paymentTenantId = (Integer) p.get("tenant_id");
 
             // SPAGHETTI: Tenant isolation check — does not prevent cross-tenant if admin
-            if (!paymentTenantId.equals(tenantId) && !"admin".equals(role)) {
+            if (!paymentTenantId.equals(tenantId) && !currentUserRoles.hasRole("ADMIN")) {
                 model.addAttribute("errorMessage", "Du har inte behörighet till denna betalning.");
                 loadPendingPayments(userId, session, model);
                 loadRecentlyHandled(userId, model);
@@ -326,13 +322,12 @@ public class ApprovalController {
     // SPAGHETTI: Load methods are 50+ lines each, still in the same class
     private void loadPendingPayments(Object userId, HttpSession session, Model model) {
         Object tenantId = session.getAttribute("tenantId");
-        String role = (String) session.getAttribute("role");
 
         try {
             // SPAGHETTI: Admin sees all pending, attestant only sees their own
             // But this logic is duplicated in the view (role check for badge display)
             String sql;
-            if ("admin".equals(role)) {
+            if (currentUserRoles.hasRole("ADMIN")) {
                 sql = "SELECT p.id, p.to_iban, p.amount, p.currency, p.reference, p.created_at, "
                         + "u.name as created_by_name, a.account_name, "
                         + "aps.id as step_id, aps.step_number, "

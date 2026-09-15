@@ -1,5 +1,6 @@
 package se.comerit.seb.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +28,7 @@ public class AuditController {
         this.sessionUserContext = sessionUserContext;
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/audit")
     public String auditLog(HttpSession session, Model model) {
         if (session.getAttribute("userId") == null) {
@@ -34,7 +36,7 @@ public class AuditController {
         }
 
         try {
-            AuthenticatedUserContext user = sessionUserContext.requireAdminOrAttestant(session);
+            AuthenticatedUserContext user = sessionUserContext.requireAuthenticated(session);
             List<AuditEntryResponse> entries = auditService.getAuditEntries(user);
             model.addAttribute("entries", entries);
         } catch (Exception e) {
@@ -44,20 +46,22 @@ public class AuditController {
         return "audit-log";
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/api/audit")
     @ResponseBody
     public List<AuditEntryResponse> getAuditEntries(HttpSession session) {
-        AuthenticatedUserContext user = sessionUserContext.requireAdminOrAttestant(session);
+        AuthenticatedUserContext user = sessionUserContext.requireAuthenticated(session);
         return auditService.getAuditEntries(user);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/api/payments/{paymentId}/audit")
     @ResponseBody
     public List<PaymentAuditTimelineEntryResponse> getPaymentAuditTimeline(
             @PathVariable Long paymentId,
             HttpSession session
     ) {
-        AuthenticatedUserContext user = sessionUserContext.requireAdmin(session);
+        AuthenticatedUserContext user = sessionUserContext.requireAuthenticated(session);
         return auditService.getPaymentAuditTimeline(user, paymentId);
     }
 }

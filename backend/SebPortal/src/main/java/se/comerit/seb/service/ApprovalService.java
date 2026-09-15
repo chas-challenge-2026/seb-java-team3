@@ -1,5 +1,6 @@
 package se.comerit.seb.service;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import se.comerit.seb.domain.Account;
@@ -28,6 +29,7 @@ public class ApprovalService {
         this.auditService = auditService;
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
     public void approve(Long approvalStepId, Long actorId) {
         if (approvalStepId == null) {
@@ -97,6 +99,7 @@ public class ApprovalService {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
     public void reject(Long approvalStepId, Long actorId, String comment) {
         if (approvalStepId == null) {

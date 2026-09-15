@@ -21,26 +21,6 @@ public class SessionUserContext {
         return new AuthenticatedUserContext(userId, tenantId, role);
     }
 
-    public AuthenticatedUserContext requireAdmin(HttpSession session) {
-        AuthenticatedUserContext user = requireAuthenticated(session);
-
-        if (!user.isAdmin()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
-        }
-
-        return user;
-    }
-
-    public AuthenticatedUserContext requireAdminOrAttestant(HttpSession session) {
-        AuthenticatedUserContext user = requireAuthenticated(session);
-
-        if (!user.isAdmin() && !user.isAttestant()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin or attestant role required");
-        }
-
-        return user;
-    }
-
     private Long sessionLong(HttpSession session, String name) {
         Object value = session.getAttribute(name);
         return value instanceof Number number ? number.longValue() : null;
