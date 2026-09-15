@@ -39,11 +39,10 @@ public class SecurityConfig {
                                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // /api/auth/login måste vara öppen - man kan inte kräva en
-                        // token för att få sin första token.
-                        // /api/auth/me är fortfarande sessionsbaserad under huven
-                        // (migreras i steg 6) - krävs inte på JWT förrän den gör det.
-                        .requestMatchers("/api/auth/login", "/api/auth/me").permitAll()
+                        // Enda öppna routen - man kan inte kräva en token för att få
+                        // sin första token. /api/auth/me kräver nu JWT precis som allt
+                        // annat, sen steg 6 flyttade dess interna logik dit också.
+                        .requestMatchers("/api/auth/login").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
