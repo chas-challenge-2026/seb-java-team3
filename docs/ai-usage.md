@@ -92,6 +92,16 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 - **Spår:** PR #95, issue #33
 ---
 
+---
+### 2026-09-15 — Migrering och Implementering av JWT — Jonathan Isaksson
+- **Verktyg:** Claude
+- **Använde AI till:** Gav riktning och testade flödet samt hjälpte till med integrationstester.
+- **Genererades:** Tester som prövar flödet, och ändrade i redan etablerade filer.
+- **Hur jag granskade/ändrade:** Testade varje del och ändring att det som ändrades, såg till att inget går sönder och att ändringen ger det resultatet som är förväntat. Om inte görs det om på annat sätt.
+- **Valde bort (om något):** -
+- **Spår:**
+---
+
 ## Tips
 
 - Loggar du löpande  t.ex. samtidigt som du skriver PR-beskrivningen blir det aldrig ett berg att beta av i v12.

@@ -1,8 +1,8 @@
-import type { LoginInput, UserResponse } from "./types";
+import type { LoginInput, LoginResponse, UserResponse } from "./types";
 import { api } from "../../lib/api";
 
 export function fetchLoginUser(input: LoginInput) {
-  return api<UserResponse>("/api/auth/login", {
+  return api<LoginResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(input),
   });
