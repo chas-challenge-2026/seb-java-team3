@@ -1,0 +1,145 @@
+.grid {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.grid th,
+.grid td {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--divider-clr);
+}
+
+.grid th {
+    font-weight: 600;
+}
+
+.clickableRow {
+    cursor: pointer;
+}
+
+.clickableRow:hover {
+    background: var(--bg-surface-nav);
+}
+
+.clickableRow:focus-visible {
+    outline: 2px solid var(--btn-primary);
+    outline-offset: -2px;
+}
+
+.paymentCell {
+    color: var(--btn-primary);
+    font-weight: 600;
+}
+
+.paymentLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
+.detailsRow td {
+    padding: 0;
+    background: var(--bg-surface-nav);
+}
+
+.detailsPanel {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.stateText {
+    margin: 0;
+    color: #555;
+}
+
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.timelineItem {
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.875rem;
+    align-items: flex-start;
+}
+
+.order {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--btn-primary);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.timelineContent {
+    min-width: 0;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid var(--divider-clr);
+}
+
+.timelineItem:last-child .timelineContent {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.875rem;
+    color: #555;
+    font-size: 0.875rem;
+}
+
+.stepHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.35rem;
+}
+
+.event {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+.moreInfoButton {
+    flex: 0 0 auto;
+    border: 1px solid var(--divider-clr);
+    border-radius: 0.375rem;
+    padding: 0.35rem 0.65rem;
+    background: white;
+    color: var(--btn-primary);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.moreInfoButton:hover {
+    background: var(--bg-surface);
+}
+
+.moreInfoButton:focus-visible {
+    outline: 2px solid var(--btn-primary);
+    outline-offset: 2px;
+}
+
+.stepDetails {
+    margin-top: 0.5rem;
+    color: var(--btn-dark);
+}
+
+.stepDetails p {
+    margin: 0.25rem 0;
+}
