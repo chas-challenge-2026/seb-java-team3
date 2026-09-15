@@ -7,6 +7,7 @@ import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
+import se.comerit.seb.exception.ApprovalStepAccessDeniedException;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
 
@@ -55,7 +56,8 @@ public class ApprovalService {
         }
 
         if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
-            throw new IllegalStateException("Approval step is not assigned to actor: " + actorId);
+            throw new ApprovalStepAccessDeniedException(
+                    "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
 
         approvalStep.setStatus(ApprovalStepStatus.APPROVED);
@@ -124,7 +126,8 @@ public class ApprovalService {
         }
 
         if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
-            throw new IllegalStateException("Approval step is not assigned to actor: " + actorId);
+            throw new ApprovalStepAccessDeniedException(
+                    "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
 
         approvalStep.setStatus(ApprovalStepStatus.REJECTED);
