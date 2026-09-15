@@ -8,16 +8,19 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import se.comerit.seb.controller.ApprovalApiController;
 import se.comerit.seb.controller.AuditController;
+import se.comerit.seb.controller.NewPaymentController;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.service.ApprovalService;
 import se.comerit.seb.service.AuditService;
+import se.comerit.seb.service.PaymentService;
 
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,10 +31,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * -> ROLE_* GrantedAuthority) rather than by faking the security context, so this also
  * verifies that piece of the chain, not just the annotations.
  */
-@WebMvcTest(controllers = {ApprovalApiController.class, AuditController.class})
+@WebMvcTest(controllers = {ApprovalApiController.class, AuditController.class, NewPaymentController.class})
 @Import({SecurityConfig.class, SessionAuthenticationFilter.class, RoleAccessDeniedHandler.class,
         SessionUserContext.class})
 class RoleAuthorizationTest {
+
+    private static final String PAYMENT_REQUEST_JSON = """
+            {"fromAccountId":1,"toIban":"SE1234567890123456789012","amount":100.00,"reference":"test"}
+            """;
 
     @Autowired
     private MockMvc mockMvc;
@@ -44,6 +51,9 @@ class RoleAuthorizationTest {
 
     @MockBean
     private AuditService auditService;
+
+    @MockBean
+    private PaymentService paymentService;
 
     @Test
     void initiatorCannotListPendingApprovals() throws Exception {
@@ -144,12 +154,14 @@ class RoleAuthorizationTest {
     }
 
     @Test
-    void attestantCannotViewPaymentAuditTimeline() throws Exception {
+    void attestantCanViewPaymentAuditTimeline() throws Exception {
+        when(auditService.getPaymentAuditTimeline(any(), any())).thenReturn(List.of());
+
         mockMvc.perform(get("/api/payments/{paymentId}/audit", 100L)
                         .sessionAttr("userId", 2L)
                         .sessionAttr("tenantId", 1L)
                         .sessionAttr("role", Role.ATTESTANT))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -167,5 +179,38 @@ class RoleAuthorizationTest {
     void unauthenticatedRequestIsForbidden() throws Exception {
         mockMvc.perform(get("/api/approvals"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void attestantCannotCreatePayment() throws Exception {
+        mockMvc.perform(post("/api/payments")
+                        .sessionAttr("userId", 2L)
+                        .sessionAttr("tenantId", 1L)
+                        .sessionAttr("role", Role.ATTESTANT)
+                        .contentType(APPLICATION_JSON)
+                        .content(PAYMENT_REQUEST_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void initiatorCanCreatePayment() throws Exception {
+        mockMvc.perform(post("/api/payments")
+                        .sessionAttr("userId", 1L)
+                        .sessionAttr("tenantId", 1L)
+                        .sessionAttr("role", Role.INITIATOR)
+                        .contentType(APPLICATION_JSON)
+                        .content(PAYMENT_REQUEST_JSON))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void adminCanCreatePayment() throws Exception {
+        mockMvc.perform(post("/api/payments")
+                        .sessionAttr("userId", 3L)
+                        .sessionAttr("tenantId", 1L)
+                        .sessionAttr("role", Role.ADMIN)
+                        .contentType(APPLICATION_JSON)
+                        .content(PAYMENT_REQUEST_JSON))
+                .andExpect(status().isCreated());
     }
 }

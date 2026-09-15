@@ -17,6 +17,7 @@ import AttestPage from "./pages/AttestPage";
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { requireAuth } from "./lib/requireAuth";
+import { requireRole } from "./lib/requireRole";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -50,6 +51,7 @@ const uiTestRoute = createRoute({
 const newPaymentRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/payments/new",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
   component: NewPayment,
 });
 

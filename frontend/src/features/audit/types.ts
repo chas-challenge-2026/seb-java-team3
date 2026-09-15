@@ -1,6 +1,8 @@
 import {
+  formatAmount,
   formatAuditStatus,
   formatDateTime,
+  formatEventType,
 } from "./utils/formatters";
 
 export type AuditEntry = {
@@ -11,6 +13,7 @@ export type AuditEntry = {
   handelse: string;
   status: string;
   referens: string;
+  belopp: string;
   betalning: string;
 };
 
@@ -22,6 +25,8 @@ export type AuditApiEntry = {
   description: string;
   status: string | null;
   reference: string | null;
+  amount: number | null;
+  currency: string | null;
   createdAt: string;
   userName: string;
 };
@@ -36,6 +41,9 @@ export type PaymentAuditTimelineEntry = {
   stepNumber: number | null;
   status: string;
   reference: string | null;
+  amount: number | null;
+  currency: string | null;
+  toIban: string | null;
 };
 
 export function toAuditEntry(raw: AuditApiEntry): AuditEntry {
@@ -44,9 +52,10 @@ export function toAuditEntry(raw: AuditApiEntry): AuditEntry {
     paymentId: String(raw.entityId),
     tid: formatDateTime(raw.createdAt),
     vem: raw.userName,
-    handelse: raw.description,
+    handelse: formatEventType(raw.action),
     status: formatAuditStatus(raw.status),
     referens: raw.reference?.trim() || "-",
+    belopp: formatAmount(raw.amount, raw.currency),
     betalning: formatEntityLabel(raw.entityType, raw.entityId),
   };
 }

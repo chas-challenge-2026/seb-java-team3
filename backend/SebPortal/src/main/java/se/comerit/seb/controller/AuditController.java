@@ -54,7 +54,7 @@ public class AuditController {
         return auditService.getAuditEntries(user);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/api/payments/{paymentId}/audit")
     @ResponseBody
     public List<PaymentAuditTimelineEntryResponse> getPaymentAuditTimeline(

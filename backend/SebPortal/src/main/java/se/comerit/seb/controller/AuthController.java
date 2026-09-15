@@ -15,7 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
+import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.service.AuthService;
 
 @Controller
@@ -65,7 +67,7 @@ public class AuthController {
 
         storeAuthenticatedUser(session, user.get());
 
-        return ResponseEntity.ok(Map.of("email", user.get().getEmail()));
+        return ResponseEntity.ok(UserResponse.from(user.get()));
     }
 
     @GetMapping("/api/auth/me")
@@ -77,15 +79,36 @@ public class AuthController {
                     .body(Map.of("error", "Not logged in"));
         }
 
-        return ResponseEntity.ok(Map.of("email", session.getAttribute("userEmail")));
+        return ResponseEntity.ok(userResponseFromSession(session));
     }
 
     private void storeAuthenticatedUser(HttpSession session, User user) {
         session.setAttribute("userId", user.getId());
         session.setAttribute("userName", user.getName());
         session.setAttribute("userEmail", user.getEmail());
-        session.setAttribute("role", user.getRole());
+        session.setAttribute("role", user.getRole().name());
         session.setAttribute("tenantId", user.getTenantId());
+    }
+
+    private UserResponse userResponseFromSession(HttpSession session) {
+        return new UserResponse(
+                (Long) session.getAttribute("userId"),
+                (String) session.getAttribute("userName"),
+                (String) session.getAttribute("userEmail"),
+                resolveRole(session.getAttribute("role"))
+        );
+    }
+
+    private Role resolveRole(Object value) {
+        if (value instanceof Role role) {
+            return role;
+        }
+
+        if (value instanceof String role) {
+            return Role.valueOf(role.toUpperCase());
+        }
+
+        throw new IllegalStateException("Session role is missing or invalid");
     }
 
     public static class LoginRequest {
