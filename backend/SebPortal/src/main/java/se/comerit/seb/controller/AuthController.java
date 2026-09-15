@@ -16,15 +16,20 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import se.comerit.seb.domain.User;
+import se.comerit.seb.dto.LoginResponse;
+import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.JwtService;
 import se.comerit.seb.service.AuthService;
 
 @Controller
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtService jwtService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, JwtService jwtService) {
         this.authService = authService;
+        this.jwtService = jwtService;
     }
 
     @GetMapping({"/", "/login"})
@@ -65,7 +70,8 @@ public class AuthController {
 
         storeAuthenticatedUser(session, user.get());
 
-        return ResponseEntity.ok(Map.of("email", user.get().getEmail()));
+        String token = jwtService.generateToken(toAuthenticatedUserContext(user.get()));
+        return ResponseEntity.ok(LoginResponse.from(user.get(), token));
     }
 
     @GetMapping("/api/auth/me")
@@ -78,6 +84,10 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(Map.of("email", session.getAttribute("userEmail")));
+    }
+
+    private AuthenticatedUserContext toAuthenticatedUserContext(User user) {
+        return new AuthenticatedUserContext(user.getId(), user.getTenantId(), user.getRole());
     }
 
     private void storeAuthenticatedUser(HttpSession session, User user) {
