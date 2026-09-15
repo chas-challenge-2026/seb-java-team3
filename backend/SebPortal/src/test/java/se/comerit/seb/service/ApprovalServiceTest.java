@@ -123,4 +123,59 @@ class ApprovalServiceTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
+    @Test
+    void approve_shouldThrowIllegalState_whenEarlierStepIsStillPending() {
+
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long tenantId = 1L;
+        Long actorId = 2L;
+        Long paymentId = 100L;
+        Long approvalStep1Id = 200L;
+        Long approvalStep2Id = 201L;
+        Long accountId = 10L;
+        BigDecimal paymentAmount = new BigDecimal("200.00");
+        String toIban = "SE8550000000054910000003";
+
+        // ARRANGE
+        Payment payment = new Payment(
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", actorId);
+
+        ApprovalStep approvalStep1 = new ApprovalStep(actorId, 1);
+        payment.addApprovalStep(approvalStep1);
+
+        ApprovalStep approvalStep2 = new ApprovalStep(actorId, 2);
+        payment.addApprovalStep(approvalStep2);
+
+        ReflectionTestUtils.setField(payment, "id", paymentId);
+        ReflectionTestUtils.setField(approvalStep1, "id", approvalStep1Id);
+        ReflectionTestUtils.setField(approvalStep2, "id", approvalStep2Id);
+
+        when(paymentRepository.findByApprovalStepIdForUpdate(approvalStep2Id))
+                .thenReturn(Optional.of(payment));
+
+        // ACT + ASSERT
+        assertThrows(
+                IllegalStateException.class,
+                () -> approvalService.approve(approvalStep2Id, actorId)
+        );
+
+        // Steg 2 ska fortfarande vara PENDING — godkännandet gick aldrig igenom
+        assertEquals(ApprovalStepStatus.PENDING, approvalStep2.getStatus());
+
+        // Steg 1 ska också fortfarande vara PENDING — orört
+        assertEquals(ApprovalStepStatus.PENDING, approvalStep1.getStatus());
+
+        // Ingen audit-post ska ha skapats
+        verify(auditService, times(0)).record(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
 }
