@@ -79,12 +79,14 @@ const myPaymentsRoute = createRoute({
 const attestRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/attest",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ATTESTANT", "ADMIN"]),
   component: AttestPage,
 })
 
 const paymentAuditRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/payments/$paymentId/audit",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ATTESTANT", "ADMIN"]),
   component: PaymentAuditTimelinePage,
 });
 

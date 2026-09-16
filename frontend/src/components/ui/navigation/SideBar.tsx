@@ -42,14 +42,14 @@ const SideBar = () => {
             icon={<LayoutDashboard size={iconSize} />}
           />
           <div style={{ marginBottom: "1rem" }} />
-          {user?.role !== "ATTESTANT" && (
+          {user && user.role !== "ATTESTANT" && (
             <SideBarItem
               label="Ny Betalning"
               icon={<CreditCard size={iconSize} />}
               route={"/payments/new"}
             />
           )}
-          {user?.role !== "INITIATOR" && (
+          {user && user.role !== "INITIATOR" && (
             <SideBarItem
               label="Attestera"
               badge={2}
@@ -57,19 +57,20 @@ const SideBar = () => {
               route={"/attest"}
             />
           )}
-          {user?.role === "INITIATOR" ? (
-            <SideBarItem
-              label="Mina betalningar"
-              icon={<Timeline size={iconSize} />}
-              route={"/my-payments"}
-            />
-          ) : (
-            <SideBarItem
-              label="Historik"
-              icon={<Timeline size={iconSize} />}
-              route={"/audit"}
-            />
-          )}
+          {user &&
+            (user.role === "INITIATOR" ? (
+              <SideBarItem
+                label="Mina betalningar"
+                icon={<Timeline size={iconSize} />}
+                route={"/my-payments"}
+              />
+            ) : (
+              <SideBarItem
+                label="Historik"
+                icon={<Timeline size={iconSize} />}
+                route={"/audit"}
+              />
+            ))}
         </nav>
       </div>
       <div>

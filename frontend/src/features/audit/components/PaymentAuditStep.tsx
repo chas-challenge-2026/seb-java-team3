@@ -17,7 +17,7 @@ export default function PaymentAuditStep({ entry }: PaymentAuditStepProps) {
       <div className={styles.timelineContent}>
         <div className={styles.stepHeader}>
           <h2 className={styles.event}>{formatEventType(entry.eventType)}</h2>
-          {entry.stepNumber && <span>Steg {entry.stepNumber} av {entry.stepNumber}</span>}
+          {entry.stepNumber && <span>Steg {entry.stepNumber}</span>}
           <button
             type="button"
             className={styles.moreInfoButton}
