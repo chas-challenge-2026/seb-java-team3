@@ -31,7 +31,7 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
 
         if (session != null) {
             Object userId = session.getAttribute("userId");
-            Role role = resolveRole(session.getAttribute("role"));
+            Role role = Role.fromSessionValue(session.getAttribute("role"));
 
             if (userId != null && role != null) {
                 List<GrantedAuthority> authorities =
@@ -42,19 +42,5 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private Role resolveRole(Object value) {
-        if (value instanceof Role role) {
-            return role;
-        }
-        if (value instanceof String role) {
-            try {
-                return Role.valueOf(role.toUpperCase());
-            } catch (IllegalArgumentException ignored) {
-                return null;
-            }
-        }
-        return null;
     }
 }

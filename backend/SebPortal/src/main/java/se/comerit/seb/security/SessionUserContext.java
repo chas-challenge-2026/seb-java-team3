@@ -27,20 +27,6 @@ public class SessionUserContext {
     }
 
     private Role sessionRole(HttpSession session) {
-        Object value = session.getAttribute("role");
-
-        if (value instanceof Role role) {
-            return role;
-        }
-
-        if (value instanceof String role) {
-            try {
-                return Role.valueOf(role.toUpperCase());
-            } catch (IllegalArgumentException ignored) {
-                return null;
-            }
-        }
-
-        return null;
+        return Role.fromSessionValue(session.getAttribute("role"));
     }
 }

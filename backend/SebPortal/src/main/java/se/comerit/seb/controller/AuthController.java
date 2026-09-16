@@ -79,7 +79,13 @@ public class AuthController {
                     .body(Map.of("error", "Not logged in"));
         }
 
-        return ResponseEntity.ok(userResponseFromSession(session));
+        try {
+            return ResponseEntity.ok(userResponseFromSession(session));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Not logged in"));
+        }
     }
 
     private void storeAuthenticatedUser(HttpSession session, User user) {
@@ -100,15 +106,13 @@ public class AuthController {
     }
 
     private Role resolveRole(Object value) {
-        if (value instanceof Role role) {
-            return role;
+        Role role = Role.fromSessionValue(value);
+
+        if (role == null) {
+            throw new IllegalStateException("Session role is missing or invalid");
         }
 
-        if (value instanceof String role) {
-            return Role.valueOf(role.toUpperCase());
-        }
-
-        throw new IllegalStateException("Session role is missing or invalid");
+        return role;
     }
 
     public static class LoginRequest {
