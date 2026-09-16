@@ -81,35 +81,89 @@ public interface CsvParserLib extends Library {
 
 ## Modul 2: IBAN/BIC-validator
 
-**Fil:** `iban_validator.c` / `iban_validator.h`  
-**Kompilering:** `gcc -O2 -shared -fPIC -o libiban.so iban_validator.c`
+**Filer:** 
+- `iban_validator.h` — API-definition
+- `iban_validator.c` — Implementering (ISO 13616 MOD97 + ISO 9362 BIC-validering)
+- `iban_validator_test.c` — Enhetstester (Check framework)
+- `Makefile` — Bygg- och testskript
+
+### Status
+- ✅ **IMPLEMENTERAD** — MOD97-algoritm, BIC-validering, enhetstester
+- **Issue #73:** MOD97-algoritm implementering
+- **Issue #74:** Enhetstester (denna fil)
+- **Issue #75:** JNA-integrering mot betalningsformuläret (nästa steg)
 
 ### API
 
 ```c
 // Returnerar 1 om IBAN är giltig (format + MOD97), annars 0
 // error_out: om 0 returneras, sätts till felkod
-//   1 = för kort/lång
-//   2 = ogiltigt landskod
-//   3 = felaktigt tecken
-//   4 = MOD97-fel (fel kontrollsiffror)
+//   1 = för kort/lång (längd < 15 eller > 34)
+//   2 = ogiltigt landskod (första 2 tecken måste vara A-Z)
+//   3 = felaktigt tecken (endast A-Z, 0-9, mellanslag, bindestrecks är tillåtna)
+//   4 = MOD97-fel (fel kontrollsiffror eller ogiltig checksumma)
 int validate_iban(const char* iban, int* error_out);
 
 // Returnerar 1 om BIC är giltig (ISO 9362), annars 0
+// Format: AAAA BB CC [DDD]
+//   - 4 bokstäver: bankkod
+//   - 2 bokstäver: landskod (ISO 3166-1 alpha-2)
+//   - 2 tecken (bokstäver eller siffror): ortskod
+//   - 3 tecken valfritt (bokstäver eller siffror): filialskod
 int validate_bic(const char* bic);
-
-// MOD97-kontrollsiffra — returnerar beräknad checksumma (0-97)
-int iban_mod97(const char* iban);
 ```
 
 ### Algoritm (ISO 13616 MOD97)
 
-1. Flytta de första 4 tecknen sist
-2. Ersätt varje bokstav med dess numeriska värde (A=10, B=11, ..., Z=35)
-3. Beräkna MOD 97 på den resulterande heltalssträngen
-4. Resultatet ska vara 1
+1. Normalisering: ta bort mellanslag och bindestreck, konvertera till versaler
+2. Flytta de första 4 tecknen (landskod + kontrollsiffror) till slutet
+3. Ersätt varje bokstav med dess numeriska värde (A=10, B=11, ..., Z=35)
+4. Beräkna MOD 97 på den resulterande heltalssträngen
+5. Om MOD 97 == 1 är IBAN giltig; annars felaktig kontrollsumma
 
-### Java JNA-wrapper (ska implementeras)
+### Testning
+
+```bash
+# Installera Check-ramverk (om det inte redan är installerat)
+# Ubuntu/Debian:
+sudo apt-get install check
+
+# macOS:
+brew install check
+
+# Bygga och köra tester:
+cd native/
+make check-deps    # Verifiera beroenden
+make test          # Kör alla enhetstester
+make lib           # Bygga endast bibliotek
+make clean         # Rensa upp
+```
+
+Testsviten (`iban_validator_test.c`) täcker:
+- ✅ Giltiga IBAN:er från Sverige, Tyskland, Frankrike, UK, Spanien
+- ✅ Normalisering: mellanslag, bindestrecks, versaler/gemener
+- ✅ Felaktig längd: för korta, för långa, tomma
+- ✅ Felaktig landskod: siffror i stället för bokstäver
+- ✅ Felaktiga kontrollsiffror: måste vara siffror
+- ✅ Felaktiga tecken: specialtecken avvisas
+- ✅ MOD97-felkontroll: ändring av någon siffra descobert
+- ✅ Giltiga BIC:er (8 och 11 tecken)
+- ✅ Felaktiga BIC:er (längd, format, tecken)
+- ✅ NULL-pekare och felhantering
+
+### Kompilering & bibliotek
+
+```bash
+# Bygga delad bibliotek (.so):
+gcc -O2 -shared -fPIC -o native/build/lib/libiban.so native/iban_validator.c
+
+# Länka test (kräver Check-ramverk):
+gcc -std=c99 -Wall -Wextra native/iban_validator_test.c native/iban_validator.c \
+    $(pkg-config --cflags --libs check) -o native/build/test/iban_validator_test
+./native/build/test/iban_validator_test
+```
+
+### Java JNA-wrapper (ska implementeras i #75)
 
 ```java
 import com.sun.jna.*;
@@ -117,9 +171,9 @@ import com.sun.jna.ptr.IntByReference;
 
 public interface IbanLib extends Library {
     IbanLib INSTANCE = Native.load("iban", IbanLib.class);
+    
     int validate_iban(String iban, IntByReference errorOut);
     int validate_bic(String bic);
-    int iban_mod97(String iban);
 }
 
 // Anrop med graceful fallback om biblioteket saknas (matchar v1-beteendet):
