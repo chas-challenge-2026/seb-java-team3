@@ -8,7 +8,7 @@ export default function AuditPage() {
     const { data, isPending, isError } = useQuery(auditQueryOptions);
 
     return (
-        <Container maxWidth="xl" variant="white" >
+        <Container maxWidth="xl" variant="white" style={{ marginTop: "10rem" }} >
             {isPending ? (
                 <p>Laddar händelser…</p>
             ) : isError ? (

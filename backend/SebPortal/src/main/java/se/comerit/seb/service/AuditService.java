@@ -9,6 +9,7 @@ import se.comerit.seb.domain.AuditEntry;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
 import se.comerit.seb.repository.AuditRepository;
 import se.comerit.seb.repository.PaymentRepository;
@@ -197,6 +198,16 @@ public class AuditService {
         }
 
         return response;
+    }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @Transactional(readOnly = true)
+    public List<MyPaymentStatusResponse> getMyPaymentStatuses(AuthenticatedUserContext user) {
+        return paymentRepository
+                .findByTenantIdAndCreatedByOrderByCreatedAtDesc(user.tenantId(), user.userId())
+                .stream()
+                .map(MyPaymentStatusResponse::from)
+                .collect(Collectors.toList());
     }
 
     private record TimelineEvent(

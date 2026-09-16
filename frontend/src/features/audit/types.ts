@@ -31,6 +31,17 @@ export type AuditApiEntry = {
   userName: string;
 };
 
+export type MyPaymentStatus = {
+  paymentId: number;
+  reference: string | null;
+  amount: number | null;
+  currency: string | null;
+  toIban: string | null;
+  status: string;
+  createdAt: string | null;
+  executedAt: string | null;
+};
+
 export type PaymentAuditTimelineEntry = {
   order: number;
   sequence: string;

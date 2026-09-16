@@ -57,11 +57,19 @@ const SideBar = () => {
               route={"/attest"}
             />
           )}
-          <SideBarItem
-            label="Historik"
-            icon={<Timeline size={iconSize} />}
-            route={"/audit"}
-          />
+          {user?.role === "INITIATOR" ? (
+            <SideBarItem
+              label="Mina betalningar"
+              icon={<Timeline size={iconSize} />}
+              route={"/my-payments"}
+            />
+          ) : (
+            <SideBarItem
+              label="Historik"
+              icon={<Timeline size={iconSize} />}
+              route={"/audit"}
+            />
+          )}
         </nav>
       </div>
       <div>

@@ -5,15 +5,14 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import se.comerit.seb.domain.Role;
-import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.SessionUserContext;
 import se.comerit.seb.service.AuditService;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -21,32 +20,28 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-class AuditControllerTest {
+class AuditControllerMyPaymentsTest {
 
     @Test
-    void getAuditEntries_shouldReturnCreateAndApproveEvents() throws Exception {
+    void getMyPaymentStatuses_shouldReturnOnlyOwnPayments() throws Exception {
         AuditService auditService = mock(AuditService.class);
         SessionUserContext sessionUserContext = mock(SessionUserContext.class);
         AuditController controller = new AuditController(auditService, sessionUserContext);
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
-        AuthenticatedUserContext admin = new AuthenticatedUserContext(1L, 1L, Role.ADMIN);
-        LocalDateTime now = LocalDateTime.now();
-        AuditEntryResponse createEvent = new AuditEntryResponse(
-                1L, "CREATE_PAYMENT", "PAYMENT", 100L,
-                "Betalning skapad", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
-        AuditEntryResponse approveEvent = new AuditEntryResponse(
-                2L, "APPROVE_PAYMENT", "PAYMENT", 100L,
-                "Betalning godkänd", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
+        AuthenticatedUserContext initiator = new AuthenticatedUserContext(1L, 1L, Role.INITIATOR);
+        MyPaymentStatusResponse ownPayment = new MyPaymentStatusResponse(
+                100L, "Testbetalning", new BigDecimal("500.00"), "SEK",
+                "SE1234567890123456789012", "PENDING_APPROVAL", null, null);
 
-        when(sessionUserContext.requireAuthenticated(any())).thenReturn(admin);
-        when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, approveEvent));
+        when(sessionUserContext.requireAuthenticated(any())).thenReturn(initiator);
+        when(auditService.getMyPaymentStatuses(initiator)).thenReturn(List.of(ownPayment));
 
         MockHttpSession session = new MockHttpSession();
 
-        mockMvc.perform(get("/api/audit").session(session))
+        mockMvc.perform(get("/api/my-payments").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].action",
-                        containsInAnyOrder("CREATE_PAYMENT", "APPROVE_PAYMENT")));
+                .andExpect(jsonPath("$[0].paymentId").value(100))
+                .andExpect(jsonPath("$[0].status").value("PENDING_APPROVAL"));
     }
 }

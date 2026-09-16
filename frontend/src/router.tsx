@@ -12,6 +12,7 @@ import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./features/payment/NewPayment"
 import AuditPage from "./features/audit/pages/AuditPage"
 import PaymentAuditTimelinePage from "./features/audit/pages/PaymentAuditTimelinePage";
+import MyPaymentsPage from "./features/audit/pages/MyPaymentsPage";
 import AttestPage from "./pages/AttestPage";
 
 import type { QueryClient } from "@tanstack/react-query";
@@ -64,7 +65,15 @@ const dashboardRoute = createRoute({
 const auditRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/audit",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ATTESTANT", "ADMIN"]),
   component: AuditPage,
+});
+
+const myPaymentsRoute = createRoute({
+  getParentRoute: () => authRoute,
+  path: "/my-payments",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
+  component: MyPaymentsPage,
 });
 
 const attestRoute = createRoute({
@@ -87,6 +96,7 @@ const routeTree = rootRoute.addChildren([
     uiTestRoute,
     newPaymentRoute,
     auditRoute,
+    myPaymentsRoute,
     attestRoute,
     paymentAuditRoute,
   ]),

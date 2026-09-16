@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpSession;
 import java.util.List;
 
 import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.SessionUserContext;
@@ -63,5 +64,13 @@ public class AuditController {
     ) {
         AuthenticatedUserContext user = sessionUserContext.requireAuthenticated(session);
         return auditService.getPaymentAuditTimeline(user, paymentId);
+    }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @GetMapping("/api/my-payments")
+    @ResponseBody
+    public List<MyPaymentStatusResponse> getMyPaymentStatuses(HttpSession session) {
+        AuthenticatedUserContext user = sessionUserContext.requireAuthenticated(session);
+        return auditService.getMyPaymentStatuses(user);
     }
 }
