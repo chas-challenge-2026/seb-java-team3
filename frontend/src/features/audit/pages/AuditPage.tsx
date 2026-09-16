@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import AuditGrid from "../components/AuditGrid";
 import { auditQueryOptions } from "../queries/auditQueryOptions";
-import { latestAuditEntryByPayment, toAuditEntry } from "../types";
+import { latestAuditEntryByPayment, toAuditEntry } from "../utils/mappers";
 import Container from "../../../components/ui/layout/Container";
 
 export default function AuditPage() {
     const { data, isPending, isError } = useQuery(auditQueryOptions);
 
     return (
-        <Container maxWidth="xl" variant="white" style={{ marginTop: "10rem" }} >
+        <Container maxWidth="xl" variant="white" style={{ marginTop: "2rem" }} >
             {isPending ? (
                 <p>Laddar händelser…</p>
             ) : isError ? (
