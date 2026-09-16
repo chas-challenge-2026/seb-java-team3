@@ -10,6 +10,7 @@ import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.exception.ApprovalStepAccessDeniedException;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -156,5 +157,16 @@ public class ApprovalService {
                 payment.getId(),
                 description
         );
+    }
+
+    @Transactional(readOnly = true)
+    public int countPendingByAttestant(AuthenticatedUserContext user) {
+        return (int) paymentRepository
+                .findPendingApprovalsForAttestant(user.tenantId(), user.userId())
+                .stream()
+                .flatMap(payment -> payment.getApprovalSteps().stream())
+                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
+                .filter(step -> user.userId().equals(step.getAttestantId()))
+                .count();
     }
 }

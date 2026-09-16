@@ -9,8 +9,10 @@ import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -123,4 +125,46 @@ class ApprovalServiceTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
+    @Test
+    void countPendingByAttestant_shouldReturnNumberOfPendingStepsForUser() {
+        // ARRANGE
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long tenantId = 1L;
+        Long attestantId = 2L;
+
+        AuthenticatedUserContext user =
+                new AuthenticatedUserContext(attestantId, tenantId, se.comerit.seb.domain.Role.ATTESTANT);
+
+        Payment payment1 = new Payment(
+                tenantId, 10L, "SE123", new BigDecimal("100.00"), "Test 1", 5L);
+        Payment payment2 = new Payment(
+                tenantId, 11L, "SE456", new BigDecimal("200.00"), "Test 2", 5L);
+
+        ApprovalStep pendingStep1 = new ApprovalStep(attestantId, 1);
+        ApprovalStep pendingStep2 = new ApprovalStep(attestantId, 1);
+        ApprovalStep approvedStep = new ApprovalStep(attestantId, 2);
+        approvedStep.setStatus(ApprovalStepStatus.APPROVED);
+
+        payment1.addApprovalStep(pendingStep1);
+        payment1.addApprovalStep(approvedStep);
+        payment2.addApprovalStep(pendingStep2);
+
+        when(paymentRepository.findPendingApprovalsForAttestant(tenantId, attestantId))
+                .thenReturn(List.of(payment1, payment2));
+
+        // ACT
+        int result = approvalService.countPendingByAttestant(user);
+
+        // ASSERT
+        assertEquals(2, result);
+
+        verify(paymentRepository, times(1))
+                .findPendingApprovalsForAttestant(tenantId, attestantId);
+    }
 }

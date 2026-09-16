@@ -13,6 +13,8 @@ import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.dto.PendingApprovalResponse;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.SessionUserContext;
 import se.comerit.seb.service.ApprovalService;
 
 import java.util.List;
@@ -24,11 +26,14 @@ public class ApprovalApiController {
 
     private final PaymentRepository paymentRepository;
     private final ApprovalService approvalService;
+    private final SessionUserContext sessionUserContext;
 
     public ApprovalApiController(PaymentRepository paymentRepository,
-                                 ApprovalService approvalService) {
+                                 ApprovalService approvalService,
+                                 SessionUserContext sessionUserContext) {
         this.paymentRepository = paymentRepository;
         this.approvalService = approvalService;
+        this.sessionUserContext = sessionUserContext;
     }
 
     @GetMapping
@@ -47,6 +52,15 @@ public class ApprovalApiController {
                 .toList();
 
         return ResponseEntity.ok(approvals);
+    }
+
+    @GetMapping("/count")
+    public ResponseEntity<Map<String, Integer>> pendingApprovalCount(HttpSession session) {
+        AuthenticatedUserContext user = sessionUserContext.requireAuthenticated(session);
+
+        int count = approvalService.countPendingByAttestant(user);
+
+        return ResponseEntity.ok(Map.of("count", count));
     }
 
     @PostMapping("/{stepId}/approve")
