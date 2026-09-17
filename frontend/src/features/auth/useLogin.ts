@@ -11,7 +11,13 @@ export function useLogin() {
     mutationFn: fetchLoginUser,
     onSuccess: (user) => {
       setToken(user.token);
-      queryClient.setQueryData(["auth", "me"], user);
+      queryClient.removeQueries();
+      queryClient.setQueryData(["auth", "me"], {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
       navigate({ to: "/" });
     },
   });
