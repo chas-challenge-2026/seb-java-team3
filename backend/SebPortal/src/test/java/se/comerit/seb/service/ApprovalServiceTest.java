@@ -9,8 +9,10 @@ import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -124,16 +126,18 @@ class ApprovalServiceTest {
     }
 
     @Test
-    void approve_shouldThrowIllegalState_whenEarlierStepIsStillPending() {
+// ACT
+        int result = approvalService.countPendingByAttestant(user);
 
-        PaymentRepository paymentRepository = mock(PaymentRepository.class);
-        AccountRepository accountRepository = mock(AccountRepository.class);
-        AuditService auditService = mock(AuditService.class);
+        // ASSERT
+        assertEquals(2, result);
 
-        ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+        verify(paymentRepository, times(1))
+                .findPendingApprovalsForAttestant(tenantId, attestantId);
+    }
 
-        Long tenantId = 1L;
+    @Test
+    void approve_concurrentApproval_shouldThrowAndRollback() {
         Long actorId = 2L;
         Long paymentId = 100L;
         Long approvalStep1Id = 200L;
@@ -177,5 +181,4 @@ class ApprovalServiceTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
-
 }

@@ -16,6 +16,8 @@ import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.ApprovalService;
 
 import java.util.List;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/approvals")
@@ -45,6 +47,13 @@ public class ApprovalApiController {
 
         return ResponseEntity.ok(approvals);
     }
+
+    @GetMapping("/count")
+public ResponseEntity<Map<String, Integer>> pendingApprovalCount() {
+    AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+    int count = approvalService.countPendingByAttestant(user);
+    return ResponseEntity.ok(Map.of("count", count));
+}
 
     @PostMapping("/{stepId}/approve")
     public ResponseEntity<?> approve(@PathVariable Long stepId) {
