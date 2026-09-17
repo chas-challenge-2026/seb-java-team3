@@ -11,3 +11,7 @@ export type UserResponse = {
   email: string;
   role: UserRole;
 };
+
+export type LoginResponse = UserResponse & {
+  token: string;
+};

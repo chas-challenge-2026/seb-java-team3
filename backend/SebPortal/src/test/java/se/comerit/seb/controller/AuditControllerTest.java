@@ -9,6 +9,7 @@ import se.comerit.seb.dto.AuditEntryResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.SessionUserContext;
 import se.comerit.seb.service.AuditService;
+import se.comerit.seb.security.JwtUserContext;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,30 +24,34 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AuditControllerTest {
 
-    @Test
-    void getAuditEntries_shouldReturnCreateAndApproveEvents() throws Exception {
-        AuditService auditService = mock(AuditService.class);
-        SessionUserContext sessionUserContext = mock(SessionUserContext.class);
-        AuditController controller = new AuditController(auditService, sessionUserContext);
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        @Test
+        void getAuditEntries_shouldReturnCreateAndApproveEvents() throws Exception {
+                AuditService auditService = mock(AuditService.class);
+                SessionUserContext sessionUserContext = mock(SessionUserContext.class);
+                JwtUserContext jwtUserContext = mock(JwtUserContext.class);
+                AuditController controller = new AuditController(
+                                auditService,
+                                sessionUserContext,
+                                jwtUserContext);
+                MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
-        AuthenticatedUserContext admin = new AuthenticatedUserContext(1L, 1L, Role.ADMIN);
-        LocalDateTime now = LocalDateTime.now();
-        AuditEntryResponse createEvent = new AuditEntryResponse(
-                1L, "CREATE_PAYMENT", "PAYMENT", 100L,
-                "Betalning skapad", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
-        AuditEntryResponse approveEvent = new AuditEntryResponse(
-                2L, "APPROVE_PAYMENT", "PAYMENT", 100L,
-                "Betalning godkänd", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
+                AuthenticatedUserContext admin = new AuthenticatedUserContext(1L, 1L, Role.ADMIN);
+                LocalDateTime now = LocalDateTime.now();
+                AuditEntryResponse createEvent = new AuditEntryResponse(
+                                1L, "CREATE_PAYMENT", "PAYMENT", 100L,
+                                "Betalning skapad", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
+                AuditEntryResponse approveEvent = new AuditEntryResponse(
+                                2L, "APPROVE_PAYMENT", "PAYMENT", 100L,
+                                "Betalning godkänd", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
 
-        when(sessionUserContext.requireAuthenticated(any())).thenReturn(admin);
-        when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, approveEvent));
+                when(jwtUserContext.requireAuthenticated()).thenReturn(admin);
+                when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, approveEvent));
 
-        MockHttpSession session = new MockHttpSession();
+                MockHttpSession session = new MockHttpSession();
 
-        mockMvc.perform(get("/api/audit").session(session))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].action",
-                        containsInAnyOrder("CREATE_PAYMENT", "APPROVE_PAYMENT")));
-    }
+                mockMvc.perform(get("/api/audit").session(session))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[*].action",
+                                                containsInAnyOrder("CREATE_PAYMENT", "APPROVE_PAYMENT")));
+        }
 }

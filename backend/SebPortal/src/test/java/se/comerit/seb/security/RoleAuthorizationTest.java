@@ -6,6 +6,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
+import se.comerit.seb.config.JwtSecurityConfig;
 import se.comerit.seb.controller.ApprovalApiController;
 import se.comerit.seb.controller.AuditController;
 import se.comerit.seb.controller.NewPaymentController;
@@ -27,13 +28,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Proves the endpoint-level role matrix declared via @PreAuthorize. Requests are driven
- * end-to-end through the real SecurityFilterChain/SessionAuthenticationFilter (session role
- * -> ROLE_* GrantedAuthority) rather than by faking the security context, so this also
- * verifies that piece of the chain, not just the annotations.
+ * end-to-end through the real SecurityFilterChain/JwtAuthenticationFilter (Bearer token ->
+ * ROLE_* GrantedAuthority) rather than by faking the security context, so this also verifies
+ * that piece of the chain, not just the annotations. All endpoints under test live under
+ * /api/**, which is stateless/JWT-only (see se.comerit.seb.config.JwtSecurityConfig) - there is
+ * no session to attach a role to anymore, hence generating a real token per case.
  */
 @WebMvcTest(controllers = {ApprovalApiController.class, AuditController.class, NewPaymentController.class})
-@Import({SecurityConfig.class, SessionAuthenticationFilter.class, RoleAccessDeniedHandler.class,
-        SessionUserContext.class})
+@Import({JwtSecurityConfig.class, SecurityConfig.class, SessionAuthenticationFilter.class,
+        RoleAccessDeniedHandler.class, SessionUserContext.class, JwtService.class, JwtUserContext.class})
 class RoleAuthorizationTest {
 
     private static final String PAYMENT_REQUEST_JSON = """
@@ -42,6 +45,9 @@ class RoleAuthorizationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JwtService jwtService;
 
     @MockBean
     private PaymentRepository paymentRepository;
@@ -55,12 +61,14 @@ class RoleAuthorizationTest {
     @MockBean
     private PaymentService paymentService;
 
+    private String tokenFor(Long userId, Long tenantId, Role role) {
+        return jwtService.generateToken(new AuthenticatedUserContext(userId, tenantId, role));
+    }
+
     @Test
     void initiatorCannotListPendingApprovals() throws Exception {
         mockMvc.perform(get("/api/approvals")
-                        .sessionAttr("userId", 1L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.INITIATOR))
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
                 .andExpect(status().isForbidden());
     }
 
@@ -69,9 +77,7 @@ class RoleAuthorizationTest {
         when(paymentRepository.findPendingApprovalsForAttestant(anyLong(), anyLong())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/approvals")
-                        .sessionAttr("userId", 2L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ATTESTANT))
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
                 .andExpect(status().isOk());
     }
 
@@ -80,54 +86,42 @@ class RoleAuthorizationTest {
         when(paymentRepository.findPendingApprovalsForAttestant(anyLong(), anyLong())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/approvals")
-                        .sessionAttr("userId", 3L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ADMIN))
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
                 .andExpect(status().isOk());
     }
 
     @Test
     void initiatorCannotApprovePayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", 10L)
-                        .sessionAttr("userId", 1L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.INITIATOR))
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void attestantCanApprovePayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", 10L)
-                        .sessionAttr("userId", 2L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ATTESTANT))
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void initiatorCannotRejectPayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/reject", 10L)
-                        .sessionAttr("userId", 1L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.INITIATOR))
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void adminCanRejectPayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/reject", 10L)
-                        .sessionAttr("userId", 3L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ADMIN))
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void initiatorCannotViewAuditLog() throws Exception {
         mockMvc.perform(get("/api/audit")
-                        .sessionAttr("userId", 1L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.INITIATOR))
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
                 .andExpect(status().isForbidden());
     }
 
@@ -136,9 +130,7 @@ class RoleAuthorizationTest {
         when(auditService.getAuditEntries(any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/audit")
-                        .sessionAttr("userId", 2L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ATTESTANT))
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
                 .andExpect(status().isOk());
     }
 
@@ -147,9 +139,7 @@ class RoleAuthorizationTest {
         when(auditService.getAuditEntries(any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/audit")
-                        .sessionAttr("userId", 3L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ADMIN))
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
                 .andExpect(status().isOk());
     }
 
@@ -158,9 +148,7 @@ class RoleAuthorizationTest {
         when(auditService.getPaymentAuditTimeline(any(), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/payments/{paymentId}/audit", 100L)
-                        .sessionAttr("userId", 2L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ATTESTANT))
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
                 .andExpect(status().isOk());
     }
 
@@ -169,24 +157,20 @@ class RoleAuthorizationTest {
         when(auditService.getPaymentAuditTimeline(any(), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/payments/{paymentId}/audit", 100L)
-                        .sessionAttr("userId", 3L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ADMIN))
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void unauthenticatedRequestIsForbidden() throws Exception {
+    void unauthenticatedRequestIsUnauthorized() throws Exception {
         mockMvc.perform(get("/api/approvals"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     void attestantCannotCreatePayment() throws Exception {
         mockMvc.perform(post("/api/payments")
-                        .sessionAttr("userId", 2L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ATTESTANT)
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT))
                         .contentType(APPLICATION_JSON)
                         .content(PAYMENT_REQUEST_JSON))
                 .andExpect(status().isForbidden());
@@ -195,9 +179,7 @@ class RoleAuthorizationTest {
     @Test
     void initiatorCanCreatePayment() throws Exception {
         mockMvc.perform(post("/api/payments")
-                        .sessionAttr("userId", 1L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.INITIATOR)
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR))
                         .contentType(APPLICATION_JSON)
                         .content(PAYMENT_REQUEST_JSON))
                 .andExpect(status().isCreated());
@@ -206,9 +188,7 @@ class RoleAuthorizationTest {
     @Test
     void adminCanCreatePayment() throws Exception {
         mockMvc.perform(post("/api/payments")
-                        .sessionAttr("userId", 3L)
-                        .sessionAttr("tenantId", 1L)
-                        .sessionAttr("role", Role.ADMIN)
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN))
                         .contentType(APPLICATION_JSON)
                         .content(PAYMENT_REQUEST_JSON))
                 .andExpect(status().isCreated());

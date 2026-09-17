@@ -2,6 +2,7 @@ package se.comerit.seb.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -17,6 +18,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * (RoleAccessDeniedHandler). URL matching is intentionally left permissive here so the
  * role rules live in one declarative place instead of being duplicated between this filter
  * chain and every controller.
+ *
+ * This is the catch-all chain (@Order(2)) for the Thymeleaf pages — se.comerit.seb.config.
+ * JwtSecurityConfig's JWT chain is @Order(1) and claims everything under /api/** first, so
+ * this one only ever sees the server-rendered routes (login, dashboard, approvals, audit, ...).
+ * @EnableMethodSecurity lives here since it's a single, context-wide switch: it makes
+ * @PreAuthorize work for both chains, including the JWT-authenticated one.
  */
 @Configuration
 @EnableWebSecurity
@@ -33,6 +40,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 // CSRF is a separate concern from role-based authorization (this story) and

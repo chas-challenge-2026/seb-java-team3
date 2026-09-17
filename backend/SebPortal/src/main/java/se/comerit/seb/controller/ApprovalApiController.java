@@ -1,7 +1,5 @@
 package se.comerit.seb.controller;
 
-import jakarta.servlet.http.HttpSession;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +12,8 @@ import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.dto.PendingApprovalResponse;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.ApprovalService;
 
 import java.util.List;
@@ -25,58 +25,55 @@ public class ApprovalApiController {
 
     private final PaymentRepository paymentRepository;
     private final ApprovalService approvalService;
+    private final JwtUserContext jwtUserContext;
 
     public ApprovalApiController(PaymentRepository paymentRepository,
-                                 ApprovalService approvalService) {
+                                 ApprovalService approvalService,
+                                 JwtUserContext jwtUserContext) {
         this.paymentRepository = paymentRepository;
         this.approvalService = approvalService;
+        this.jwtUserContext = jwtUserContext;
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping
-    public ResponseEntity<?> pendingApprovals(HttpSession session) {
-        Long userId = sessionLong(session, "userId");
-        Long tenantId = sessionLong(session, "tenantId");
-
-        if (userId == null || tenantId == null) {
-            return notLoggedIn();
-        }
+    public ResponseEntity<?> pendingApprovals() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
         List<PendingApprovalResponse> approvals = paymentRepository
-                .findPendingApprovalsForAttestant(tenantId, userId)
+                .findPendingApprovalsForAttestant(user.tenantId(), user.userId())
                 .stream()
-                .flatMap(payment -> pendingStepsForUser(payment, userId).stream())
+                .flatMap(payment -> pendingStepsForUser(payment, user.userId()).stream())
                 .toList();
 
         return ResponseEntity.ok(approvals);
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @GetMapping("/count")
+    public ResponseEntity<Map<String, Integer>> pendingApprovalCount() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        int count = approvalService.countPendingByAttestant(user);
+        return ResponseEntity.ok(Map.of("count", count));
+    }
+
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @PostMapping("/{stepId}/approve")
-    public ResponseEntity<?> approve(@PathVariable Long stepId, HttpSession session) {
-        Long userId = sessionLong(session, "userId");
+    public ResponseEntity<?> approve(@PathVariable Long stepId) {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
-        if (userId == null) {
-            return notLoggedIn();
-        }
-
-        approvalService.approve(stepId, userId);
+        approvalService.approve(stepId, user.userId());
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @PostMapping("/{stepId}/reject")
     public ResponseEntity<?> reject(@PathVariable Long stepId,
-                                    @RequestBody(required = false) RejectApprovalRequest request,
-                                    HttpSession session) {
-        Long userId = sessionLong(session, "userId");
-
-        if (userId == null) {
-            return notLoggedIn();
-        }
+                                    @RequestBody(required = false) RejectApprovalRequest request) {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
         String comment = request == null ? null : request.comment();
-        approvalService.reject(stepId, userId, comment);
+        approvalService.reject(stepId, user.userId(), comment);
         return ResponseEntity.noContent().build();
     }
 
@@ -86,17 +83,6 @@ public class ApprovalApiController {
                 .filter(step -> userId.equals(step.getAttestantId()))
                 .map(step -> PendingApprovalResponse.from(payment, step))
                 .toList();
-    }
-
-    private ResponseEntity<Map<String, String>> notLoggedIn() {
-        return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", "Not logged in"));
-    }
-
-    private Long sessionLong(HttpSession session, String name) {
-        Object value = session.getAttribute(name);
-        return value instanceof Number number ? number.longValue() : null;
     }
 
     public record RejectApprovalRequest(String comment) {}

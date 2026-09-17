@@ -7,6 +7,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.security.SessionUserContext;
 import se.comerit.seb.service.AuditService;
 
@@ -26,7 +27,8 @@ class AuditControllerMyPaymentsTest {
     void getMyPaymentStatuses_shouldReturnOnlyOwnPayments() throws Exception {
         AuditService auditService = mock(AuditService.class);
         SessionUserContext sessionUserContext = mock(SessionUserContext.class);
-        AuditController controller = new AuditController(auditService, sessionUserContext);
+        JwtUserContext jwtUserContext = mock(JwtUserContext.class);
+        AuditController controller = new AuditController(auditService, sessionUserContext, jwtUserContext);
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         AuthenticatedUserContext initiator = new AuthenticatedUserContext(1L, 1L, Role.INITIATOR);
@@ -34,7 +36,7 @@ class AuditControllerMyPaymentsTest {
                 100L, "Testbetalning", new BigDecimal("500.00"), "SEK",
                 "SE1234567890123456789012", "PENDING_APPROVAL", null, null);
 
-        when(sessionUserContext.requireAuthenticated(any())).thenReturn(initiator);
+        when(jwtUserContext.requireAuthenticated()).thenReturn(initiator);
         when(auditService.getMyPaymentStatuses(initiator)).thenReturn(List.of(ownPayment));
 
         MockHttpSession session = new MockHttpSession();
