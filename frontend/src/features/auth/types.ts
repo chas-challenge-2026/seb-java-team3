@@ -6,3 +6,7 @@ export type LoginInput = {
 export type UserResponse = {
  email: string;
 };
+
+export type LoginResponse = UserResponse & {
+  token: string;
+};

@@ -61,6 +61,15 @@ public class ApprovalService {
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
 
+        boolean earlierStepPending = payment.getApprovalSteps().stream()
+                .anyMatch(step -> step.getStepNumber() < approvalStep.getStepNumber()
+                        && step.getStatus() == ApprovalStepStatus.PENDING);
+
+        if (earlierStepPending) {
+            throw new IllegalStateException(
+                    "Cannot approve step " + approvalStepId + ": an earlier step is still pending");
+        }
+
         approvalStep.setStatus(ApprovalStepStatus.APPROVED);
         approvalStep.setDecidedAt(LocalDateTime.now());
 
