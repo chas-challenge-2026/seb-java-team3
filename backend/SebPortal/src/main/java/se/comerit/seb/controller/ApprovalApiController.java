@@ -16,7 +16,6 @@ import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.ApprovalService;
 
 import java.util.List;
-import java.util.List;
 import java.util.Map;
 
 @RestController

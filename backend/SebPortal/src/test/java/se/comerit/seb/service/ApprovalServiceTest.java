@@ -126,7 +126,39 @@ class ApprovalServiceTest {
     }
 
     @Test
-// ACT
+    void countPendingByAttestant_shouldReturnNumberOfPendingStepsForUser() {
+        // ARRANGE
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long tenantId = 1L;
+        Long attestantId = 2L;
+
+        AuthenticatedUserContext user =
+                new AuthenticatedUserContext(attestantId, tenantId, se.comerit.seb.domain.Role.ATTESTANT);
+
+        Payment payment1 = new Payment(
+                tenantId, 10L, "SE123", new BigDecimal("100.00"), "Test 1", 5L);
+        Payment payment2 = new Payment(
+                tenantId, 11L, "SE456", new BigDecimal("200.00"), "Test 2", 5L);
+
+        ApprovalStep pendingStep1 = new ApprovalStep(attestantId, 1);
+        ApprovalStep pendingStep2 = new ApprovalStep(attestantId, 1);
+        ApprovalStep approvedStep = new ApprovalStep(attestantId, 2);
+        approvedStep.setStatus(ApprovalStepStatus.APPROVED);
+
+        payment1.addApprovalStep(pendingStep1);
+        payment1.addApprovalStep(approvedStep);
+        payment2.addApprovalStep(pendingStep2);
+
+        when(paymentRepository.findPendingApprovalsForAttestant(tenantId, attestantId))
+                .thenReturn(List.of(payment1, payment2));
+
+        // ACT
         int result = approvalService.countPendingByAttestant(user);
 
         // ASSERT
@@ -138,6 +170,15 @@ class ApprovalServiceTest {
 
     @Test
     void approve_concurrentApproval_shouldThrowAndRollback() {
+        // ARRANGE
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long tenantId = 1L;
         Long actorId = 2L;
         Long paymentId = 100L;
         Long approvalStep1Id = 200L;
@@ -146,7 +187,6 @@ class ApprovalServiceTest {
         BigDecimal paymentAmount = new BigDecimal("200.00");
         String toIban = "SE8550000000054910000003";
 
-        // ARRANGE
         Payment payment = new Payment(
                 tenantId, accountId, toIban, paymentAmount, "Testfaktura", actorId);
 
