@@ -7,6 +7,7 @@ interface SidebarItemProps {
     badge?: number;
     active?: boolean;
     route?: string;
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }
 
 const SideBarItem = ({
@@ -15,10 +16,11 @@ const SideBarItem = ({
     badge,
     active = false,
     route,
+    onClick,
 }: SidebarItemProps) => {
   return (
     <li className={Styles.item}>
-        <a className={`${Styles.link} ${active ? Styles.active : ""}`} href={route}>
+        <a className={`${Styles.link} ${active ? Styles.active : ""}`} href={route} onClick={onClick}>
             {icon && (
                 <span className={Styles.icon}>
                     {icon}

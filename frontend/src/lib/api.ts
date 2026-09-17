@@ -11,7 +11,7 @@ export async function api<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
-    credentials: "include",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

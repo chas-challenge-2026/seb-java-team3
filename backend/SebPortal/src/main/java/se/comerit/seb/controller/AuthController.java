@@ -67,8 +67,7 @@ public class AuthController {
 
     @PostMapping("/api/auth/login")
     @ResponseBody
-    public ResponseEntity<?> apiLogin(@RequestBody LoginRequest request,
-                                      HttpSession session) {
+    public ResponseEntity<?> apiLogin(@RequestBody LoginRequest request) {
         Optional<User> user =
                 authService.authenticate(request.getEmail(), request.getPassword());
 
@@ -77,8 +76,6 @@ public class AuthController {
                     .status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid email or password"));
         }
-
-        storeAuthenticatedUser(session, user.get());
 
         String token = jwtService.generateToken(toAuthenticatedUserContext(user.get()));
         return ResponseEntity.ok(LoginResponse.from(user.get(), token));

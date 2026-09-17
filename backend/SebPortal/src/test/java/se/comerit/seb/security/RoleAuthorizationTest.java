@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import se.comerit.seb.config.JwtSecurityConfig;
 import se.comerit.seb.controller.ApprovalApiController;
@@ -77,6 +78,20 @@ class RoleAuthorizationTest {
         when(paymentRepository.findPendingApprovalsForAttestant(anyLong(), anyLong())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/approvals")
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void jwtAuthenticationWinsWhenLegacySessionCookieIsPresent() throws Exception {
+        MockHttpSession legacySession = new MockHttpSession();
+        legacySession.setAttribute("userId", 1L);
+        legacySession.setAttribute("role", Role.INITIATOR);
+
+        when(paymentRepository.findPendingApprovalsForAttestant(anyLong(), anyLong())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/approvals")
+                        .session(legacySession)
                         .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
                 .andExpect(status().isOk());
     }

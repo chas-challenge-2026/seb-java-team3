@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getPendingApprovals, approveStatus } from "./api";
+import {
+  approveStatus,
+  getPendingApprovalCount,
+  getPendingApprovals,
+} from "./api";
 
 export function useApprovals() {
   const qc = useQueryClient();
@@ -18,4 +22,12 @@ export function useApprovals() {
   });
 
   return { ...query, approve };
+}
+
+export function usePendingApprovalCount(enabled: boolean) {
+  return useQuery({
+    queryKey: ["approvals", "count"],
+    queryFn: getPendingApprovalCount,
+    enabled,
+  });
 }

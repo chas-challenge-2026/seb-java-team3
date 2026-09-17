@@ -3,6 +3,9 @@ import SideBarItem from "./SideBarItem";
 import UserAvatar from "../user/UserAvatar";
 import SEBLogo from "../../SEBLogo";
 import { useUser } from "../../../features/auth/useUser";
+import { clearToken } from "../../../lib/authToken";
+import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   LayoutDashboard,
@@ -12,11 +15,23 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { usePendingApprovalCount } from "../../../features/attest/useApprovals";
 
 const SideBar = () => {
   const { data: user } = useUser();
+  const canApprove = user?.role === "ATTESTANT" || user?.role === "ADMIN";
+  const { data: approvalCount } = usePendingApprovalCount(canApprove);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const iconSize = 16;
+
+  const handleLogout = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    clearToken();
+    queryClient.clear();
+    navigate({ to: "/login" });
+  };
 
   return (
     <aside className={Styles.sideBar}>
@@ -52,7 +67,7 @@ const SideBar = () => {
           {user && user.role !== "INITIATOR" && (
             <SideBarItem
               label="Attestera"
-              badge={2}
+              badge={approvalCount && approvalCount > 0 ? approvalCount : undefined}
               icon={<CreditCardCheck size={iconSize} />}
               route={"/attest"}
             />
@@ -84,6 +99,7 @@ const SideBar = () => {
             label="Logga ut"
             icon={<LogOut size={iconSize} />}
             route={"/login"}
+            onClick={handleLogout}
           />
         </nav>
         <hr style={{ width: "100%", margin: "1rem 0" }} />
