@@ -1,13 +1,15 @@
 import styles from "./AttestGrid.module.css";
 import Button from "../../components/ui/buttons/Button";
 import { useApprovals } from "./useApprovals";
+import IconMessage from "./IconMessage";
+import { PartyPopper, TriangleAlert } from "lucide-react"
 
 export default function AttestGrid() {
   const { data, isLoading, isError, approve } = useApprovals();
 
   if (isLoading) return <p>Laddar…</p>;
-  if (isError) return <p>Kunde inte hämta attestkorgen.</p>;
-  if (!data?.length) return <p>Inget väntar på ditt godkännande.</p>;
+  if (isError) return <IconMessage message="Kunde inte hämta attestkorgen!" icon={TriangleAlert}/>;
+  if (!data?.length) return <IconMessage message="Inget väntar på ditt godkännande." icon={PartyPopper}/>;
   return (
     <div>
       <table className={styles.grid}>
