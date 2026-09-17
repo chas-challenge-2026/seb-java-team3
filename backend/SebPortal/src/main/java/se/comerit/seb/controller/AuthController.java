@@ -16,15 +16,29 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import se.comerit.seb.domain.User;
+import se.comerit.seb.dto.LoginResponse;
+import se.comerit.seb.repository.UserRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.JwtService;
+import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.AuthService;
 
 @Controller
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtService jwtService;
+    private final JwtUserContext jwtUserContext;
+    private final UserRepository userRepository;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService,
+                          JwtService jwtService,
+                          JwtUserContext jwtUserContext,
+                          UserRepository userRepository) {
         this.authService = authService;
+        this.jwtService = jwtService;
+        this.jwtUserContext = jwtUserContext;
+        this.userRepository = userRepository;
     }
 
     @GetMapping({"/", "/login"})
@@ -65,19 +79,22 @@ public class AuthController {
 
         storeAuthenticatedUser(session, user.get());
 
-        return ResponseEntity.ok(Map.of("email", user.get().getEmail()));
+        String token = jwtService.generateToken(toAuthenticatedUserContext(user.get()));
+        return ResponseEntity.ok(LoginResponse.from(user.get(), token));
     }
 
     @GetMapping("/api/auth/me")
     @ResponseBody
-    public ResponseEntity<?> currentUser(HttpSession session) {
-        if (session.getAttribute("userId") == null) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Not logged in"));
-        }
+    public ResponseEntity<?> currentUser() {
+        AuthenticatedUserContext authenticated = jwtUserContext.requireAuthenticated();
+        User user = userRepository.findById(authenticated.userId())
+                .orElseThrow(() -> new IllegalStateException("User in token not found: " + authenticated.userId()));
 
-        return ResponseEntity.ok(Map.of("email", session.getAttribute("userEmail")));
+        return ResponseEntity.ok(Map.of("email", user.getEmail()));
+    }
+
+    private AuthenticatedUserContext toAuthenticatedUserContext(User user) {
+        return new AuthenticatedUserContext(user.getId(), user.getTenantId(), user.getRole());
     }
 
     private void storeAuthenticatedUser(HttpSession session, User user) {
