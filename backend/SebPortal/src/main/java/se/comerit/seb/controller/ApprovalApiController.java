@@ -1,6 +1,7 @@
 package se.comerit.seb.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +35,7 @@ public class ApprovalApiController {
         this.jwtUserContext = jwtUserContext;
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping
     public ResponseEntity<?> pendingApprovals() {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
@@ -47,13 +49,15 @@ public class ApprovalApiController {
         return ResponseEntity.ok(approvals);
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/count")
-public ResponseEntity<Map<String, Integer>> pendingApprovalCount() {
-    AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
-    int count = approvalService.countPendingByAttestant(user);
-    return ResponseEntity.ok(Map.of("count", count));
-}
+    public ResponseEntity<Map<String, Integer>> pendingApprovalCount() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        int count = approvalService.countPendingByAttestant(user);
+        return ResponseEntity.ok(Map.of("count", count));
+    }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @PostMapping("/{stepId}/approve")
     public ResponseEntity<?> approve(@PathVariable Long stepId) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
@@ -62,6 +66,7 @@ public ResponseEntity<Map<String, Integer>> pendingApprovalCount() {
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @PostMapping("/{stepId}/reject")
     public ResponseEntity<?> reject(@PathVariable Long stepId,
                                     @RequestBody(required = false) RejectApprovalRequest request) {

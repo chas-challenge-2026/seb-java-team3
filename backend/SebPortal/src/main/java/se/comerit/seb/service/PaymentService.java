@@ -1,5 +1,6 @@
 package se.comerit.seb.service;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import se.comerit.seb.config.ApprovalThresholds;
@@ -53,6 +54,7 @@ public class PaymentService {
         return attestants.get(0);
     }
 
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 

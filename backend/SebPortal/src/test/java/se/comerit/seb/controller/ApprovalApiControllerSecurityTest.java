@@ -6,13 +6,14 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
-import se.comerit.seb.config.SecurityConfig;
+import se.comerit.seb.config.JwtSecurityConfig;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.exception.ApprovalStepAccessDeniedException;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
 import se.comerit.seb.security.JwtUserContext;
+import se.comerit.seb.security.RoleAccessDeniedHandler;
 import se.comerit.seb.service.ApprovalService;
 
 import static org.mockito.Mockito.doNothing;
@@ -21,12 +22,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // Detta är #116:s ursprungliga testkrav, skrivet mot hela den riktiga kedjan
-// (filter -> SecurityConfig -> controller -> service -> GlobalExceptionHandler),
+// (filter -> JwtSecurityConfig -> controller -> service -> GlobalExceptionHandler),
 // inte mot mockade delar av den. Bara ApprovalApiController testas här - samma
 // JWT-mekanik är redan bevisad, att upprepa den för AuditController/NewPaymentController
 // hade bara varit repetition utan nytt värde.
 @WebMvcTest(ApprovalApiController.class)
-@Import({SecurityConfig.class, JwtService.class, JwtUserContext.class})
+@Import({JwtSecurityConfig.class, JwtService.class, JwtUserContext.class, RoleAccessDeniedHandler.class})
 class ApprovalApiControllerSecurityTest {
 
     @Autowired

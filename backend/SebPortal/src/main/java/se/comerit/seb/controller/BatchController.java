@@ -2,6 +2,7 @@ package se.comerit.seb.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,6 +45,7 @@ public class BatchController {
     // TODO: implement proper MOD97 IBAN checksum validation
     private static final Pattern IBAN_PATTERN = Pattern.compile("^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$");
 
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @GetMapping("/batch")
     public String uploadForm(HttpSession session, Model model) {
         if (session.getAttribute("userId") == null) {
@@ -52,6 +54,7 @@ public class BatchController {
         return "batch-upload";
     }
 
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @PostMapping("/batch")
     public String uploadBatch(@RequestParam("file") MultipartFile file,
                                HttpSession session,

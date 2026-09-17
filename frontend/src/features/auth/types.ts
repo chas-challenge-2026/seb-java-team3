@@ -3,8 +3,13 @@ export type LoginInput = {
     password: string;
 }
 
+export type UserRole = "ADMIN" | "ATTESTANT" | "INITIATOR";
+
 export type UserResponse = {
- email: string;
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
 };
 
 export type LoginResponse = UserResponse & {

@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import se.comerit.seb.security.CurrentUserRoles;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
@@ -17,6 +18,9 @@ public class DashboardController {
     // TODO: this should be in a service/repository layer, but inline works for now
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private CurrentUserRoles currentUserRoles;
 
     // BUG-010: hardcoded connection string duplicated across controllers
     // TODO: read from config, not a constant in every file
@@ -53,9 +57,8 @@ public class DashboardController {
         List<Map<String, Object>> recentPayments = jdbcTemplate.queryForList(paymentsSql);
 
         // Query 4: pending approvals for this user (if attestant/admin)
-        // SPAGHETTI: Role check via string comparison, no claims/roles system
         List<Map<String, Object>> pendingApprovals = null;
-        if ("attestant".equals(role) || "admin".equals(role)) {
+        if (currentUserRoles.hasRole("ATTESTANT") || currentUserRoles.hasRole("ADMIN")) {
             String approvalsSql = "SELECT p.id, p.to_iban, p.amount, p.currency, p.reference, p.status, p.created_at "
                     + "FROM payments p "
                     + "INNER JOIN approval_steps aps ON aps.payment_id = p.id "

@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,6 +52,7 @@ public class PaymentController {
     // TODO: implement proper MOD97 IBAN checksum validation
     private static final Pattern IBAN_PATTERN = Pattern.compile("^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$");
 
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @GetMapping("/payments/new")
     public String newPaymentForm(HttpSession session, Model model) {
         if (session.getAttribute("userId") == null) {
@@ -62,6 +64,7 @@ public class PaymentController {
         return "new-payment";
     }
 
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @PostMapping("/payments/new")
     public String createPayment(@RequestParam Integer fromAccountId,
                                  @RequestParam String toIban,

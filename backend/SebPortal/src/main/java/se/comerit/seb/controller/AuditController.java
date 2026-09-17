@@ -1,5 +1,6 @@
 package se.comerit.seb.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +11,7 @@ import jakarta.servlet.http.HttpSession;
 import java.util.List;
 
 import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtUserContext;
@@ -31,6 +33,7 @@ public class AuditController {
         this.jwtUserContext = jwtUserContext;
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/audit")
     public String auditLog(HttpSession session, Model model) {
         if (session.getAttribute("userId") == null) {
@@ -38,7 +41,7 @@ public class AuditController {
         }
 
         try {
-            AuthenticatedUserContext user = sessionUserContext.requireAdminOrAttestant(session);
+            AuthenticatedUserContext user = sessionUserContext.requireAuthenticated(session);
             List<AuditEntryResponse> entries = auditService.getAuditEntries(user);
             model.addAttribute("entries", entries);
         } catch (Exception e) {
@@ -48,17 +51,27 @@ public class AuditController {
         return "audit-log";
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/api/audit")
     @ResponseBody
     public List<AuditEntryResponse> getAuditEntries() {
-        AuthenticatedUserContext user = jwtUserContext.requireAdminOrAttestant();
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
         return auditService.getAuditEntries(user);
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @GetMapping("/api/payments/{paymentId}/audit")
     @ResponseBody
     public List<PaymentAuditTimelineEntryResponse> getPaymentAuditTimeline(@PathVariable Long paymentId) {
-        AuthenticatedUserContext user = jwtUserContext.requireAdmin();
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
         return auditService.getPaymentAuditTimeline(user, paymentId);
+    }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @GetMapping("/api/my-payments")
+    @ResponseBody
+    public List<MyPaymentStatusResponse> getMyPaymentStatuses() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        return auditService.getMyPaymentStatuses(user);
     }
 }

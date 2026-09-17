@@ -22,6 +22,19 @@ export function formatAuditStatus(status: string | null): string {
   }
 }
 
+export function formatAmount(amount: number | null, currency: string | null): string {
+  if (amount === null) {
+    return "-";
+  }
+
+  const formattedAmount = amount.toLocaleString("sv-SE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  return currency ? `${formattedAmount} ${currency}` : formattedAmount;
+}
+
 export function formatEventType(eventType: string): string {
   switch (eventType) {
     case "CREATE_PAYMENT":

@@ -35,6 +35,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
           <th>Händelse</th>
           <th>Status</th>
           <th>Referens</th>
+          <th>Belopp</th>
           <th>Betalning</th>
         </tr>
       </thead>

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.LoginResponse;
+import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
@@ -90,7 +91,7 @@ public class AuthController {
         User user = userRepository.findById(authenticated.userId())
                 .orElseThrow(() -> new IllegalStateException("User in token not found: " + authenticated.userId()));
 
-        return ResponseEntity.ok(Map.of("email", user.getEmail()));
+        return ResponseEntity.ok(UserResponse.from(user));
     }
 
     private AuthenticatedUserContext toAuthenticatedUserContext(User user) {
