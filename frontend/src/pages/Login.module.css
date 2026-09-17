@@ -1,14 +1,68 @@
-.mainContainer {
+.textField {
+    text-align: center;
+    margin-bottom: 2rem;
+
+    h1 {
+        margin-bottom: .8rem;
+    }
+}
+
+.wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
-}
+    justify-content: center;
 
-.body {
+    height: 100vh;
+    width: 100vw;
     background-color: var(--bg-surface);
 }
 
-.textField {
-    text-align: center;
-}
+.container {
+    width: 40rem;
+    display: flex;
+    flex-direction: row;
+    /* align-items: center; */
+    justify-content: space-between;
+    background-color: var(--bg-primary);
+    border-radius: 1.2rem;
+    box-shadow: 0 2rem 4rem rgba(0, 0, 0, 0.08);
 
+    .leftIcon {
+        width: 25%;
+        height: 100%;
+        background-color: var(--btn-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-top-left-radius: 1.2rem; 
+        border-bottom-left-radius: 1.2rem;
+    }
+
+    .rightField {
+        width: 75%;
+        /* height: 100%; */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        /* background-color: red; */
+
+        padding: 1rem;
+
+        h2 {
+            margin-bottom: 1rem;
+        }
+
+        .loginBtn {
+            width: 100%;
+            margin-top: 1rem;
+            background-color: var(--btn-primary);
+            color: var(--bg-primary);
+
+            &:hover {
+                background-color: var(--btn-primary-hover);
+            }
+        }
+    }
+}

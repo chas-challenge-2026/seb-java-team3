@@ -4,6 +4,13 @@
 
 .btnContainer {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
+    margin-top: 2rem;
+}
+
+.inputField {
+    width: 26rem;
+    /* margin-bottom: 1rem; */
+    /* background-color: red; */
 }

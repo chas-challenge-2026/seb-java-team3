@@ -38,6 +38,7 @@ export default function LoginForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         error={fieldErrors.email}
+        className={styles.inputField}
         required
       />
       <Input
@@ -48,6 +49,7 @@ export default function LoginForm() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
+        className={styles.inputField}
         required
       />
 
