@@ -12,3 +12,6 @@ export type AttestSteg = {
 
 type Status = "Godkänd" | "Väntar" | "Pending";
 
+export type PendingApprovalCount = {
+  count: number;
+};
