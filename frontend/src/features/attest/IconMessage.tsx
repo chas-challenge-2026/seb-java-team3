@@ -1,23 +1,22 @@
-import React from 'react'
 import Styles from "./IconMessage.module.css"
 import type { LucideIcon } from "lucide-react"
-import Divider from '../../components/ui/layout/Divider'
 
 interface IconMessageProps {
     message: string;
-    icon: LucideIcon
+    icon: LucideIcon;
+    title?: string;
+    variant?: "success" | "error";
 }
 
-const IconMessage = ({ message, icon: Icon }: IconMessageProps) => {
+const IconMessage = ({ message, icon: Icon, title, variant = "success" }: IconMessageProps) => {
   return (
-    <div className={Styles.wrapper}>
+    <section className={`${Styles.wrapper} ${Styles[variant]}`} aria-live="polite">
         <div className={Styles.iconWrapper}>
-            <Icon size={175} strokeWidth={1}/>
+            <Icon size={42} strokeWidth={1.75} aria-hidden="true" />
         </div>
-        <Divider/>
-        <span style={{marginBottom: "1rem"}}/>
+        {title && <h2 className={Styles.title}>{title}</h2>}
         <p className={Styles.message}>{message}</p>
-    </div>
+    </section>
   )
 }
 
