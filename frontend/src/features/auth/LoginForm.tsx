@@ -29,7 +29,7 @@ export default function LoginForm() {
       : null;
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className={styles.form} onSubmit={handleSubmit}>
       <Input
         label="E-post"
         name="email"
@@ -54,7 +54,7 @@ export default function LoginForm() {
       />
 
       {message && Object.keys(fieldErrors).length === 0 && (
-        <p role="alert">{message}</p>
+        <p className={styles.formError} role="alert">{message}</p>
       )}
       <div className={styles.btnContainer}>
       <Button className={styles.loginBtn} buttonStyle="icon-text" type="submit" variant="primary" icon="chevron" disabled={isPending}>

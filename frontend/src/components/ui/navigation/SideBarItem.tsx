@@ -8,6 +8,7 @@ interface SidebarItemProps {
     active?: boolean;
     route?: string;
     onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+    tone?: "default" | "danger";
 }
 
 const SideBarItem = ({
@@ -17,10 +18,11 @@ const SideBarItem = ({
     active = false,
     route,
     onClick,
+    tone = "default",
 }: SidebarItemProps) => {
   return (
     <li className={Styles.item}>
-        <a className={`${Styles.link} ${active ? Styles.active : ""}`} href={route} onClick={onClick}>
+        <a className={`${Styles.link} ${active ? Styles.active : ""} ${tone === "danger" ? Styles.danger : ""}`} href={route} onClick={onClick} aria-current={active ? "page" : undefined}>
             {icon && (
                 <span className={Styles.icon}>
                     {icon}

@@ -1,12 +1,10 @@
 import Styles from "./SideBar.module.css";
 import SideBarItem from "./SideBarItem";
 import UserAvatar from "../user/UserAvatar";
-import SEBLogo from "../../SEBLogo";
 import { useUser } from "../../../features/auth/useUser";
 import { clearToken } from "../../../lib/authToken";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useApprovals } from "../../../features/attest/useApprovals";
 
 import {
   LayoutDashboard,
@@ -25,13 +23,8 @@ const SideBar = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data, isLoading, isError} = useApprovals();
-
-  // if (isLoading) return <p>Laddar…</p>;
-  // if (isError) return <IconMessage message="Kunde inte hämta attestkorgen!" icon={TriangleAlert}/>;
-  // if (!data?.length) return <IconMessage message="Inget väntar på ditt godkännande." icon={PartyPopper}/>;
-
   const iconSize = 16;
+  const currentPath = window.location.pathname;
 
   const handleLogout = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -43,40 +36,33 @@ const SideBar = () => {
   return (
     <aside className={Styles.sideBar}>
       <div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            marginTop: "1rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <SEBLogo size="sm" />
-          <span style={{ marginBottom: ".5rem" }} />
-          <h2 style={{ fontSize: "1.2rem" }}>Företagsbetalningar</h2>
-          <hr style={{ width: "100%", marginTop: "1.5rem" }} />
+        <div className={Styles.brand}>
+          <h2><span>SEB</span> Företagsbetalningar</h2>
         </div>
 
-        <nav>
+        <nav aria-label="Huvudmeny">
+          <ul className={Styles.navList}>
           <SideBarItem
             label="Översikt"
             icon={<LayoutDashboard size={iconSize} />}
+            route="/"
+            active={currentPath === "/"}
           />
-          <div style={{ marginBottom: "1rem" }} />
           {user && user.role !== "ATTESTANT" && (
             <SideBarItem
               label="Ny Betalning"
               icon={<CreditCard size={iconSize} />}
               route={"/payments/new"}
+              active={currentPath === "/payments/new"}
             />
           )}
           {user && user.role !== "INITIATOR" && (
             <SideBarItem
               label="Attestera"
-              badge={approvalCount && approvalCount > 0 ? approvalCount : data?.length}
+              badge={approvalCount && approvalCount > 0 ? approvalCount : undefined}
               icon={<CreditCardCheck size={iconSize} />}
               route={"/attest"}
+              active={currentPath === "/attest"}
             />
           )}
           {user &&
@@ -85,19 +71,22 @@ const SideBar = () => {
                 label="Mina betalningar"
                 icon={<Timeline size={iconSize} />}
                 route={"/my-payments"}
+                active={currentPath === "/my-payments"}
               />
             ) : (
               <SideBarItem
                 label="Historik"
                 icon={<Timeline size={iconSize} />}
                 route={"/audit"}
+                active={currentPath === "/audit"}
               />
             ))}
+          </ul>
         </nav>
       </div>
-      <div>
-        <nav>
-          <div style={{ marginBottom: "1rem" }} />
+      <div className={Styles.bottomArea}>
+        <nav aria-label="Kontomeny">
+          <ul className={Styles.navList}>
           <SideBarItem
             label="Inställningar"
             icon={<Settings size={iconSize} />}
@@ -107,12 +96,13 @@ const SideBar = () => {
             icon={<LogOut size={iconSize} />}
             route={"/login"}
             onClick={handleLogout}
+            tone="danger"
           />
+          </ul>
         </nav>
-        <hr style={{ width: "100%", margin: "1rem 0" }} />
+        <div className={Styles.divider} />
         <UserAvatar
-          firstName="Marcus"
-          lastName="Johansson"
+          name={user?.name ?? "Användare"}
           companyName="Malmö Bygg"
         />
       </div>

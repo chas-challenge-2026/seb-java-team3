@@ -5,11 +5,9 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { CircleCheck, Landmark, LockKeyhole } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
 import Button from "../../components/ui/buttons/Button";
-import Divider from "../../components/ui/layout/Divider";
 import Input from "../../components/ui/forms/Input";
 import Select from "../../components/ui/forms/Select";
 
@@ -252,9 +250,6 @@ function PaymentForm() {
             aria-labelledby="payment-confirmation-title"
           >
           <header className={`${styles.formHeader} ${styles.confirmationHeader}`}>
-            <span className={styles.headerIcon} aria-hidden="true">
-              <CircleCheck size={22} />
-            </span>
             <div>
               <h2 id="payment-confirmation-title">Betalningen har skickats</h2>
               <p>Din betalning har registrerats och väntar på hantering.</p>
@@ -328,7 +323,6 @@ function PaymentForm() {
           onSubmit={handleSubmit}
         >
         <header className={styles.formHeader}>
-          <span className={styles.headerIcon} aria-hidden="true"><Landmark size={22} /></span>
           <div>
             <h2>Ny betalning</h2>
             <p>Fyll i uppgifterna nedan för att skapa en betalning.</p>
@@ -422,8 +416,6 @@ function PaymentForm() {
             />
           </div>
 
-          <Divider shortWidth />
-
           <div className={styles.paymentActions}>
             <Button
               type="button"
@@ -443,7 +435,6 @@ function PaymentForm() {
               Skicka betalning
             </Button>
           </div>
-          <p className={styles.securityNote}><LockKeyhole size={15} aria-hidden="true" /> Dina uppgifter behandlas säkert.</p>
         </div>
         </form>
       </Container>

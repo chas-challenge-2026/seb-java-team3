@@ -40,21 +40,9 @@
 .formHeader {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
   padding: 1.65rem 1.75rem;
   border-bottom: 1px solid #e3e5e4;
   background: linear-gradient(120deg, #fafafa 0%, #ffffff 70%);
-}
-
-.headerIcon {
-  display: grid;
-  flex: 0 0 auto;
-  width: 2.75rem;
-  height: 2.75rem;
-  place-items: center;
-  border-radius: 0.75rem;
-  background: #eef0ef;
-  color: #17613f;
 }
 
 .formHeader h2 { color: #1d2b23; font-size: 1.4rem; line-height: 1.2; }
@@ -70,9 +58,6 @@
 .sectionHeading p { margin-top: 0.22rem; color: #68746d; font-size: 0.8rem; line-height: 1.4; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 0.25rem; }
 .fullWidth { grid-column: 1 / -1; }
-
-.securityNote { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; margin-top: 0.9rem; color: #68746d; font-size: 0.75rem; }
-.securityNote svg { color: #39715b; }
 
 .formExiting {
   animation: formExit 250ms ease-in both;
@@ -173,5 +158,4 @@
   .paymentActions { justify-content: stretch; }
   .paymentActions button, .confirmationActions button { flex: 1; }
   .confirmationActions { justify-content: stretch; }
-  .securityNote { justify-content: center; }
 }
