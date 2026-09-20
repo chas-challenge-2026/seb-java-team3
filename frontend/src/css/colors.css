@@ -47,3 +47,51 @@
     --shadow-sidebar: 0.5rem 0 2rem rgba(20, 35, 27, 0.04);
 
 }
+
+:root[data-theme="dark"] {
+    --bg-primary: #171b19;
+    --bg-surface: #101311;
+    --bg-surface-nav: #1d211f;
+    --bg-muted: #202522;
+    --bg-subtle: #292f2b;
+    --bg-hover: #272d29;
+    --bg-active: #303833;
+
+    --btn-primary: #19724e;
+    --btn-primary-hover: #27875f;
+    --btn-primary-strong: #32966b;
+    --btn-secondary: #303733;
+    --btn-secondary-hover: #3b453f;
+    --btn-dark: #e8edea;
+    --btn-dark-hover: #ffffff;
+
+    --text-primary: #f2f5f3;
+    --text-heading: #e2e8e4;
+    --text-secondary: #adb8b0;
+    --text-muted: #c1cac4;
+    --text-navigation: #c5cec8;
+    --text-on-primary: #ffffff;
+
+    --border-card: #303832;
+    --border-default: #343d37;
+    --border-subtle: #2b332e;
+    --border-soft: #29312c;
+    --border-input: #465148;
+
+    --accent-muted: #6fc496;
+    --focus-outline: #8ad3ab;
+    --focus-ring: #244f39;
+    --focus-attention: #94d5b0;
+
+    --danger-text: #ffaaa3;
+    --danger-text-strong: #ffc1bc;
+    --danger-text-muted: #f1a19b;
+    --danger-bg: #321f1e;
+    --danger-bg-hover: #3b2523;
+    --danger-border: #6d3f3b;
+    --danger-icon-bg: #452827;
+
+    --shadow-card: 0 1.25rem 3.5rem rgba(0, 0, 0, 0.28);
+    --shadow-elevated: 0 1.5rem 4rem rgba(0, 0, 0, 0.4);
+    --shadow-sidebar: 0.5rem 0 2rem rgba(0, 0, 0, 0.18);
+}

@@ -5,14 +5,17 @@ import { useUser } from "../../../features/auth/useUser";
 import { clearToken } from "../../../lib/authToken";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { applyTheme, getSavedTheme, type Theme } from "../../../lib/theme";
 
 import {
   LayoutDashboard,
   CreditCard,
   CreditCardCheck,
   Timeline,
-  Settings,
+  Moon,
   LogOut,
+  Sun,
 } from "lucide-react";
 import { usePendingApprovalCount } from "../../../features/attest/useApprovals";
 
@@ -22,6 +25,7 @@ const SideBar = () => {
   const { data: approvalCount } = usePendingApprovalCount(canApprove);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [theme, setTheme] = useState<Theme>(getSavedTheme);
 
   const iconSize = 16;
   const currentPath = window.location.pathname;
@@ -31,6 +35,13 @@ const SideBar = () => {
     clearToken();
     queryClient.clear();
     navigate({ to: "/login" });
+  };
+
+  const handleThemeToggle = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const nextTheme: Theme = theme === "light" ? "dark" : "light";
+    applyTheme(nextTheme, true);
+    setTheme(nextTheme);
   };
 
   return (
@@ -88,8 +99,10 @@ const SideBar = () => {
         <nav aria-label="Kontomeny">
           <ul className={Styles.navList}>
           <SideBarItem
-            label="Inställningar"
-            icon={<Settings size={iconSize} />}
+            label={theme === "light" ? "Mörkt läge" : "Ljust läge"}
+            icon={theme === "light" ? <Moon size={iconSize} /> : <Sun size={iconSize} />}
+            route="#theme"
+            onClick={handleThemeToggle}
           />
           <SideBarItem
             label="Logga ut"

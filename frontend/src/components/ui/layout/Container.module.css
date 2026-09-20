@@ -42,6 +42,6 @@
 }
 
 .white {
-    background-color: white;
+    background-color: var(--bg-primary);
     border-radius: 1.4rem;
 }

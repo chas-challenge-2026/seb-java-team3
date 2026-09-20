@@ -10,4 +10,5 @@ body {
     /* font-family: "SEB SansSerif Regular"; */
     font-family: "system-ui", "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
     background-color: var(--bg-surface);
+    color: var(--text-primary);
 }
