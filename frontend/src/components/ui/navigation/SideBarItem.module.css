@@ -19,6 +19,13 @@
     cursor: pointer;
 }
 
+.button {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+}
+
 .link:hover {
     background-color: var(--bg-hover);
     color: var(--text-primary);

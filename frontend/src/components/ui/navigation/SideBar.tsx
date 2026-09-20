@@ -3,7 +3,7 @@ import SideBarItem from "./SideBarItem";
 import UserAvatar from "../user/UserAvatar";
 import { useUser } from "../../../features/auth/useUser";
 import { clearToken } from "../../../lib/authToken";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { applyTheme, getSavedTheme, type Theme } from "../../../lib/theme";
@@ -28,17 +28,15 @@ const SideBar = () => {
   const [theme, setTheme] = useState<Theme>(getSavedTheme);
 
   const iconSize = 16;
-  const currentPath = window.location.pathname;
+  const currentPath = useRouterState({ select: (state) => state.location.pathname });
 
-  const handleLogout = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
+  const handleLogout = () => {
     clearToken();
     queryClient.clear();
     navigate({ to: "/login" });
   };
 
-  const handleThemeToggle = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
+  const handleThemeToggle = () => {
     const nextTheme: Theme = theme === "light" ? "dark" : "light";
     applyTheme(nextTheme, true);
     setTheme(nextTheme);
@@ -101,13 +99,11 @@ const SideBar = () => {
           <SideBarItem
             label={theme === "light" ? "Mörkt läge" : "Ljust läge"}
             icon={theme === "light" ? <Moon size={iconSize} /> : <Sun size={iconSize} />}
-            route="#theme"
             onClick={handleThemeToggle}
           />
           <SideBarItem
             label="Logga ut"
             icon={<LogOut size={iconSize} />}
-            route={"/login"}
             onClick={handleLogout}
             tone="danger"
           />
