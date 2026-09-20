@@ -7,7 +7,7 @@
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
-    background-color: #f4f5f4;
+    background-color: var(--bg-surface);
 }
 
 .container {

@@ -47,8 +47,8 @@
 
 .grid {
     width: 100%;
-    min-width: 720px;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 .grid th,
@@ -57,6 +57,13 @@
     text-align: left;
     border-bottom: 1px solid #eceeed;
 }
+
+.grid td {
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+}
+
+.grid td > * { min-width: 0; }
 
 .grid th {
     padding-top: 0.8rem;
@@ -74,12 +81,12 @@
 .grid tbody tr:last-child td { border-bottom: 0; }
 
 .recipient { color: #202924; }
-.recipient strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86rem; font-weight: 650; letter-spacing: 0.01em; }
+.recipient strong { display: block; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86rem; font-weight: 650; letter-spacing: 0.01em; }
 .type { display: inline-block; padding: 0.28rem 0.55rem; border-radius: 0.4rem; background: #f0f3f1; color: #445149; font-size: 0.78rem; font-weight: 600; }
-.amount { color: #17231d; font-weight: 750; white-space: nowrap; }
+.amount { color: #17231d; font-weight: 750; }
 .amount span { color: #6a756e; font-size: 0.78rem; font-weight: 600; }
-.date, .reference { color: #58645d; font-size: 0.9rem; white-space: nowrap; }
-.reference { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; }
+.date, .reference { color: #58645d; font-size: 0.9rem; }
+.reference { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; }
 
 .actions { display: flex; justify-content: flex-end; gap: 0.45rem; }
 .approve { cursor: pointer; box-shadow: none; transition: box-shadow 160ms ease, background-color 160ms ease; }
@@ -97,4 +104,26 @@
     .count { align-self: flex-start; }
     .grid th, .grid td { padding-left: 1rem; padding-right: 1rem; }
     .footer { align-items: flex-start; padding: 0.9rem 1rem; }
+}
+
+@media (max-width: 760px) {
+    .tableWrap { overflow: visible; }
+    .grid, .grid tbody, .grid tr, .grid td { display: block; width: 100%; }
+    .grid thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+    .grid tbody { display: grid; gap: 0.75rem; padding: 0.75rem; }
+    .grid tbody tr { overflow: hidden; border: 1px solid #e3e5e4; border-radius: 0.85rem; background: #ffffff; }
+    .grid tbody tr:hover { box-shadow: none; }
+    .grid td {
+        display: grid;
+        grid-template-columns: minmax(6.75rem, 0.8fr) minmax(0, 1.2fr);
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.7rem 0.85rem;
+        border-bottom: 1px solid #eceeed;
+    }
+    .grid td::before { content: attr(data-label); color: #68746d; font-size: 0.7rem; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; }
+    .grid td:last-child { grid-template-columns: 1fr; border-bottom: 0; }
+    .grid td:last-child::before { display: none; }
+    .actions { justify-content: flex-start; }
+    .date, .reference, .amount { white-space: normal; }
 }
