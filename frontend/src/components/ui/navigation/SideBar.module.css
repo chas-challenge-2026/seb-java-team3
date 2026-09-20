@@ -2,9 +2,9 @@
     width: 16rem;
     height: 100vh;
     padding: 1rem;
-    border-right: 1px solid #e3e5e4;
-    background: #ffffff;
-    box-shadow: 0.5rem 0 2rem rgba(20, 35, 27, 0.04);
+    border-right: 1px solid var(--border-default);
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-sidebar);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -18,11 +18,11 @@
     min-height: 4rem;
     padding: 0.85rem 0.75rem 1.35rem;
     margin-bottom: 0.85rem;
-    border-bottom: 1px solid #e8eae9;
+    border-bottom: 1px solid var(--border-subtle);
 }
 
-.brand h2 { color: #26332b; font-size: 0.95rem; font-weight: 500; letter-spacing: -0.01em; }
+.brand h2 { color: var(--text-heading); font-size: 0.95rem; font-weight: 500; letter-spacing: -0.01em; }
 .brand h2 span { margin-right: 0.3rem; color: var(--btn-primary); font-size: 1.12rem; font-weight: 800; letter-spacing: -0.04em; }
 .navList { display: flex; flex-direction: column; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
 .bottomArea { padding-top: 1rem; }
-.divider { height: 1px; margin: 1rem 0; background: #e8eae9; }
+.divider { height: 1px; margin: 1rem 0; background: var(--border-subtle); }

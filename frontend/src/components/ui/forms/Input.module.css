@@ -7,7 +7,7 @@
 }
 
 .inputLabel {
-  color: #37443c;
+  color: var(--text-heading);
   font-size: 0.84rem;
   font-weight: 650;
 }
@@ -16,26 +16,26 @@
     width: 100%;
     height: 2.75rem;
     padding: 0 0.85rem;
-    border: 1px solid #d8e2dc;
+    border: 1px solid var(--border-input);
     border-radius: 0.65rem;
-    background-color: white;
-    color: #1d2b23;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-size: 0.95rem;
     box-sizing: border-box;
     transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.inputField::placeholder { color: #98a39d; }
+.inputField::placeholder { color: var(--text-secondary); opacity: 0.65; }
 
 .inputField:focus {
-  border-color: #39715b;
+  border-color: var(--accent-muted);
   outline: none;
-  box-shadow: 0 0 0 3px #e1e7e3;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.inputError { border-color: #b94a45; }
-.inputError:focus { border-color: #b94a45; box-shadow: 0 0 0 3px #f9dfdd; }
-.errorMsg { margin: 0.1rem 0 0; color: #a13a35; font-size: 0.78rem; line-height: 1.35; }
+.inputError { border-color: var(--danger-text); }
+.inputError:focus { border-color: var(--danger-text); box-shadow: 0 0 0 3px var(--danger-icon-bg); }
+.errorMsg { margin: 0.1rem 0 0; color: var(--danger-text); font-size: 0.78rem; line-height: 1.35; }
 
 .wrap {
   position: relative;
@@ -54,7 +54,7 @@
 
   border: none;
   background: none;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
 }
 

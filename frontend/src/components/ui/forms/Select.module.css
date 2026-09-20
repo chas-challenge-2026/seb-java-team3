@@ -7,7 +7,7 @@
 }
 
 .selectLabel {
-    color: #37443c;
+    color: var(--text-heading);
     font-size: 0.84rem;
     font-weight: 650;
 }
@@ -16,16 +16,16 @@
     width: 100%;
     height: 2.75rem;
     padding: 0 2.5rem 0 0.85rem;
-    border: 1px solid #d8e2dc;
+    border: 1px solid var(--border-input);
     border-radius: 0.65rem;
-    background-color: white;
-    color: #1d2b23;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-size: 0.95rem;
     transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .select:focus {
-    border-color: #39715b;
+    border-color: var(--accent-muted);
     outline: none;
-    box-shadow: 0 0 0 3px #e1e7e3;
+    box-shadow: 0 0 0 3px var(--focus-ring);
 }

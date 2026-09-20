@@ -15,10 +15,10 @@
     width: min(100%, 52rem);
     min-height: 31rem;
     overflow: hidden;
-    border: 1px solid #e1e4e2;
+    border: 1px solid var(--border-card);
     border-radius: 1.25rem;
-    background: #ffffff;
-    box-shadow: 0 1.5rem 4rem rgba(20, 35, 27, 0.1);
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-elevated);
 }
 
 .brandPanel {
@@ -28,7 +28,7 @@
     justify-content: center;
     padding: 2.5rem;
     background: var(--btn-primary);
-    color: #ffffff;
+    color: var(--text-on-primary);
 }
 
 .brandName { margin-bottom: 0.45rem; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.04em; }
@@ -36,9 +36,9 @@
 .brandDescription { max-width: 16rem; margin-top: 1rem; color: rgba(255, 255, 255, 0.75); font-size: 0.9rem; line-height: 1.55; }
 
 .loginPanel { display: flex; width: 56%; flex-direction: column; justify-content: center; padding: 3rem 2.75rem; }
-.textField > p { margin-bottom: 0.45rem; color: #39715b; font-size: 0.78rem; font-weight: 750; letter-spacing: 0.07em; text-transform: uppercase; }
-.textField h2 { color: #1d2b23; font-size: 1.65rem; letter-spacing: -0.025em; }
-.textField > span { display: block; margin-top: 0.6rem; color: #68746d; font-size: 0.9rem; line-height: 1.5; }
+.textField > p { margin-bottom: 0.45rem; color: var(--accent-muted); font-size: 0.78rem; font-weight: 750; letter-spacing: 0.07em; text-transform: uppercase; }
+.textField h2 { color: var(--text-primary); font-size: 1.65rem; letter-spacing: -0.025em; }
+.textField > span { display: block; margin-top: 0.6rem; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
 
 @media (max-width: 680px) {
     .wrapper { align-items: flex-start; padding: 1rem; }

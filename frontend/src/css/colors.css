@@ -1,16 +1,49 @@
 :root {
-
     --bg-primary: #ffffff;
     --bg-surface: #eeefec;
     --bg-surface-nav: #F8F8F8;
+    --bg-muted: #fafafa;
+    --bg-subtle: #f0f2f1;
+    --bg-hover: #f3f5f4;
+    --bg-active: #ecefed;
 
     --btn-primary: #003824;
     --btn-primary-hover: #336050;
+    --btn-primary-strong: #075d3c;
     --btn-secondary: #EAEBEB;
     --btn-secondary-hover: #DCDDDD;
     --btn-dark: #1A1A1A;
     --btn-dark-hover: #393939;
 
-    --divider-clr: #ebebeb;
+    --text-primary: #1d2b23;
+    --text-heading: #253229;
+    --text-secondary: #68746d;
+    --text-muted: #5a6660;
+    --text-navigation: #4d5a52;
+    --text-on-primary: #ffffff;
+
+    --border-card: #e1e4e2;
+    --border-default: #e3e5e4;
+    --border-subtle: #e8eae9;
+    --border-soft: #eceeed;
+    --border-input: #d8e2dc;
+    --divider-clr: var(--border-soft);
+
+    --accent-muted: #39715b;
+    --focus-outline: #cdd8d1;
+    --focus-ring: #e1e7e3;
+    --focus-attention: #82b89f;
+
+    --danger-text: #a13a35;
+    --danger-text-strong: #77312d;
+    --danger-text-muted: #86403b;
+    --danger-bg: #fff8f7;
+    --danger-bg-hover: #faf4f3;
+    --danger-border: #efd1cf;
+    --danger-icon-bg: #fdebea;
+
+    --shadow-card: 0 1.25rem 3.5rem rgba(0, 56, 36, 0.08);
+    --shadow-elevated: 0 1.5rem 4rem rgba(20, 35, 27, 0.1);
+    --shadow-sidebar: 0.5rem 0 2rem rgba(20, 35, 27, 0.04);
 
 }

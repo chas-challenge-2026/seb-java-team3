@@ -2,14 +2,14 @@
     width: min(100%, 36rem);
     margin: 0 auto;
     padding: 3rem 1.5rem;
-    border: 1px solid #e3e5e4;
+    border: 1px solid var(--border-default);
     border-radius: 1.25rem;
-    background: linear-gradient(135deg, #fafafa, #ffffff 70%);
+    background: var(--bg-primary);
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    box-shadow: 0 1.25rem 3.5rem rgba(0, 56, 36, 0.08);
+    box-shadow: var(--shadow-card);
 }
 
 .iconWrapper {
@@ -19,22 +19,22 @@
     margin-bottom: 1.25rem;
     place-items: center;
     border-radius: 50%;
-    background: #eef0ef;
-    color: #17613f;
+    background: var(--bg-subtle);
+    color: var(--accent-muted);
 }
 
 .title {
-    color: #1d2b23;
+    color: var(--text-primary);
     font-size: 1.35rem;
     line-height: 1.2;
 }
 
 .message {
     margin-top: 0.55rem;
-    color: #5a6660;
+    color: var(--text-muted);
     font-size: 0.95rem;
     line-height: 1.5;
 }
 
-.error { background: linear-gradient(135deg, #fff8f7, #ffffff 70%); }
-.error .iconWrapper { background: #fdebea; color: #a13a35; }
+.error { background: var(--bg-primary); }
+.error .iconWrapper { background: var(--danger-icon-bg); color: var(--danger-text); }
