@@ -1,8 +1,8 @@
 .paymentActions {
   display: flex;
   gap: 0.8rem;
-  justify-content: center;
-  margin-top: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
 }
 
 .fieldError {
@@ -12,16 +12,17 @@
 }
 
 .paymentConfirmation {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 1.5rem 0.5rem 0.5rem;
+  background: #ffffff;
   animation: confirmationEnter 350ms ease-out both;
 }
 
 .paymentCard {
   overflow: hidden;
+  padding: 0;
+  border: 1px solid #e3e5e4;
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 1.25rem 3.5rem rgba(0, 56, 36, 0.08);
   transition: height 350ms ease-out;
 }
 
@@ -30,8 +31,48 @@
   justify-content: center;
   flex: 0 0 auto;
   max-width: 100%;
+  margin: 4rem auto;
   transition: width 350ms ease-out;
 }
+
+.paymentForm { background: #ffffff; }
+
+.formHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.65rem 1.75rem;
+  border-bottom: 1px solid #e3e5e4;
+  background: linear-gradient(120deg, #fafafa 0%, #ffffff 70%);
+}
+
+.headerIcon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: #eef0ef;
+  color: #17613f;
+}
+
+.formHeader h2 { color: #1d2b23; font-size: 1.4rem; line-height: 1.2; }
+.formHeader p { margin-top: 0.3rem; color: #5a6660; font-size: 0.88rem; }
+.confirmationHeader { border-bottom-color: #e3e5e4; }
+.confirmationBody { padding: 1.5rem 1.25rem 1.75rem; }
+
+.formBody { padding: 1.5rem 1.25rem 1.25rem; }
+
+.sectionHeading { margin: 0.45rem 0 0.85rem; }
+.sectionHeading + .wrapper { margin-bottom: 1.4rem; }
+.sectionHeading h3 { color: #253229; font-size: 0.9rem; }
+.sectionHeading p { margin-top: 0.22rem; color: #68746d; font-size: 0.8rem; line-height: 1.4; }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 0.25rem; }
+.fullWidth { grid-column: 1 / -1; }
+
+.securityNote { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; margin-top: 0.9rem; color: #68746d; font-size: 0.75rem; }
+.securityNote svg { color: #39715b; }
 
 .formExiting {
   animation: formExit 250ms ease-in both;
@@ -47,38 +88,34 @@
   animation: confirmationEnter 350ms ease-out both;
 }
 
-.successIcon {
-  color: var(--btn-primary);
-  margin-bottom: 0.75rem;
-}
-
-.confirmationText {
-  margin: 0.25rem 0 1.5rem;
-  color: var(--text-secondary);
-}
-
 .paymentSummary {
   width: 100%;
   margin: 0 0 1.5rem;
   text-align: left;
-  border-top: 1px solid var(--divider-clr);
+  overflow: hidden;
+  border: 1px solid #dfe8e2;
+  border-radius: 0.75rem;
+  background: #ffffff;
 }
 
 .paymentSummary div {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.8rem 0;
-  border-bottom: 1px solid var(--divider-clr);
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #eceeed;
 }
 
 .paymentSummary dt {
-  color: var(--text-secondary);
+  color: #68746d;
+  font-size: 0.82rem;
 }
 
 .paymentSummary dd {
   margin: 0;
-  font-weight: 600;
+  color: #253229;
+  font-size: 0.88rem;
+  font-weight: 650;
   text-align: right;
   overflow-wrap: anywhere;
 }
@@ -86,7 +123,7 @@
 .confirmationActions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 0.8rem;
 }
 
@@ -124,4 +161,17 @@
   .paymentCardWrapper {
     transition: none;
   }
+}
+
+@media (max-width: 540px) {
+  .paymentCardWrapper { margin: 1.5rem auto; }
+  .formHeader { align-items: flex-start; padding: 1.35rem 1.25rem; }
+  .formBody { padding: 1.25rem 0.75rem 1rem; }
+  .confirmationBody { padding: 1.25rem 0.75rem 1.5rem; }
+  .formGrid { grid-template-columns: 1fr; }
+  .fullWidth { grid-column: auto; }
+  .paymentActions { justify-content: stretch; }
+  .paymentActions button, .confirmationActions button { flex: 1; }
+  .confirmationActions { justify-content: stretch; }
+  .securityNote { justify-content: center; }
 }

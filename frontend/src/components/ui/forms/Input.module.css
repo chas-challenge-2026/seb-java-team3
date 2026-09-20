@@ -1,33 +1,41 @@
 .wrapper {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.8rem;
+  gap: 0.4rem;
+  margin-bottom: 0.95rem;
   padding: 0 0.5rem;
 }
 
 .inputLabel {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  color: #37443c;
+  font-size: 0.84rem;
+  font-weight: 650;
 }
 
 .inputField {
     width: 100%;
-    height: 2.4rem;
-    padding-left: 1rem;
-    border-radius: 0.4rem;
-    border: 1px solid var(--divider-clr);
+    height: 2.75rem;
+    padding: 0 0.85rem;
+    border: 1px solid #d8e2dc;
+    border-radius: 0.65rem;
     background-color: white;
-    color: var(--text-primary);
-    font-size: 1rem;
+    color: #1d2b23;
+    font-size: 0.95rem;
     box-sizing: border-box;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.option {
-  font-size: 5rem;
-  color: var(--text-primary);
+.inputField::placeholder { color: #98a39d; }
+
+.inputField:focus {
+  border-color: #39715b;
+  outline: none;
+  box-shadow: 0 0 0 3px #e1e7e3;
 }
+
+.inputError { border-color: #b94a45; }
+.inputError:focus { border-color: #b94a45; box-shadow: 0 0 0 3px #f9dfdd; }
+.errorMsg { margin: 0.1rem 0 0; color: #a13a35; font-size: 0.78rem; line-height: 1.35; }
 
 .wrap {
   position: relative;
@@ -51,6 +59,5 @@
 }
 
 .toggle:hover {
-  color: var(--btn-dark
-  )
+  color: var(--btn-dark);
 }

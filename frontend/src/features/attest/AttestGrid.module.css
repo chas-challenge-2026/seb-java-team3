@@ -1,8 +1,8 @@
 .card {
     overflow: hidden;
-    border: 1px solid #e4ebe7;
+    border: 1px solid #e3e5e4;
     border-radius: 1.25rem;
-    background: #f8faf9;
+    background: #ffffff;
     box-shadow: 0 1.25rem 3.5rem rgba(0, 56, 36, 0.08);
 }
 
@@ -12,8 +12,8 @@
     justify-content: space-between;
     gap: 1.5rem;
     padding: 1.75rem 1.75rem 1.5rem;
-    background: linear-gradient(120deg, #f5faf7 0%, #ffffff 65%);
-    border-bottom: 1px solid #e4ebe7;
+    background: linear-gradient(120deg, #fafafa 0%, #ffffff 65%);
+    border-bottom: 1px solid #e3e5e4;
 }
 
 .header h2 {
@@ -35,8 +35,8 @@
     gap: 0.35rem;
     padding: 0.55rem 0.75rem;
     border-radius: 999px;
-    background: #e7f3ec;
-    color: #195d3d;
+    background: #f0f2f1;
+    color: #34423a;
     font-size: 0.8rem;
     font-weight: 650;
     white-space: nowrap;
@@ -55,7 +55,7 @@
 .grid td {
     padding: 1rem 1.25rem;
     text-align: left;
-    border-bottom: 1px solid #edf1ee;
+    border-bottom: 1px solid #eceeed;
 }
 
 .grid th {
@@ -70,7 +70,7 @@
 }
 
 .grid tbody tr { transition: background-color 160ms ease, box-shadow 160ms ease; }
-.grid tbody tr:hover { background: #f7fbf8; box-shadow: inset 3px 0 0 var(--btn-primary); }
+.grid tbody tr:hover { background: #f8f9f8; box-shadow: inset 3px 0 0 var(--btn-primary); }
 .grid tbody tr:last-child td { border-bottom: 0; }
 
 .recipient { color: #202924; }
@@ -87,7 +87,7 @@
 .approve:focus-visible { outline: 3px solid #82b89f; outline-offset: 2px; }
 .approve:disabled { cursor: wait; opacity: 0.65; transform: none; }
 
-.footer { display: flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.25rem; background: #fafcfb; border-top: 1px solid #edf1ee; color: #68746d; font-size: 0.8rem; }
+.footer { display: flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.25rem; background: #fafafa; border-top: 1px solid #eceeed; color: #68746d; font-size: 0.8rem; }
 .footer svg { color: #39715b; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 

@@ -2,9 +2,9 @@
     width: min(100%, 36rem);
     margin: 0 auto;
     padding: 3rem 1.5rem;
-    border: 1px solid #e4ebe7;
+    border: 1px solid #e3e5e4;
     border-radius: 1.25rem;
-    background: linear-gradient(135deg, #f4faf6, #ffffff 70%);
+    background: linear-gradient(135deg, #fafafa, #ffffff 70%);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -19,7 +19,7 @@
     margin-bottom: 1.25rem;
     place-items: center;
     border-radius: 50%;
-    background: #e2f1e8;
+    background: #eef0ef;
     color: #17613f;
 }
 
