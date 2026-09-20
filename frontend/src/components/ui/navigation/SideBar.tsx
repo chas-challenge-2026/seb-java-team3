@@ -6,6 +6,7 @@ import { useUser } from "../../../features/auth/useUser";
 import { clearToken } from "../../../lib/authToken";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { useApprovals } from "../../../features/attest/useApprovals";
 
 import {
   LayoutDashboard,
@@ -23,6 +24,12 @@ const SideBar = () => {
   const { data: approvalCount } = usePendingApprovalCount(canApprove);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  const { data, isLoading, isError} = useApprovals();
+
+  // if (isLoading) return <p>Laddar…</p>;
+  // if (isError) return <IconMessage message="Kunde inte hämta attestkorgen!" icon={TriangleAlert}/>;
+  // if (!data?.length) return <IconMessage message="Inget väntar på ditt godkännande." icon={PartyPopper}/>;
 
   const iconSize = 16;
 
@@ -67,7 +74,7 @@ const SideBar = () => {
           {user && user.role !== "INITIATOR" && (
             <SideBarItem
               label="Attestera"
-              badge={approvalCount && approvalCount > 0 ? approvalCount : undefined}
+              badge={approvalCount && approvalCount > 0 ? approvalCount : data?.length}
               icon={<CreditCardCheck size={iconSize} />}
               route={"/attest"}
             />
