@@ -6,7 +6,7 @@ import { clearToken } from "../../../lib/authToken";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { applyTheme, getSavedTheme, type Theme } from "../../../lib/theme";
+import { getSavedTheme, transitionTheme, type Theme } from "../../../lib/theme";
 
 import {
   LayoutDashboard,
@@ -38,7 +38,7 @@ const SideBar = () => {
 
   const handleThemeToggle = () => {
     const nextTheme: Theme = theme === "light" ? "dark" : "light";
-    applyTheme(nextTheme, true);
+    transitionTheme(nextTheme);
     setTheme(nextTheme);
   };
 

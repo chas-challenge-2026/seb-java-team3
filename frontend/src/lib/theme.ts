@@ -13,3 +13,19 @@ export function applyTheme(theme: Theme, persist = false) {
     window.localStorage.setItem(themeStorageKey, theme);
   }
 }
+
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (callback: () => void) => unknown;
+};
+
+export function transitionTheme(theme: Theme) {
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const viewTransitionDocument = document as ViewTransitionDocument;
+
+  if (prefersReducedMotion || !viewTransitionDocument.startViewTransition) {
+    applyTheme(theme, true);
+    return;
+  }
+
+  viewTransitionDocument.startViewTransition(() => applyTheme(theme, true));
+}
