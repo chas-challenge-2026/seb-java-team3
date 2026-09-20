@@ -11,6 +11,7 @@ const Container: React.FC<ContainerProps> = ({
     children,
     maxWidth = "lg",
     variant = "default",
+    className,
     ...props
 }) => {
   return (
@@ -20,6 +21,7 @@ const Container: React.FC<ContainerProps> = ({
             ${Styles.container}
             ${Styles[maxWidth]}
             ${Styles[variant]}
+            ${className ?? ""}
             `}
     >
         {children}

@@ -9,11 +9,13 @@ interface SelectOption {
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement>{
     label?: string;
     options: SelectOption[];
+    placeholder?: string;
 }
 
 const Select: React.FC<SelectProps> = ({
     label,
     options,
+    placeholder,
     ...props
 }) => {
   return (
@@ -24,6 +26,11 @@ const Select: React.FC<SelectProps> = ({
             {...props}
             className={Styles.select}
         >
+            {placeholder && (
+                <option value="" disabled>
+                    {placeholder}
+                </option>
+            )}
             {options.map((option) =>(
                 <option
                     key={option.value}

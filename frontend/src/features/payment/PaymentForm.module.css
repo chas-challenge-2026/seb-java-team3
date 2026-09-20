@@ -10,3 +10,118 @@
   margin-top: 0.25rem;
   margin-bottom: 1rem;
 }
+
+.paymentConfirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.5rem 0.5rem 0.5rem;
+  animation: confirmationEnter 350ms ease-out both;
+}
+
+.paymentCard {
+  overflow: hidden;
+  transition: height 350ms ease-out;
+}
+
+.paymentCardWrapper {
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+  max-width: 100%;
+  transition: width 350ms ease-out;
+}
+
+.formExiting {
+  animation: formExit 250ms ease-in both;
+  pointer-events: none;
+}
+
+.confirmationExiting {
+  animation: formExit 250ms ease-in both;
+  pointer-events: none;
+}
+
+.formEntering {
+  animation: confirmationEnter 350ms ease-out both;
+}
+
+.successIcon {
+  color: var(--btn-primary);
+  margin-bottom: 0.75rem;
+}
+
+.confirmationText {
+  margin: 0.25rem 0 1.5rem;
+  color: var(--text-secondary);
+}
+
+.paymentSummary {
+  width: 100%;
+  margin: 0 0 1.5rem;
+  text-align: left;
+  border-top: 1px solid var(--divider-clr);
+}
+
+.paymentSummary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--divider-clr);
+}
+
+.paymentSummary dt {
+  color: var(--text-secondary);
+}
+
+.paymentSummary dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.confirmationActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+@keyframes formExit {
+  to {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+}
+
+@keyframes confirmationEnter {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paymentConfirmation,
+  .confirmationExiting,
+  .formEntering,
+  .formExiting {
+    animation: none;
+  }
+
+  .paymentCard {
+    transition: none;
+  }
+
+  .paymentCardWrapper {
+    transition: none;
+  }
+}

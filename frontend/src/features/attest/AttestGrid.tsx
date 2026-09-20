@@ -12,7 +12,7 @@ export default function AttestGrid() {
   if (isError) return <IconMessage message="Kunde inte hämta attestkorgen!" icon={TriangleAlert}/>;
   if (!data?.length) return <IconMessage message="Inget väntar på ditt godkännande." icon={PartyPopper}/>;
   return (
-    <Container variant="white">
+    <Container variant="white" maxWidth="lg">
       <table className={styles.grid}>
         <thead>
           <tr>
