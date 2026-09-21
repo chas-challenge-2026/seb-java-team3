@@ -1,0 +1,40 @@
+.wrapper {
+    width: min(100%, 36rem);
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+    border: 1px solid var(--border-default);
+    border-radius: 1.25rem;
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+}
+
+.iconWrapper {
+    display: grid;
+    width: 5rem;
+    height: 5rem;
+    margin-bottom: 1.25rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--bg-subtle);
+    color: var(--accent-muted);
+}
+
+.title {
+    color: var(--text-primary);
+    font-size: 1.35rem;
+    line-height: 1.2;
+}
+
+.message {
+    margin-top: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.error { background: var(--bg-primary); }
+.error .iconWrapper { background: var(--danger-icon-bg); color: var(--danger-text); }

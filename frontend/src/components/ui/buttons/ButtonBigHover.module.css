@@ -22,15 +22,15 @@
 
 .primary{
     background-color: var(--btn-primary);
-    color: white;
+    color: var(--text-on-primary);
 }
 
 .secondary{
     background-color: var(--btn-secondary);
-    color: black;
+    color: var(--text-primary);
 }
 
 .dark {
     background-color: var(--btn-dark);
-    color: white;
+    color: var(--bg-primary);
 }

@@ -23,7 +23,7 @@
 
 .primary{
     background-color: var(--btn-primary);
-    color: white;
+    color: var(--text-on-primary);
 }
 
 .primary:hover{
@@ -32,7 +32,7 @@
 
 .secondary{
     background-color: var(--btn-secondary);
-    color: black;
+    color: var(--text-primary);
 }
 
 .secondary:hover{
@@ -41,7 +41,7 @@
 
 .dark {
     background-color: var(--btn-dark);
-    color: white;
+    color: var(--bg-primary);
 }
 
 .dark:hover {

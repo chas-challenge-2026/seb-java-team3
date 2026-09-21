@@ -29,7 +29,7 @@ export default function LoginForm() {
       : null;
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className={styles.form} onSubmit={handleSubmit}>
       <Input
         label="E-post"
         name="email"
@@ -38,6 +38,7 @@ export default function LoginForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         error={fieldErrors.email}
+        className={styles.inputField}
         required
       />
       <Input
@@ -48,11 +49,12 @@ export default function LoginForm() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
+        className={styles.inputField}
         required
       />
 
       {message && Object.keys(fieldErrors).length === 0 && (
-        <p role="alert">{message}</p>
+        <p className={styles.formError} role="alert">{message}</p>
       )}
       <div className={styles.btnContainer}>
       <Button className={styles.loginBtn} buttonStyle="icon-text" type="submit" variant="primary" icon="chevron" disabled={isPending}>

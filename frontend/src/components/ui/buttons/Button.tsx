@@ -24,6 +24,7 @@ const Button: React.FC<ButtonProps> = ({
     variant = "secondary",
     buttonStyle = "text-only",
     icon = "chevron",
+    className,
     ...props
 }) => {
 
@@ -37,6 +38,7 @@ const Button: React.FC<ButtonProps> = ({
                 ${Styles[variant]}
                 ${Styles[buttonStyle]}
                 ${fullWidth ? Styles.fullWidth : ""}
+                ${className ?? ""}
             `}
         >
             {buttonStyle !== "icon-only" && children}

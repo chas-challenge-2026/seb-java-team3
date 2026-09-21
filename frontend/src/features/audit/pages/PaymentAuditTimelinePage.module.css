@@ -25,8 +25,8 @@
     width: 2.25rem;
     height: 2.25rem;
     border-radius: 50%;
-    background: var(--button-primary-clr);
-    color: white;
+    background: var(--btn-primary);
+    color: var(--text-on-primary);
     font-weight: 700;
 }
 
@@ -39,7 +39,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
-    color: var(--text-muted-clr);
+    color: var(--text-muted);
     font-size: 0.875rem;
 }
 

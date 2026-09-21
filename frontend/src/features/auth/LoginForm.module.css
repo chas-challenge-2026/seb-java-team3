@@ -1,9 +1,5 @@
-.loginBtn {
-    gap: 2rem;
-}
-
-.btnContainer {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
+.form { width: 100%; }
+.loginBtn { width: 100%; gap: 0.75rem; }
+.btnContainer { display: flex; margin-top: 1.5rem; }
+.inputField { width: 100%; }
+.formError { margin: 0.3rem 0 0; padding: 0.75rem; border: 1px solid var(--danger-border); border-radius: 0.65rem; background: var(--danger-bg); color: var(--danger-text); font-size: 0.82rem; line-height: 1.4; }
