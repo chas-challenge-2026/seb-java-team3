@@ -19,6 +19,8 @@ import type {
   PaymentResponse,
 } from "./types";
 
+import { paymentFormSchema } from "./schema";
+import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import { createPayment } from "./api";
 
 function PaymentForm() {
@@ -177,42 +179,17 @@ function PaymentForm() {
   ) => {
     event.preventDefault();
 
-    const newErrors: PaymentFormErrors = {};
+    const result = paymentFormSchema.safeParse(formData);
 
-    // Validera konto
-    if (!formData.account) {
-      newErrors.account =
-        "Välj vilket konto betalningen ska dras från.";
-    }
-
-    // Validera IBAN
-    if (!formData.recipientIban.trim()) {
-      newErrors.recipientIban =
-        "Ange mottagarens IBAN.";
-    }
-
-    // Validera belopp
-    if (!formData.amount.trim()) {
-      newErrors.amount = "Ange ett belopp.";
-    } else if (
-      !/^\d+(\.\d{1,2})?$/.test(formData.amount)
-    ) {
-      newErrors.amount =
-        "Ange ett giltigt belopp med maximalt två decimaler.";
-    } else if (Number(formData.amount) <= 0) {
-      newErrors.amount =
-        "Beloppet måste vara större än 0.";
-    }
-
-    setErrors(newErrors);
-
-    // Avbryt om formuläret innehåller fel
-    if (Object.keys(newErrors).length > 0) {
+    if (!result.success) {
+      setErrors(zodIssuesToFieldErrors<keyof PaymentFormErrors>(result.error));
       return;
     }
 
+    setErrors({});
+
     try {
-      const payment = await createPayment(formData);
+      const payment = await createPayment(result.data);
       setPendingConfirmation(payment);
     } catch (error) {
       console.error(
