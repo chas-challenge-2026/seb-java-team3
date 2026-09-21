@@ -18,12 +18,20 @@ const mockedCreatePayment = vi.mocked(createPayment);
 const mockedGetPaymentConfig = vi.mocked(getPaymentConfig);
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
-  await user.selectOptions(screen.getByRole("combobox"), "driftkonto");
+  await selectAccount(user, "Driftkonto");
   await user.type(
     screen.getByLabelText("Mottagar-IBAN"),
     "SE45 5000 0000 0583 9825 7466",
   );
   await user.type(screen.getByLabelText("Belopp (SEK)"), "1000.00");
+}
+
+async function selectAccount(
+  user: ReturnType<typeof userEvent.setup>,
+  accountName: string,
+) {
+  await user.click(screen.getByRole("combobox"));
+  await user.click(screen.getByRole("option", { name: new RegExp(accountName, "i") }));
 }
 
 describe("PaymentForm", () => {
@@ -45,7 +53,7 @@ describe("PaymentForm", () => {
     const user = userEvent.setup();
     render(<PaymentForm />);
 
-    await user.selectOptions(screen.getByRole("combobox"), "driftkonto");
+    await selectAccount(user, "Driftkonto");
     await user.type(screen.getByLabelText("Mottagar-IBAN"), "not-an-iban");
     await user.type(screen.getByLabelText("Belopp (SEK)"), "1000.00");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));

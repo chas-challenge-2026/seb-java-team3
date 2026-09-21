@@ -355,10 +355,10 @@ function PaymentForm() {
             label="Konto"
             value={formData.account}
             placeholder="Välj konto"
-            onChange={(event) => {
+            onChange={(value) => {
               setFormData((prev) => ({
                 ...prev,
-                account: event.target.value,
+                account: value,
               }));
 
               setErrors((prev) => ({
