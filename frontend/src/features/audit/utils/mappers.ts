@@ -3,6 +3,7 @@ import {
   formatAmount,
   formatAuditStatus,
   formatDateTime,
+  getDateTimeSortValue,
   formatEventType,
 } from "./formatters";
 
@@ -48,7 +49,9 @@ function isNewerThan(entry: AuditApiEntry, current: AuditApiEntry): boolean {
 }
 
 function compareNewestFirst(a: AuditApiEntry, b: AuditApiEntry): number {
-  const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  const aTime = getDateTimeSortValue(a.createdAt);
+  const bTime = getDateTimeSortValue(b.createdAt);
+  const timeDiff = (bTime ?? 0) - (aTime ?? 0);
 
   if (timeDiff !== 0) {
     return timeDiff;

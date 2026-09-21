@@ -1,13 +1,4 @@
-export function formatDateTime(timestamp: string | null): string {
-  if (!timestamp) {
-    return "Ej utförd";
-  }
-
-  return new Date(timestamp).toLocaleString("sv-SE", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
+export { formatDateTime, getDateTimeSortValue } from "../../../lib/dateTime";
 
 export function formatAuditStatus(status: string | null): string {
   switch (status) {
