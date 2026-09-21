@@ -1,4 +1,4 @@
-package se.comerit.seb.infrastructure.native;
+package se.comerit.seb.infrastructure.iban;
 
 import com.sun.jna.*;
 import com.sun.jna.ptr.IntByReference;

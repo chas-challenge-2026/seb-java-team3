@@ -6,7 +6,7 @@ import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.domain.*;
 import se.comerit.seb.dto.CreatePaymentRequest;
 import se.comerit.seb.dto.PaymentResponse;
-import se.comerit.seb.infrastructure.native.IbanValidatorService;
+import se.comerit.seb.infrastructure.iban.IbanValidatorService;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
 
@@ -38,16 +38,20 @@ public class PaymentService {
         this.ibanValidator = ibanValidator;
     }
 
-    private void validatePaymentRequest(CreatePaymentRequest request) {
+    private String normalizeAndValidateIban(CreatePaymentRequest request) {
         if (request.toIban() == null || request.toIban().isBlank()) {
             throw new IllegalArgumentException("IBAN får inte vara tomt");
         }
 
-        if (!ibanValidator.validateIban(request.toIban())) {
+        String normalizedIban = ibanValidator.normalize(request.toIban());
+
+        if (!ibanValidator.validateIban(normalizedIban)) {
             throw new IllegalArgumentException(
-                    "Invalid IBAN: " + ibanValidator.getIbanErrorMessage(request.toIban())
+                    "Invalid IBAN: " + ibanValidator.getIbanErrorMessage(normalizedIban)
             );
         }
+
+        return normalizedIban;
     }
 
     private void validateAmount(BigDecimal amount) {
@@ -72,13 +76,13 @@ public class PaymentService {
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 
-        validatePaymentRequest(request);
+        String normalizedIban = normalizeAndValidateIban(request);
         validateAmount(request.amount());
 
         Payment payment = new Payment(
                 request.tenantId(),
                 request.fromAccountId(),
-                request.toIban(),
+                normalizedIban,
                 request.amount(),
                 request.reference(),
                 request.createdBy()

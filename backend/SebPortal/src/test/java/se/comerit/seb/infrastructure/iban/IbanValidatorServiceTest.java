@@ -1,16 +1,12 @@
-package se.comerit.seb.infrastructure.native;
+package se.comerit.seb.infrastructure.iban;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
 class IbanValidatorServiceTest {
-    
-    @Autowired
-    private IbanValidatorService validator;
+
+    private final IbanValidatorService validator = new IbanValidatorService(false);
 
     @Test
     void testValidSwedishIban() {
