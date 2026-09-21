@@ -1,14 +1,18 @@
-import type { LoginInput, LoginResponse, UserResponse } from "./types";
+import type { LoginInput } from "./types";
+import { loginResponseSchema, userResponseSchema } from "./schema";
 import { api } from "../../lib/api";
 
 export function fetchLoginUser(input: LoginInput) {
-  return api<LoginResponse>("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return api(
+    "/api/auth/login",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+    loginResponseSchema,
+  );
 }
 
 export function fetchCurrentUser() {
-    return api<UserResponse>("/api/auth/me", {
-    });
+  return api("/api/auth/me", {}, userResponseSchema);
 }

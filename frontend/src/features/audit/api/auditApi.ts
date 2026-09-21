@@ -1,14 +1,22 @@
 import { api } from "../../../lib/api";
-import type { AuditApiEntry, MyPaymentStatus, PaymentAuditTimelineEntry } from "../types";
+import {
+  auditApiEntryListSchema,
+  myPaymentStatusListSchema,
+  paymentAuditTimelineEntryListSchema,
+} from "../schema";
 
 export function fetchAuditEntries() {
-  return api<AuditApiEntry[]>("/api/audit");
+  return api("/api/audit", {}, auditApiEntryListSchema);
 }
 
 export function fetchPaymentAuditTimeline(paymentId: string) {
-  return api<PaymentAuditTimelineEntry[]>(`/api/payments/${paymentId}/audit`);
+  return api(
+    `/api/payments/${paymentId}/audit`,
+    {},
+    paymentAuditTimelineEntryListSchema,
+  );
 }
 
 export function fetchMyPaymentStatuses() {
-  return api<MyPaymentStatus[]>("/api/my-payments");
+  return api("/api/my-payments", {}, myPaymentStatusListSchema);
 }
