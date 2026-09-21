@@ -17,9 +17,11 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -123,6 +125,51 @@ class ApprovalServiceTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void reject_shouldThrowAccessDenied_whenActorIsNotTheAssignedAttestant() {
+        // ARRANGE
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long tenantId = 1L;
+        Long rightfulAttestantId = 2L;   // steget tillhör denna attestant (A)
+        Long intruderActorId = 3L;       // en annan attestant (B) försöker avvisa
+        Long paymentId = 100L;
+        Long approvalStepId = 200L;
+        Long accountId = 10L;
+        BigDecimal paymentAmount = new BigDecimal("200.00");
+        String toIban = "SE8550000000054910000003";
+
+        Payment payment = new Payment(
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", rightfulAttestantId);
+        ApprovalStep approvalStep = new ApprovalStep(rightfulAttestantId, 1);
+        payment.addApprovalStep(approvalStep);
+
+        ReflectionTestUtils.setField(payment, "id", paymentId);
+        ReflectionTestUtils.setField(approvalStep, "id", approvalStepId);
+
+        when(paymentRepository.findByApprovalStepIdForUpdate(approvalStepId))
+                .thenReturn(Optional.of(payment));
+
+        // ACT + ASSERT
+        assertThrows(
+                se.comerit.seb.exception.ApprovalStepAccessDeniedException.class,
+                () -> approvalService.reject(approvalStepId, intruderActorId, "Fel person")
+        );
+
+        // Varken steget eller betalningen ska ha ändrats — B lyckades inte avvisa något
+        assertEquals(ApprovalStepStatus.PENDING, approvalStep.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(approvalStep.getComment());
+
+        // Ingen audit-post ska ha skrivits
+        verifyNoInteractions(auditService);
     }
 
     @Test

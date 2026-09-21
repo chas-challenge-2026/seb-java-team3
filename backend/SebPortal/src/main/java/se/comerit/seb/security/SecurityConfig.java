@@ -12,7 +12,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 /**
  * Endpoint-level (role) authorization is declared per-method with @PreAuthorize on the
- * controllers/services — see ApprovalApiController, ApprovalController, AuditController.
+ * controllers/services — see ApprovalApiController, AuditController.
  * This class only wires the plumbing: turning the session's role into a GrantedAuthority
  * (SessionAuthenticationFilter) and handling what happens when @PreAuthorize denies access
  * (RoleAccessDeniedHandler). URL matching is intentionally left permissive here so the
@@ -21,7 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *
  * This is the catch-all chain (@Order(2)) for the Thymeleaf pages — se.comerit.seb.config.
  * JwtSecurityConfig's JWT chain is @Order(1) and claims everything under /api/** first, so
- * this one only ever sees the server-rendered routes (login, dashboard, approvals, audit, ...).
+ * this one only ever sees the server-rendered routes (login, dashboard, audit, ...).
  * @EnableMethodSecurity lives here since it's a single, context-wide switch: it makes
  * @PreAuthorize work for both chains, including the JWT-authenticated one.
  */
