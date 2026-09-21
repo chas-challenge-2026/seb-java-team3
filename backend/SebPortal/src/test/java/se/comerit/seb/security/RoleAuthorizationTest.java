@@ -7,6 +7,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.config.JwtSecurityConfig;
 import se.comerit.seb.controller.ApprovalApiController;
 import se.comerit.seb.controller.AuditController;
@@ -61,6 +62,9 @@ class RoleAuthorizationTest {
 
     @MockBean
     private PaymentService paymentService;
+
+    @MockBean
+    private ApprovalThresholds approvalThresholds;
 
     private String tokenFor(Long userId, Long tenantId, Role role) {
         return jwtService.generateToken(new AuthenticatedUserContext(userId, tenantId, role));

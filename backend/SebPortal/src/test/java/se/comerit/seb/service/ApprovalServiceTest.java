@@ -173,6 +173,48 @@ class ApprovalServiceTest {
     }
 
     @Test
+    void approve_shouldNotCompletePaymentWhileAnotherStepIsStillPending() {
+        // ARRANGE - utförandegrinden: en betalning med två steg där bara steg 1 godkänns
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long actorId = 2L;
+        Long approvalStep1Id = 200L;
+        Long approvalStep2Id = 201L;
+
+        Payment payment = new Payment(
+                1L, 10L, "SE8550000000054910000003", new BigDecimal("200.00"), "Testfaktura", 1L);
+
+        ApprovalStep approvalStep1 = new ApprovalStep(actorId, 1);
+        payment.addApprovalStep(approvalStep1);
+        ApprovalStep approvalStep2 = new ApprovalStep(3L, 2);
+        payment.addApprovalStep(approvalStep2);
+
+        ReflectionTestUtils.setField(payment, "id", 100L);
+        ReflectionTestUtils.setField(approvalStep1, "id", approvalStep1Id);
+        ReflectionTestUtils.setField(approvalStep2, "id", approvalStep2Id);
+
+        when(paymentRepository.findByApprovalStepIdForUpdate(approvalStep1Id))
+                .thenReturn(Optional.of(payment));
+
+        // ACT
+        approvalService.approve(approvalStep1Id, actorId);
+
+        // ASSERT: steg 1 är godkänt, men steg 2 är ogodkänt -> betalningen får INTE genomföras
+        assertEquals(ApprovalStepStatus.APPROVED, approvalStep1.getStatus());
+        assertEquals(ApprovalStepStatus.PENDING, approvalStep2.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(payment.getExecutedAt());
+
+        // Saldot ska vara orört och ingen "godkänd betalning"-audit får ha skrivits
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
+    @Test
     void countPendingByAttestant_shouldReturnNumberOfPendingStepsForUser() {
         // ARRANGE
         PaymentRepository paymentRepository = mock(PaymentRepository.class);
