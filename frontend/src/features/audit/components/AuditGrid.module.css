@@ -56,6 +56,18 @@
     table-layout: fixed;
 }
 
+.auditGrid {
+    min-width: 66rem;
+}
+
+.auditGrid th:nth-child(1) { width: 14%; }
+.auditGrid th:nth-child(2) { width: 18%; }
+.auditGrid th:nth-child(3) { width: 17%; }
+.auditGrid th:nth-child(4) { width: 12%; }
+.auditGrid th:nth-child(5) { width: 13%; }
+.auditGrid th:nth-child(6) { width: 12%; }
+.auditGrid th:nth-child(7) { width: 14%; }
+
 .grid th,
 .grid td {
     text-align: left;
@@ -116,9 +128,39 @@
     font-weight: 650;
 }
 
+.actorContent {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.actorContent > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.actorAvatar {
+    display: grid;
+    flex: 0 0 1.8rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--btn-primary-hover);
+    color: var(--text-on-primary);
+    font-size: 0.68rem;
+    font-weight: 750;
+    line-height: 1;
+    user-select: none;
+}
+
 .eventCell {
     color: var(--text-heading);
     font-weight: 650;
+    white-space: nowrap;
 }
 
 .status {
@@ -297,6 +339,10 @@
     .grid td {
         display: block;
         width: 100%;
+    }
+
+    .auditGrid {
+        min-width: 0;
     }
 
     .grid thead {

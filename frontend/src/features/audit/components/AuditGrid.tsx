@@ -43,7 +43,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
       </header>
 
       <div className={styles.tableWrap}>
-        <table className={styles.grid}>
+        <table className={`${styles.grid} ${styles.auditGrid}`}>
           <thead>
             <tr>
               <th>Tid</th>

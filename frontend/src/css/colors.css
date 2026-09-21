@@ -1,11 +1,11 @@
 :root {
     --bg-primary: #ffffff;
-    --bg-surface: #eeefec;
+    --bg-surface: #e6e9e7;
     --bg-surface-nav: #F8F8F8;
-    --bg-muted: #fafafa;
-    --bg-subtle: #f0f2f1;
-    --bg-hover: #f3f5f4;
-    --bg-active: #ecefed;
+    --bg-muted: #f7f8f7;
+    --bg-subtle: #edf0ee;
+    --bg-hover: #eef2ef;
+    --bg-active: #e6ebe8;
 
     --btn-primary: #003824;
     --btn-primary-hover: #336050;
@@ -22,11 +22,11 @@
     --text-navigation: #4d5a52;
     --text-on-primary: #ffffff;
 
-    --border-card: #e1e4e2;
-    --border-default: #e3e5e4;
-    --border-subtle: #e8eae9;
-    --border-soft: #eceeed;
-    --border-input: #d8e2dc;
+    --border-card: #c8d0cb;
+    --border-default: #cfd5d1;
+    --border-subtle: #d9dedb;
+    --border-soft: #e1e5e2;
+    --border-input: #c8d3cc;
     --divider-clr: var(--border-soft);
 
     --accent-muted: #39715b;
