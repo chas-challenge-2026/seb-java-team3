@@ -69,14 +69,15 @@ public class PaymentService {
                 request.createdBy()
         );
 
-        if (request.amount().compareTo(thresholds.getNoAttestantThreshold()) < 0) {
-            // Under 5000: ingen attestant behövs, betalningen är klar direkt
+        if (request.amount().compareTo(thresholds.getNoAttestantThreshold()) <= 0) {
+            // Upp till och med tröskeln (strikt > krävs för attest): ingen attestant
+            // behövs, betalningen är klar direkt
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 
         } else {
-            // 5000 eller mer: skapa minst ett godkännandesteg.
-            // OBS: >=10000 hanteras just nu likadant som 1-attestant-
+            // Över tröskeln: skapa minst ett godkännandesteg.
+            // OBS: belopp över two-attestant-threshold hanteras just nu likadant som 1-attestant-
             // fallet - riktig 2-attestant-kedja är avgränsad från #43.
             User attestant = findAttestant(request.tenantId());
 

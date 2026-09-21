@@ -398,7 +398,7 @@ function PaymentForm() {
           {approvalThreshold !== null && (
             <p className={styles.thresholdInfo}>
               <Info size={17} aria-hidden="true" />
-              Betalningar på {formatSek(approvalThreshold)} eller mer behöver attesteras.
+              Betalningar över {formatSek(approvalThreshold)} behöver attesteras.
             </p>
           )}
           <div className={styles.formGrid}>

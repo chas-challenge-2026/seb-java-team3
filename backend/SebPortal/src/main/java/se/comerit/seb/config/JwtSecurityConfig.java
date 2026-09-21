@@ -23,7 +23,7 @@ public class JwtSecurityConfig {
     }
 
     // Bara /api/** matchas av den här kedjan - Thymeleaf-sidorna (login, dashboard,
-    // audit, batch-upload) matchas inte alls och rör sig därför helt
+    // audit) matchas inte alls och rör sig därför helt
     // opåverkade, med sin egen sessionsbaserade koll precis som innan denna fil fanns.
     // @Order(1) - mer specifik än se.comerit.seb.security.SecurityConfig:s catch-all-kedja,
     // så den måste prövas först.

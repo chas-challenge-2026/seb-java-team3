@@ -37,7 +37,7 @@ describe("PaymentForm", () => {
     render(<PaymentForm />);
 
     expect(
-      await screen.findByText(/betalningar på 5 000 kr eller mer behöver attesteras/i),
+      await screen.findByText(/betalningar över 5 000 kr behöver attesteras/i),
     ).toBeInTheDocument();
   });
 

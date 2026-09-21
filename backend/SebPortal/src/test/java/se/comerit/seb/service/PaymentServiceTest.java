@@ -147,7 +147,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void amountEqualToThreshold_shouldRequireAttestant() {
+    void amountEqualToThreshold_shouldCompleteImmediately() {
 
         // ARRANGE
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
@@ -177,9 +177,43 @@ class PaymentServiceTest {
         // ACT
         PaymentResponse response = service.createPayment(request);
 
-        // ASSERT: exakt 5000 är INTE "< 5000", så det räknas som "över tröskeln"
-        // och kräver attestant - detta bekräftar det medvetna valet i PaymentService
-        // (compareTo(...) < 0 => strikt mindre än krävs för att slippa attest)
+        // ASSERT: teamets beslut är strikt "> tröskel" - exakt 5000 kräver INTE attest
+        assertEquals(PaymentStatus.COMPLETED, response.status());
+        verify(userRepo, never()).findByTenantIdAndRole(any(), any());
+    }
+
+    @Test
+    void amountJustOverThreshold_shouldRequireAttestant() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
+
+        when(userRepo.findByTenantIdAndRole(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant));
+
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService);
+
+        // Ett öre över tröskeln - andra sidan av gränsfallet
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("5000.01"), "Testfaktura", 1L
+        );
+
+        // ACT
+        PaymentResponse response = service.createPayment(request);
+
+        // ASSERT: 5000.01 är strikt över tröskeln => attestant krävs
         assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
         verify(userRepo, times(1)).findByTenantIdAndRole(1L, Role.ATTESTANT);
     }
