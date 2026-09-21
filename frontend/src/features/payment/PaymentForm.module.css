@@ -72,6 +72,25 @@
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 0.25rem; }
 .fullWidth { grid-column: 1 / -1; }
 
+.thresholdInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.65rem;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.thresholdInfo svg {
+  flex: 0 0 auto;
+  color: var(--text-navigation);
+}
+
 .formExiting {
   animation: formExit 250ms ease-in both;
   pointer-events: none;

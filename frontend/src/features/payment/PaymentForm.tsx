@@ -5,6 +5,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { Info } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
 import Button from "../../components/ui/buttons/Button";
@@ -21,7 +22,7 @@ import type {
 
 import { paymentFormSchema } from "./schema";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
-import { createPayment } from "./api";
+import { createPayment, getPaymentConfig } from "./api";
 import { isApiError, isApiValidationError } from "../../error/api.error";
 
 function PaymentForm() {
@@ -37,6 +38,7 @@ function PaymentForm() {
   const [errors, setErrors] = useState<PaymentFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [approvalThreshold, setApprovalThreshold] = useState<number | null>(null);
   const [completedPayment, setCompletedPayment] =
     useState<PaymentResponse | null>(null);
   const [pendingConfirmation, setPendingConfirmation] =
@@ -49,6 +51,24 @@ function PaymentForm() {
   const [returningToForm, setReturningToForm] = useState(false);
   const [isFormEntering, setIsFormEntering] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    getPaymentConfig()
+      .then((config) => {
+        if (isActive) {
+          setApprovalThreshold(config.approvalThreshold);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load payment config:", error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!pendingConfirmation) {
@@ -360,6 +380,12 @@ function PaymentForm() {
             <h3>Betalningsuppgifter</h3>
             <p>Ange mottagare, belopp och en referens för betalningen.</p>
           </div>
+          {approvalThreshold !== null && (
+            <p className={styles.thresholdInfo}>
+              <Info size={17} aria-hidden="true" />
+              Betalningar på {formatSek(approvalThreshold)} eller mer behöver attesteras.
+            </p>
+          )}
           <div className={styles.formGrid}>
             <div className={styles.fullWidth}>
               <Input
@@ -436,6 +462,14 @@ function getSubmitErrorMessage(error: unknown): string {
   }
 
   return "Betalningen kunde inte skickas. Försök igen.";
+}
+
+function formatSek(amount: number): string {
+  return new Intl.NumberFormat("sv-SE", {
+    style: "currency",
+    currency: "SEK",
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 function getAccountLabel(account: string) {

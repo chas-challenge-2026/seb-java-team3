@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PaymentForm from "./PaymentForm";
-import { createPayment } from "./api";
+import { createPayment, getPaymentConfig } from "./api";
 import { ApiError } from "../../error/api.error";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -11,9 +11,11 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("./api", () => ({
   createPayment: vi.fn(),
+  getPaymentConfig: vi.fn(),
 }));
 
 const mockedCreatePayment = vi.mocked(createPayment);
+const mockedGetPaymentConfig = vi.mocked(getPaymentConfig);
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.selectOptions(screen.getByRole("combobox"), "driftkonto");
@@ -27,6 +29,16 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
 describe("PaymentForm", () => {
   beforeEach(() => {
     mockedCreatePayment.mockReset();
+    mockedGetPaymentConfig.mockReset();
+    mockedGetPaymentConfig.mockResolvedValue({ approvalThreshold: 5000 });
+  });
+
+  it("shows the approval threshold loaded from the backend", async () => {
+    render(<PaymentForm />);
+
+    expect(
+      await screen.findByText(/betalningar på 5 000 kr eller mer behöver attesteras/i),
+    ).toBeInTheDocument();
   });
 
   it("shows a validation error and does not submit for an invalid IBAN", async () => {

@@ -4,14 +4,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import se.comerit.seb.dto.CreatePaymentRequest;
 import se.comerit.seb.dto.PaymentResponse;
+import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.PaymentService;
+
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -19,10 +23,22 @@ public class NewPaymentController {
 
     private final PaymentService paymentService;
     private final JwtUserContext jwtUserContext;
+    private final ApprovalThresholds approvalThresholds;
 
-    public NewPaymentController(PaymentService paymentService, JwtUserContext jwtUserContext) {
+    public NewPaymentController(PaymentService paymentService,
+                                JwtUserContext jwtUserContext,
+                                ApprovalThresholds approvalThresholds) {
         this.paymentService = paymentService;
         this.jwtUserContext = jwtUserContext;
+        this.approvalThresholds = approvalThresholds;
+    }
+
+    public record PaymentConfigResponse(BigDecimal approvalThreshold) {}
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @GetMapping("/config")
+    public PaymentConfigResponse getPaymentConfig() {
+        return new PaymentConfigResponse(approvalThresholds.getNoAttestantThreshold());
     }
 
     @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")

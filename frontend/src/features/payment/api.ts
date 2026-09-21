@@ -1,5 +1,9 @@
 import type { PaymentFormData } from "./types";
-import { createPaymentRequestSchema, paymentResponseSchema } from "./schema";
+import {
+  createPaymentRequestSchema,
+  paymentConfigSchema,
+  paymentResponseSchema,
+} from "./schema";
 import { api } from "../../lib/api";
 
 export async function createPayment(payment: PaymentFormData) {
@@ -18,6 +22,10 @@ export async function createPayment(payment: PaymentFormData) {
     },
     paymentResponseSchema,
   );
+}
+
+export async function getPaymentConfig() {
+  return api("/api/payments/config", {}, paymentConfigSchema);
 }
 
 function getAccountId(account: string): number {
