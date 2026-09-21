@@ -43,7 +43,7 @@ export default function LoginForm() {
       : null;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form className={styles.form} onSubmit={handleSubmit} noValidate>
       <Input
         label="E-post"
         name="email"
