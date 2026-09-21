@@ -5,6 +5,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { Clock3, Info } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
 import Button from "../../components/ui/buttons/Button";
@@ -21,7 +22,8 @@ import type {
 
 import { paymentFormSchema } from "./schema";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
-import { createPayment } from "./api";
+import { createPayment, getPaymentConfig } from "./api";
+import { isApiError, isApiValidationError } from "../../error/api.error";
 
 function PaymentForm() {
   const navigate = useNavigate();
@@ -34,6 +36,9 @@ function PaymentForm() {
   });
 
   const [errors, setErrors] = useState<PaymentFormErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [approvalThreshold, setApprovalThreshold] = useState<number | null>(null);
   const [completedPayment, setCompletedPayment] =
     useState<PaymentResponse | null>(null);
   const [pendingConfirmation, setPendingConfirmation] =
@@ -46,6 +51,24 @@ function PaymentForm() {
   const [returningToForm, setReturningToForm] = useState(false);
   const [isFormEntering, setIsFormEntering] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    getPaymentConfig()
+      .then((config) => {
+        if (isActive) {
+          setApprovalThreshold(config.approvalThreshold);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load payment config:", error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!pendingConfirmation) {
@@ -178,6 +201,7 @@ function PaymentForm() {
     event: React.SubmitEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
+    setSubmitError(null);
 
     const result = paymentFormSchema.safeParse(formData);
 
@@ -187,15 +211,16 @@ function PaymentForm() {
     }
 
     setErrors({});
+    setIsSubmitting(true);
 
     try {
       const payment = await createPayment(result.data);
       setPendingConfirmation(payment);
     } catch (error) {
-      console.error(
-        "Failed to create payment:",
-        error
-      );
+      console.error("Failed to create payment:", error);
+      setSubmitError(getSubmitErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -208,6 +233,8 @@ function PaymentForm() {
   };
 
   if (completedPayment) {
+    const isPendingApproval = completedPayment.status === "PENDING_APPROVAL";
+
     return (
       <div
         ref={cardRef}
@@ -229,11 +256,24 @@ function PaymentForm() {
           <header className={`${styles.formHeader} ${styles.confirmationHeader}`}>
             <div>
               <h2 id="payment-confirmation-title">Betalningen har skickats</h2>
-              <p>Din betalning har registrerats och väntar på hantering.</p>
+              <p>
+                {isPendingApproval
+                  ? "Din betalning har registrerats och väntar på attest."
+                  : "Din betalning har registrerats och genomförts."}
+              </p>
             </div>
           </header>
 
           <div className={styles.confirmationBody}>
+            {isPendingApproval && (
+              <div className={styles.approvalNotice} role="status">
+                <Clock3 size={19} aria-hidden="true" />
+                <div>
+                  <strong>Väntar på attest</strong>
+                  <p>Betalningen behöver godkännas innan den genomförs.</p>
+                </div>
+              </div>
+            )}
             <dl className={styles.paymentSummary}>
               <div>
                 <dt>Belopp</dt>
@@ -355,6 +395,12 @@ function PaymentForm() {
             <h3>Betalningsuppgifter</h3>
             <p>Ange mottagare, belopp och en referens för betalningen.</p>
           </div>
+          {approvalThreshold !== null && (
+            <p className={styles.thresholdInfo}>
+              <Info size={17} aria-hidden="true" />
+              Betalningar på {formatSek(approvalThreshold)} eller mer behöver attesteras.
+            </p>
+          )}
           <div className={styles.formGrid}>
             <div className={styles.fullWidth}>
               <Input
@@ -394,10 +440,15 @@ function PaymentForm() {
           </div>
 
           <div className={styles.paymentActions}>
+            {submitError && (
+              <p className={styles.submitError} role="alert">
+                {submitError}
+              </p>
+            )}
             <Button
               type="button"
               onClick={handleCancel}
-              disabled={Boolean(pendingConfirmation)}
+              disabled={Boolean(pendingConfirmation) || isSubmitting}
             >
               Avbryt
             </Button>
@@ -407,9 +458,10 @@ function PaymentForm() {
               variant="primary"
               buttonStyle="icon-text"
               icon="check"
-              disabled={Boolean(pendingConfirmation)}
+              disabled={Boolean(pendingConfirmation) || isSubmitting}
+              aria-busy={isSubmitting}
             >
-              Skicka betalning
+              {isSubmitting ? "Skickar…" : "Skicka betalning"}
             </Button>
           </div>
         </div>
@@ -417,6 +469,22 @@ function PaymentForm() {
       </Container>
     </div>
   );
+}
+
+function getSubmitErrorMessage(error: unknown): string {
+  if (isApiError(error) || isApiValidationError(error)) {
+    return error.message;
+  }
+
+  return "Betalningen kunde inte skickas. Försök igen.";
+}
+
+function formatSek(amount: number): string {
+  return new Intl.NumberFormat("sv-SE", {
+    style: "currency",
+    currency: "SEK",
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 function getAccountLabel(account: string) {

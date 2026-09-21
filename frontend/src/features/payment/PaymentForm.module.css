@@ -1,8 +1,21 @@
 .paymentActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.8rem;
   justify-content: flex-end;
   margin-top: 1.25rem;
+}
+
+.submitError {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--danger-border);
+  border-radius: 0.65rem;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .fieldError {
@@ -50,6 +63,22 @@
 .confirmationHeader { border-bottom-color: var(--border-default); }
 .confirmationBody { padding: 1.5rem 1.25rem 1.75rem; }
 
+.approvalNotice {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border-default);
+  border-radius: 0.7rem;
+  background: var(--bg-subtle);
+  color: var(--accent-muted);
+}
+
+.approvalNotice svg { flex: 0 0 auto; }
+.approvalNotice strong { color: var(--text-heading); font-size: 0.86rem; }
+.approvalNotice p { margin-top: 0.15rem; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; }
+
 .formBody { padding: 1.5rem 1.25rem 1.25rem; }
 
 .sectionHeading { margin: 0.45rem 0 0.85rem; }
@@ -58,6 +87,25 @@
 .sectionHeading p { margin-top: 0.22rem; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 0.25rem; }
 .fullWidth { grid-column: 1 / -1; }
+
+.thresholdInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.65rem;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.thresholdInfo svg {
+  flex: 0 0 auto;
+  color: var(--text-navigation);
+}
 
 .formExiting {
   animation: formExit 250ms ease-in both;

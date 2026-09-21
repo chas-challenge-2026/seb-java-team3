@@ -67,7 +67,13 @@ export const paymentResponseSchema = z.object({
   amount: z.number(),
   toIban: z.string(),
   status: z.string(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable(),
 });
 
 export type PaymentResponse = z.infer<typeof paymentResponseSchema>;
+
+export const paymentConfigSchema = z.object({
+  approvalThreshold: z.number().positive(),
+});
+
+export type PaymentConfig = z.infer<typeof paymentConfigSchema>;

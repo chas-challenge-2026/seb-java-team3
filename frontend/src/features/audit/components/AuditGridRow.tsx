@@ -34,13 +34,25 @@ export default function AuditGridRow({
           }
         }}
       >
-        <td>{entry.tid}</td>
-        <td>{entry.vem}</td>
-        <td>{entry.handelse}</td>
-        <td>{entry.status}</td>
-        <td>{entry.referens}</td>
-        <td>{entry.belopp}</td>
-        <td className={styles.paymentCell}>
+        <td data-label="Tid" className={styles.date}>
+          {entry.tid}
+        </td>
+        <td data-label="Vem" className={styles.actor}>
+          {entry.vem}
+        </td>
+        <td data-label="Händelse" className={styles.eventCell}>
+          {entry.handelse}
+        </td>
+        <td data-label="Status">
+          <span className={styles.status}>{entry.status}</span>
+        </td>
+        <td data-label="Referens" className={styles.reference}>
+          {entry.referens}
+        </td>
+        <td data-label="Belopp" className={styles.amount}>
+          {entry.belopp}
+        </td>
+        <td data-label="Betalning" className={styles.paymentCell}>
           <span className={styles.paymentLabel}>
             <ChevronIcon size={18} aria-hidden="true" />
             {entry.betalning}
