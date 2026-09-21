@@ -67,7 +67,7 @@ export const paymentResponseSchema = z.object({
   amount: z.number(),
   toIban: z.string(),
   status: z.string(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable(),
 });
 
 export type PaymentResponse = z.infer<typeof paymentResponseSchema>;

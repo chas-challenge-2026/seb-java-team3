@@ -22,6 +22,7 @@ import type {
 import { paymentFormSchema } from "./schema";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import { createPayment } from "./api";
+import { isApiError, isApiValidationError } from "../../error/api.error";
 
 function PaymentForm() {
   const navigate = useNavigate();
@@ -34,6 +35,8 @@ function PaymentForm() {
   });
 
   const [errors, setErrors] = useState<PaymentFormErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [completedPayment, setCompletedPayment] =
     useState<PaymentResponse | null>(null);
   const [pendingConfirmation, setPendingConfirmation] =
@@ -178,6 +181,7 @@ function PaymentForm() {
     event: React.SubmitEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
+    setSubmitError(null);
 
     const result = paymentFormSchema.safeParse(formData);
 
@@ -187,15 +191,16 @@ function PaymentForm() {
     }
 
     setErrors({});
+    setIsSubmitting(true);
 
     try {
       const payment = await createPayment(result.data);
       setPendingConfirmation(payment);
     } catch (error) {
-      console.error(
-        "Failed to create payment:",
-        error
-      );
+      console.error("Failed to create payment:", error);
+      setSubmitError(getSubmitErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -394,10 +399,15 @@ function PaymentForm() {
           </div>
 
           <div className={styles.paymentActions}>
+            {submitError && (
+              <p className={styles.submitError} role="alert">
+                {submitError}
+              </p>
+            )}
             <Button
               type="button"
               onClick={handleCancel}
-              disabled={Boolean(pendingConfirmation)}
+              disabled={Boolean(pendingConfirmation) || isSubmitting}
             >
               Avbryt
             </Button>
@@ -407,9 +417,10 @@ function PaymentForm() {
               variant="primary"
               buttonStyle="icon-text"
               icon="check"
-              disabled={Boolean(pendingConfirmation)}
+              disabled={Boolean(pendingConfirmation) || isSubmitting}
+              aria-busy={isSubmitting}
             >
-              Skicka betalning
+              {isSubmitting ? "Skickar…" : "Skicka betalning"}
             </Button>
           </div>
         </div>
@@ -417,6 +428,14 @@ function PaymentForm() {
       </Container>
     </div>
   );
+}
+
+function getSubmitErrorMessage(error: unknown): string {
+  if (isApiError(error) || isApiValidationError(error)) {
+    return error.message;
+  }
+
+  return "Betalningen kunde inte skickas. Försök igen.";
 }
 
 function getAccountLabel(account: string) {

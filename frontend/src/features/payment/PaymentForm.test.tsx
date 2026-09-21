@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PaymentForm from "./PaymentForm";
 import { createPayment } from "./api";
+import { ApiError } from "../../error/api.error";
 
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
@@ -88,5 +89,31 @@ describe("PaymentForm", () => {
     expect(
       await screen.findByText("Betalningen har skickats"),
     ).toBeInTheDocument();
+  });
+
+  it("shows the API error when creating the payment fails", async () => {
+    mockedCreatePayment.mockRejectedValue(
+      new ApiError(409, "Ingen attestant finns tillgänglig."),
+    );
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ingen attestant finns tillgänglig.",
+    );
+  });
+
+  it("disables the submit button while the payment is being created", async () => {
+    mockedCreatePayment.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    expect(screen.getByRole("button", { name: /skickar/i })).toBeDisabled();
   });
 });

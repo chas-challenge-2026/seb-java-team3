@@ -4,6 +4,7 @@ import {
   ibanSchema,
   paymentAmountSchema,
   paymentFormSchema,
+  paymentResponseSchema,
 } from "./schema";
 
 describe("ibanSchema", () => {
@@ -89,6 +90,22 @@ describe("paymentFormSchema", () => {
       reference: "x".repeat(141),
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("paymentResponseSchema", () => {
+  it("accepts a newly created payment before the database timestamp is refreshed", () => {
+    const result = paymentResponseSchema.safeParse({
+      id: 1,
+      amount: 4999,
+      toIban: "DE10535600287154123082",
+      status: "COMPLETED",
+      createdAt: null,
+      currentStepNumber: null,
+      remainingApprovals: 0,
+    });
+
+    expect(result.success).toBe(true);
   });
 });
 
