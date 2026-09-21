@@ -5,7 +5,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Info } from "lucide-react";
+import { Clock3, Info } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
 import Button from "../../components/ui/buttons/Button";
@@ -233,6 +233,8 @@ function PaymentForm() {
   };
 
   if (completedPayment) {
+    const isPendingApproval = completedPayment.status === "PENDING_APPROVAL";
+
     return (
       <div
         ref={cardRef}
@@ -254,11 +256,24 @@ function PaymentForm() {
           <header className={`${styles.formHeader} ${styles.confirmationHeader}`}>
             <div>
               <h2 id="payment-confirmation-title">Betalningen har skickats</h2>
-              <p>Din betalning har registrerats och väntar på hantering.</p>
+              <p>
+                {isPendingApproval
+                  ? "Din betalning har registrerats och väntar på attest."
+                  : "Din betalning har registrerats och genomförts."}
+              </p>
             </div>
           </header>
 
           <div className={styles.confirmationBody}>
+            {isPendingApproval && (
+              <div className={styles.approvalNotice} role="status">
+                <Clock3 size={19} aria-hidden="true" />
+                <div>
+                  <strong>Väntar på attest</strong>
+                  <p>Betalningen behöver godkännas innan den genomförs.</p>
+                </div>
+              </div>
+            )}
             <dl className={styles.paymentSummary}>
               <div>
                 <dt>Belopp</dt>

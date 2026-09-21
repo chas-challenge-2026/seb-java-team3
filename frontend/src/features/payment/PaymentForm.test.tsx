@@ -78,7 +78,7 @@ describe("PaymentForm", () => {
       id: 1,
       amount: 1000,
       toIban: "SE4550000000058398257466",
-      status: "PENDING",
+      status: "COMPLETED",
       createdAt: "2026-01-01T00:00:00Z",
     });
 
@@ -100,6 +100,28 @@ describe("PaymentForm", () => {
 
     expect(
       await screen.findByText("Betalningen har skickats"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an approval notice for a payment awaiting approval", async () => {
+    mockedCreatePayment.mockResolvedValue({
+      id: 2,
+      amount: 5000,
+      toIban: "DE10535600287154123082",
+      status: "PENDING_APPROVAL",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+
+    await fillValidForm(user);
+    await user.clear(screen.getByLabelText("Belopp (SEK)"));
+    await user.type(screen.getByLabelText("Belopp (SEK)"), "5000");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    expect(await screen.findByText("Väntar på attest")).toBeInTheDocument();
+    expect(
+      screen.getByText("Betalningen behöver godkännas innan den genomförs."),
     ).toBeInTheDocument();
   });
 
