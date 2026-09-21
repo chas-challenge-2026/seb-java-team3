@@ -15,6 +15,17 @@ Här dokumenterar vi var AI påverkat beslut, kod eller analys.
 Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera fält som inte är relevanta.
 
 ---
+### ÅÅÅÅ-MM-DD ADR 0009 Pontus Ingenius
+- **Verktyg:** Claude
+- **Använde AI till:** Renskriva ADR 0009
+- **Genererades:**
+- **Hur jag granskade/ändrade:** Genom att läsa texten 
+- **Valde bort (om något):** Inget
+- **Spår:** PR #, issue #
+---
+
+## Logg
+
 ### ÅÅÅÅ-MM-DD [kort vad] [ditt namn]
 - **Verktyg:**
 - **Använde AI till:**
@@ -22,9 +33,7 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 - **Hur jag granskade/ändrade:**
 - **Valde bort (om något):**
 - **Spår:** PR #, issue #
----
 
-## Logg
 
 ### 2026-09-15 — Tröskelbelopp backend: order-grind + API-status (#118) AdnanZasella
 - **Verktyg:** Claude
