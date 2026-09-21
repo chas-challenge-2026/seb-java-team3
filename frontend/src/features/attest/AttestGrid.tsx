@@ -4,6 +4,7 @@ import { useApprovals } from "./useApprovals";
 import IconMessage from "./IconMessage";
 import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
+import { formatDateTime } from "../../lib/dateTime";
 
 export default function AttestGrid() {
   const { data, isLoading, isError, approve } = useApprovals();
@@ -49,7 +50,7 @@ export default function AttestGrid() {
                     </td>
                     <td data-label="Typ"><span className={styles.type}>{m.typ}</span></td>
                     <td data-label="Belopp" className={styles.amount}>{m.belopp} <span>{m.currency}</span></td>
-                    <td data-label="Datum" className={styles.date}>{m.createdAt}</td>
+                    <td data-label="Datum" className={styles.date}>{formatDateTime(m.createdAt)}</td>
                     <td data-label="Referens" className={styles.reference}>{m.reference}</td>
                     <td data-label="Åtgärd">
                       <div className={styles.actions}>
