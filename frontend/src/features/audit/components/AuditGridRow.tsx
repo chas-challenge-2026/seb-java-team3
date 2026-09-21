@@ -17,6 +17,7 @@ export default function AuditGridRow({
   onToggle,
 }: AuditGridRowProps) {
   const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
+  const actorInitials = getInitials(entry.vem);
 
   return (
     <>
@@ -38,7 +39,12 @@ export default function AuditGridRow({
           {entry.tid}
         </td>
         <td data-label="Vem" className={styles.actor}>
-          {entry.vem}
+          <span className={styles.actorContent}>
+            <span className={styles.actorAvatar} aria-hidden="true">
+              {actorInitials}
+            </span>
+            <span>{entry.vem}</span>
+          </span>
         </td>
         <td data-label="Händelse" className={styles.eventCell}>
           {entry.handelse}
@@ -68,4 +74,14 @@ export default function AuditGridRow({
       )}
     </>
   );
+}
+
+function getInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "?";
 }
