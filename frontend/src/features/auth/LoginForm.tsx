@@ -2,25 +2,39 @@ import Input from "../../components/ui/forms/Input";
 import { useState } from "react";
 import { useLogin } from "./useLogin";
 import { isApiError } from "../../error/api.error";
+import { loginInputSchema } from "./schema";
+import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import Button from "../../components/ui/buttons/Button";
 import styles from "./LoginForm.module.css"
 
-type FieldErrors = Record<string, string>;
+type FieldErrors = Partial<Record<string, string>>;
 
 export default function LoginForm() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [clientErrors, setClientErrors] = useState<FieldErrors>({});
   const { mutate: login, isPending, error } = useLogin();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    login({ email, password });
+
+    const result = loginInputSchema.safeParse({ email, password });
+
+    if (!result.success) {
+      setClientErrors(zodIssuesToFieldErrors(result.error));
+      return;
+    }
+
+    setClientErrors({});
+    login(result.data);
   }
 
-  const fieldErrors: FieldErrors =
+  const serverFieldErrors: FieldErrors =
     isApiError(error) && error.data && typeof error.data === "object"
       ? ((error.data as { errors?: FieldErrors }).errors ?? {})
       : {};
+
+  const fieldErrors: FieldErrors = { ...serverFieldErrors, ...clientErrors };
 
   const message = isApiError(error)
     ? error.message
@@ -29,7 +43,7 @@ export default function LoginForm() {
       : null;
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className={styles.form} onSubmit={handleSubmit} noValidate>
       <Input
         label="E-post"
         name="email"
@@ -38,6 +52,7 @@ export default function LoginForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         error={fieldErrors.email}
+        className={styles.inputField}
         required
       />
       <Input
@@ -48,11 +63,12 @@ export default function LoginForm() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
+        className={styles.inputField}
         required
       />
 
       {message && Object.keys(fieldErrors).length === 0 && (
-        <p role="alert">{message}</p>
+        <p className={styles.formError} role="alert">{message}</p>
       )}
       <div className={styles.btnContainer}>
       <Button className={styles.loginBtn} buttonStyle="icon-text" type="submit" variant="primary" icon="chevron" disabled={isPending}>

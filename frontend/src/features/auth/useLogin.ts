@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { fetchLoginUser } from "./api";
+import { setToken } from "../../lib/authToken";
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -9,7 +10,14 @@ export function useLogin() {
   return useMutation({
     mutationFn: fetchLoginUser,
     onSuccess: (user) => {
-      queryClient.setQueryData(["auth", "me"], user);
+      setToken(user.token);
+      queryClient.removeQueries();
+      queryClient.setQueryData(["auth", "me"], {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
       navigate({ to: "/" });
     },
   });

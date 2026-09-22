@@ -1,8 +1,6 @@
-export type LoginInput = {
-    email: string;
-    password: string;
-}
-
-export type UserResponse = {
- email: string;
-};
+export type {
+  LoginInput,
+  LoginResponse,
+  UserResponse,
+  UserRole,
+} from "./schema";

@@ -2,6 +2,7 @@ package se.comerit.seb.dto;
 
 import se.comerit.seb.domain.AuditEntry;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record AuditEntryResponse(
@@ -12,6 +13,8 @@ public record AuditEntryResponse(
         String description,
         String status,
         String reference,
+        BigDecimal amount,
+        String currency,
         LocalDateTime createdAt,
         String userName
 ) {
@@ -19,7 +22,9 @@ public record AuditEntryResponse(
             AuditEntry entry,
             String userName,
             String status,
-            String reference
+            String reference,
+            BigDecimal amount,
+            String currency
     ) {
         return new AuditEntryResponse(
                 entry.getId(),
@@ -29,6 +34,8 @@ public record AuditEntryResponse(
                 entry.getDescription(),
                 status,
                 reference,
+                amount,
+                currency,
                 entry.getCreatedAt(),
                 userName
         );

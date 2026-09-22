@@ -15,6 +15,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByTenantId(Long tenantId);
 
+    List<Payment> findByTenantIdAndCreatedByOrderByCreatedAtDesc(Long tenantId, Long createdBy);
+
     @Query("""
             SELECT payment
             FROM Payment payment

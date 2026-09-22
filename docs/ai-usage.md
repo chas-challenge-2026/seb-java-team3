@@ -26,13 +26,29 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
-### 2026-09-10 — POST /api/payments endpoint + felhantering (#41) [ditt namn]
+### 2026-09-21 ADR 0009 Pontus Ingenius
+- **Verktyg:** Claude
+- **Använde AI till:** Renskriva ADR 0009
+- **Genererades:**
+- **Hur jag granskade/ändrade:** Genom att läsa texten 
+- **Valde bort (om något):** Inget
+- **Spår:** PR #, issue #
+
+### 2026-09-15 — Tröskelbelopp backend: order-grind + API-status (#118) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #118 – gick igenom befintlig kod (PaymentService, ApprovalService, Payment/ApprovalStep-entiteterna) tillsammans med AI för att först kartlägga vad som redan var löst från tidigare issues (#43/#45/#46/#50) mot checklistan i #118, innan jag skrev någon kod. Använde AI pedagogiskt för att förstå skillnaden mellan "kö av olika betalningar hos en attestant" och "ordning av flera godkännandesteg på samma betalning" innan jag var redo att skriva villkoret själv. Fick även hjälp att felsöka två egna syntaxfel (saknat kommatecken i PaymentResponse-recordet, samt att jag glömde koppla in de uträknade värdena i return-satsen) genom att läsa kompilatorfelen tillsammans med AI istället för att bara få rättad kod utan förklaring.
+- **Genererades:** Förslag på villkoret i `ApprovalService.approve()` som blockerar godkännande av ett steg om ett tidigare steg (lägre stepNumber) fortfarande är PENDING. Förslag på två nya fält i `PaymentResponse` (`currentStepNumber`, `remainingApprovals`) och `from(...)`-logiken som räknar ut dem. Förslag på testmetoder i `ApprovalServiceTest` och `PaymentServiceTest` som täcker order-grinden respektive gränsfallet vid exakt tröskelbelopp. Förslag på PR-titel/beskrivning.
+- **Hur jag granskade/ändrade:** Körde `mvn compile` och `mvn test` efter varje ändring innan jag gick vidare, inte bara i slutet – alla 8 tester gröna. Verifierade dessutom end-to-end manuellt i Postman mot lokal Docker-miljö: skapade en betalning över tröskeln som Lisa, bekräftade att `currentStepNumber`/`remainingApprovals` faktiskt kom med i svaret, loggade in som Johan (attestant) och godkände steget, och bekräftade att betalningen försvann från hans väntelista efteråt. Förstod och kunde själv förklara varför `twoAttestantThreshold` fortfarande inte används (createPayment skapar bara ett steg oavsett belopp) innan jag bedömde att gränsfallstestet (exakt 5000 kr) fortfarande var relevant att skriva. Bytte testnamn till att följa filens befintliga mönster (`metod_shouldResultat_whenVillkor`) istället för mitt första förslag som bröt konventionen.
+- **Valde bort:** Att bygga en separat `ApprovalChain`-entitet – bedömde att `Payment.approvalSteps` (redan sorterad, redan kopplad) räcker för MVP, ingen anledning till extra indirektion. Att fixa avsaknaden av `GET /api/payments/{id}` – upptäckt under manuell testning men utanför scope för #118, flaggat i PR-beskrivningen istället för att lösa i förbifarten.
+- **Spår:** PR #130 · issue #118
+
+### 2026-09-10 — POST /api/payments endpoint + felhantering (#41) AdnanZasella
 - **Verktyg:** Claude
 - **Använde AI till:** Vägledning genom #41 – design av ny `NewPaymentController` (REST, separat fil från den gamla MVC-baserade `PaymentController`), design av `GlobalExceptionHandler` för strukturerad felhantering, samt felsökning av två separata runtime-buggar som dök upp vid manuell Postman-testning: en NullPointerException i `PaymentService.createPayment` och att `Payment.createdAt` returnerades som null i API-svaret.
 - **Genererades:** Förslag på `NewPaymentController.java` (POST-endpoint, DTO-mappning mot befintlig `CreatePaymentRequest`/`PaymentResponse`), `GlobalExceptionHandler.java` (`@RestControllerAdvice` med handlers för `IllegalArgumentException` → 400 och `NoAttestantAvailableException` → 409), samt vägledning i felsökningen av de två buggarna nedan.
 - **Hur jag granskade/ändrade:** Testade endpointen manuellt i Postman för både happy path (201) och felfall (400) innan commit, i stället för att bara lita på att koden kompilerade. Vid 500-fel läste jag själv stacktracen tillsammans med AI och identifierade att `ApprovalThresholds.getNoAttestantThreshold()` returnerade null – spårade det till att tröskelvärdena i `application.properties` av misstag var skrivna i YAML-syntax i en properties-fil, och fixade genom att skriva om till korrekt `nyckel=värde`-format. Verifierade fixen genom att köra om samma Postman-request och se att statusen ändrades från 500 till 201. Undersökte separat varför `createdAt` blev null i svaret och spårade det till `insertable=false` på fältet i `Payment`-entityn kombinerat med att entityn aldrig läses om efter save – skapade en egen bug-issue för det i stället för att fixa det inom #41:s scope. Körde `mvn test` och `docker compose up --build` samt kollade `git status` innan commit för att säkerställa att inga `target/`-filer eller den kvarglömda lokala `seed.sql` (borttagen från git i #46) råkade checkas in.
 - **Valde bort:** Att lösa auth "på riktigt" nu – `tenantId`/`createdBy` skickas tillfälligt i request-bodyn eftersom JWT-lösningen (#28, #33, #37) inte är klar än; markerat med TODO-kommentar i koden som pekar på #28. Att bygga om den gamla `PaymentController`/`ApprovalController` (v1 MVC-spaghetti) som en del av #41 – bedömde att det är ett separat scope-beslut för epic #31, inte något #41 ska lösa i förbifarten; skapade i stället en ny fil (`NewPaymentController`) bredvid den gamla. Att fixa `Payment.createdAt`-buggen direkt – utanför #41:s scope (rör entity-lagret, inte endpointen), dokumenterad som egen bug-issue i stället.
-- **Spår:** PR #[fyll i] · issue #41
+- **Spår:** PR #100 · issue #41
 
 ### 2026-09-07 — Audit-post CREATE_PAYMENT via AuditService.record (#44) AdnanZasella
 - **Verktyg:** Claude
@@ -90,6 +106,16 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 - **Hur jag granskade/ändrade:** Fick översikt med hjälp av AI, gick sedan igenom bitar av koden och började ändra. Sedan fick AI testa flödet och ge mig feedback på förslag av ändringar.
 - **Valde bort (om något):** -
 - **Spår:** PR #95, issue #33
+---
+
+---
+### 2026-09-15 — Migrering och Implementering av JWT — Jonathan Isaksson
+- **Verktyg:** Claude
+- **Använde AI till:** Gav riktning och testade flödet samt hjälpte till med integrationstester.
+- **Genererades:** Tester som prövar flödet, och ändrade i redan etablerade filer.
+- **Hur jag granskade/ändrade:** Testade varje del och ändring att det som ändrades, såg till att inget går sönder och att ändringen ger det resultatet som är förväntat. Om inte görs det om på annat sätt.
+- **Valde bort (om något):** -
+- **Spår:**
 ---
 
 ## Tips

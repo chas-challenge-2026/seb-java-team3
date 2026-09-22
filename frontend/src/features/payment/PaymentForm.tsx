@@ -1,9 +1,14 @@
-import React, { useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { Clock3, Info } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
 import Button from "../../components/ui/buttons/Button";
-import Divider from "../../components/ui/layout/Divider";
 import Input from "../../components/ui/forms/Input";
 import Select from "../../components/ui/forms/Select";
 
@@ -12,9 +17,13 @@ import styles from "./PaymentForm.module.css";
 import type {
   PaymentFormData,
   PaymentFormErrors,
+  PaymentResponse,
 } from "./types";
 
-import { createPayment } from "./api";
+import { paymentFormSchema } from "./schema";
+import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
+import { createPayment, getPaymentConfig } from "./api";
+import { isApiError, isApiValidationError } from "../../error/api.error";
 
 function PaymentForm() {
   const navigate = useNavigate();
@@ -27,57 +36,191 @@ function PaymentForm() {
   });
 
   const [errors, setErrors] = useState<PaymentFormErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [approvalThreshold, setApprovalThreshold] = useState<number | null>(null);
+  const [completedPayment, setCompletedPayment] =
+    useState<PaymentResponse | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PaymentResponse | null>(null);
+  const [cardDimensions, setCardDimensions] = useState<{
+    height: number;
+    width: number;
+  } | null>(null);
+  const [formWidth, setFormWidth] = useState<number | null>(null);
+  const [returningToForm, setReturningToForm] = useState(false);
+  const [isFormEntering, setIsFormEntering] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    getPaymentConfig()
+      .then((config) => {
+        if (isActive) {
+          setApprovalThreshold(config.approvalThreshold);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load payment config:", error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pendingConfirmation) {
+      return;
+    }
+
+    const confirmationTimer = window.setTimeout(() => {
+      setCompletedPayment(pendingConfirmation);
+      setPendingConfirmation(null);
+    }, 250);
+
+    return () => window.clearTimeout(confirmationTimer);
+  }, [pendingConfirmation]);
+
+  useLayoutEffect(() => {
+    const cardWrapper = cardRef.current;
+    const card = cardWrapper?.firstElementChild;
+
+    if (!(cardWrapper && card instanceof HTMLElement)) {
+      return;
+    }
+
+    if (pendingConfirmation && cardDimensions === null) {
+      const { height, width } = card.getBoundingClientRect();
+      setCardDimensions({ height, width });
+      setFormWidth(width);
+      return;
+    }
+
+    if (completedPayment && cardDimensions !== null) {
+      const confirmationWidth = Math.min(cardDimensions.width, 420);
+
+      card.style.height = "auto";
+      cardWrapper.style.width = `${confirmationWidth}px`;
+      const nextDimensions = card.getBoundingClientRect();
+      card.style.height = `${cardDimensions.height}px`;
+      cardWrapper.style.width = `${cardDimensions.width}px`;
+
+      if (
+        Math.abs(nextDimensions.height - cardDimensions.height) > 1 ||
+        Math.abs(confirmationWidth - cardDimensions.width) > 1
+      ) {
+        const animationFrame = window.requestAnimationFrame(() => {
+          setCardDimensions({
+            height: nextDimensions.height,
+            width: confirmationWidth,
+          });
+        });
+
+        return () => window.cancelAnimationFrame(animationFrame);
+      }
+    }
+
+    if (isFormEntering && cardDimensions !== null && formWidth !== null) {
+      card.style.height = "auto";
+      cardWrapper.style.width = `${formWidth}px`;
+      const nextDimensions = card.getBoundingClientRect();
+      card.style.height = `${cardDimensions.height}px`;
+      cardWrapper.style.width = `${cardDimensions.width}px`;
+
+      if (
+        Math.abs(nextDimensions.height - cardDimensions.height) > 1 ||
+        Math.abs(formWidth - cardDimensions.width) > 1
+      ) {
+        const animationFrame = window.requestAnimationFrame(() => {
+          setCardDimensions({
+            height: nextDimensions.height,
+            width: formWidth,
+          });
+        });
+
+        return () => window.cancelAnimationFrame(animationFrame);
+      }
+    }
+  }, [
+    cardDimensions,
+    completedPayment,
+    formWidth,
+    isFormEntering,
+    pendingConfirmation,
+  ]);
+
+  useEffect(() => {
+    if (!returningToForm) {
+      return;
+    }
+
+    const formTimer = window.setTimeout(() => {
+      setCompletedPayment(null);
+      setReturningToForm(false);
+      setIsFormEntering(true);
+      setFormData({
+        account: "",
+        recipientIban: "",
+        amount: "",
+        reference: "",
+      });
+      setErrors({});
+    }, 250);
+
+    return () => window.clearTimeout(formTimer);
+  }, [returningToForm]);
+
+  useEffect(() => {
+    if (!isFormEntering) {
+      return;
+    }
+
+    const enteringTimer = window.setTimeout(() => {
+      setIsFormEntering(false);
+    }, 350);
+
+    return () => window.clearTimeout(enteringTimer);
+  }, [isFormEntering]);
+
+  const cardStyle = {
+    boxSizing: "border-box" as const,
+    height: cardDimensions
+      ? `${cardDimensions.height}px`
+      : undefined,
+  };
+
+  const cardWrapperStyle = {
+    width: cardDimensions
+      ? `${cardDimensions.width}px`
+      : undefined,
+  };
 
   const handleSubmit = async (
     event: React.SubmitEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
+    setSubmitError(null);
 
-    const newErrors: PaymentFormErrors = {};
+    const result = paymentFormSchema.safeParse(formData);
 
-    // Validera konto
-    if (!formData.account) {
-      newErrors.account =
-        "Välj vilket konto betalningen ska dras från.";
-    }
-
-    // Validera IBAN
-    if (!formData.recipientIban.trim()) {
-      newErrors.recipientIban =
-        "Ange mottagarens IBAN.";
-    }
-
-    // Validera belopp
-    if (!formData.amount.trim()) {
-      newErrors.amount = "Ange ett belopp.";
-    } else if (
-      !/^\d+(\.\d{1,2})?$/.test(formData.amount)
-    ) {
-      newErrors.amount =
-        "Ange ett giltigt belopp med maximalt två decimaler.";
-    } else if (Number(formData.amount) <= 0) {
-      newErrors.amount =
-        "Beloppet måste vara större än 0.";
-    }
-
-    setErrors(newErrors);
-
-    // Avbryt om formuläret innehåller fel
-    if (Object.keys(newErrors).length > 0) {
+    if (!result.success) {
+      setErrors(zodIssuesToFieldErrors<keyof PaymentFormErrors>(result.error));
       return;
     }
 
-    try {
-      await createPayment(formData);
+    setErrors({});
+    setIsSubmitting(true);
 
-      // Tillfälligt: gå tillbaka till dashboard
-      // efter att betalningen har skickats.
-      navigate({ to: "/" });
+    try {
+      const payment = await createPayment(result.data);
+      setPendingConfirmation(payment);
     } catch (error) {
-      console.error(
-        "Failed to create payment:",
-        error
-      );
+      console.error("Failed to create payment:", error);
+      setSubmitError(getSubmitErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -85,133 +228,273 @@ function PaymentForm() {
     navigate({ to: "/" });
   };
 
+  const handleNewPayment = () => {
+    setReturningToForm(true);
+  };
+
+  if (completedPayment) {
+    const isPendingApproval = completedPayment.status === "PENDING_APPROVAL";
+
+    return (
+      <div
+        ref={cardRef}
+        className={styles.paymentCardWrapper}
+        style={cardWrapperStyle}
+      >
+        <Container
+          maxWidth="sm"
+          variant="white"
+          className={styles.paymentCard}
+          style={cardStyle}
+        >
+          <section
+            className={`${styles.paymentConfirmation} ${
+              returningToForm ? styles.confirmationExiting : ""
+            }`}
+            aria-labelledby="payment-confirmation-title"
+          >
+          <header className={`${styles.formHeader} ${styles.confirmationHeader}`}>
+            <div>
+              <h2 id="payment-confirmation-title">Betalningen har skickats</h2>
+              <p>
+                {isPendingApproval
+                  ? "Din betalning har registrerats och väntar på attest."
+                  : "Din betalning har registrerats och genomförts."}
+              </p>
+            </div>
+          </header>
+
+          <div className={styles.confirmationBody}>
+            {isPendingApproval && (
+              <div className={styles.approvalNotice} role="status">
+                <Clock3 size={19} aria-hidden="true" />
+                <div>
+                  <strong>Väntar på attest</strong>
+                  <p>Betalningen behöver godkännas innan den genomförs.</p>
+                </div>
+              </div>
+            )}
+            <dl className={styles.paymentSummary}>
+              <div>
+                <dt>Belopp</dt>
+                <dd>
+                  {completedPayment.amount.toLocaleString("sv-SE", {
+                    style: "currency",
+                    currency: "SEK",
+                  })}
+                </dd>
+              </div>
+              <div>
+                <dt>Från konto</dt>
+                <dd>{getAccountLabel(formData.account)}</dd>
+              </div>
+              <div>
+                <dt>Till IBAN</dt>
+                <dd>{completedPayment.toIban}</dd>
+              </div>
+              <div>
+                <dt>Referens</dt>
+                <dd>{formData.reference || "–"}</dd>
+              </div>
+            </dl>
+
+            <div className={styles.confirmationActions}>
+              <Button type="button" onClick={handleNewPayment}>
+                Ny betalning
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleCancel}
+              >
+                Gå till Översikt
+              </Button>
+            </div>
+          </div>
+          </section>
+        </Container>
+      </div>
+    );
+  }
+
   return (
-    <Container
-      maxWidth="sm"
-      variant="white"
-      style={{ marginTop: "10rem" }}
+    <div
+      ref={cardRef}
+      className={styles.paymentCardWrapper}
+      style={cardWrapperStyle}
     >
-      <form onSubmit={handleSubmit}>
-        <h2 style={{ textAlign: "center" }}>
-          Ny betalning
-        </h2>
+      <Container
+        maxWidth="sm"
+        variant="white"
+        className={styles.paymentCard}
+        style={cardStyle}
+      >
+        <form
+          className={`${styles.paymentForm} ${
+            pendingConfirmation
+              ? styles.formExiting
+              : isFormEntering
+                ? styles.formEntering
+                : ""
+          }`}
+          onSubmit={handleSubmit}
+        >
+        <header className={styles.formHeader}>
+          <div>
+            <h2>Ny betalning</h2>
+            <p>Fyll i uppgifterna nedan för att skapa en betalning.</p>
+          </div>
+        </header>
 
-        <Select
-          label="Konto"
-          value={formData.account}
-          onChange={(event) => {
-            setFormData((prev) => ({
-              ...prev,
-              account: event.target.value,
-            }));
+        <div className={styles.formBody}>
+          <div className={styles.sectionHeading}>
+            <h3>Från konto</h3>
+            <p>Välj vilket konto betalningen ska dras från.</p>
+          </div>
+          <Select
+            label="Konto"
+            value={formData.account}
+            placeholder="Välj konto"
+            onChange={(value) => {
+              setFormData((prev) => ({
+                ...prev,
+                account: value,
+              }));
 
-            setErrors((prev) => ({
-              ...prev,
-              account: undefined,
-            }));
-          }}
-          options={[
-            {
-              value: "driftkonto",
-              label:
-                "Driftkonto - SE4550000000058398257466 (2425000.00 SEK)",
-            },
-            {
-              value: "lönekonto",
-              label:
-                "Lönekonto - SE4550000000058398257466 (2425000.00 SEK)",
-            },
-            {
-              value: "projektkonto",
-              label:
-                "Projektkonto - SE4550000000058398257466 (2425000.00 SEK)",
-            },
-          ]}
-        />
+              setErrors((prev) => ({
+                ...prev,
+                account: undefined,
+              }));
+            }}
+            options={[
+              {
+                value: "driftkonto",
+                label:
+                  "Driftkonto - SE4550000000058398257466 (2425000.00 SEK)",
+              },
+              {
+                value: "lönekonto",
+                label:
+                  "Lönekonto - SE4550000000058398257466 (2425000.00 SEK)",
+              },
+              {
+                value: "projektkonto",
+                label:
+                  "Projektkonto - SE4550000000058398257466 (2425000.00 SEK)",
+              },
+            ]}
+          />
 
-        {errors.account && (
-          <p className={styles.fieldError}>
-            {errors.account}
-          </p>
-        )}
+          {errors.account && (
+            <p className={styles.fieldError}>
+              {errors.account}
+            </p>
+          )}
 
-        <Input
-          label="Mottagar-IBAN"
-          placeholder="SE45 5000 0000 0583 9825 7466"
-          value={formData.recipientIban}
-          onChange={(event) => {
-            setFormData((prev) => ({
-              ...prev,
-              recipientIban: event.target.value,
-            }));
+          <div className={styles.sectionHeading}>
+            <h3>Betalningsuppgifter</h3>
+            <p>Ange mottagare, belopp och en referens för betalningen.</p>
+          </div>
+          {approvalThreshold !== null && (
+            <p className={styles.thresholdInfo}>
+              <Info size={17} aria-hidden="true" />
+              Betalningar över {formatSek(approvalThreshold)} behöver attesteras.
+            </p>
+          )}
+          <div className={styles.formGrid}>
+            <div className={styles.fullWidth}>
+              <Input
+                label="Mottagar-IBAN"
+                placeholder="SE45 5000 0000 0583 9825 7466"
+                value={formData.recipientIban}
+                onChange={(event) => {
+                  setFormData((prev) => ({ ...prev, recipientIban: event.target.value }));
+                  setErrors((prev) => ({ ...prev, recipientIban: undefined }));
+                }}
+                error={errors.recipientIban}
+              />
+            </div>
 
-            setErrors((prev) => ({
-              ...prev,
-              recipientIban: undefined,
-            }));
-          }}
-          error={errors.recipientIban}
-        />
+            <Input
+              label="Belopp (SEK)"
+              placeholder="1000.00"
+              value={formData.amount}
+              onChange={(event) => {
+                setFormData((prev) => ({ ...prev, amount: event.target.value }));
+                setErrors((prev) => ({ ...prev, amount: undefined }));
+              }}
+              error={errors.amount}
+              inputMode="decimal"
+            />
 
-        <Input
-          label="Belopp (SEK)"
-          placeholder="1000.00"
-          value={formData.amount}
-          onChange={(event) => {
-            setFormData((prev) => ({
-              ...prev,
-              amount: event.target.value,
-            }));
+            <Input
+              label="Referens"
+              placeholder="Faktura #1234"
+              value={formData.reference}
+              onChange={(event) => {
+                setFormData((prev) => ({ ...prev, reference: event.target.value }));
+                setErrors((prev) => ({ ...prev, reference: undefined }));
+              }}
+              error={errors.reference}
+            />
+          </div>
 
-            setErrors((prev) => ({
-              ...prev,
-              amount: undefined,
-            }));
-          }}
-          error={errors.amount}
-          inputMode="decimal"
-        />
+          <div className={styles.paymentActions}>
+            {submitError && (
+              <p className={styles.submitError} role="alert">
+                {submitError}
+              </p>
+            )}
+            <Button
+              type="button"
+              onClick={handleCancel}
+              disabled={Boolean(pendingConfirmation) || isSubmitting}
+            >
+              Avbryt
+            </Button>
 
-        <Input
-          label="Referens"
-          placeholder="Faktura #1234"
-          value={formData.reference}
-          onChange={(event) => {
-            setFormData((prev) => ({
-              ...prev,
-              reference: event.target.value,
-            }));
-
-            setErrors((prev) => ({
-              ...prev,
-              reference: undefined,
-            }));
-          }}
-          error={errors.reference}
-        />
-
-        <Divider shortWidth />
-
-        <div className={styles.paymentActions}>
-          <Button
-            type="button"
-            onClick={handleCancel}
-          >
-            Avbryt
-          </Button>
-
-          <Button
-            type="submit"
-            variant="primary"
-            buttonStyle="icon-text"
-            icon="check"
-          >
-            Skicka Betalning
-          </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              buttonStyle="icon-text"
+              icon="check"
+              disabled={Boolean(pendingConfirmation) || isSubmitting}
+              aria-busy={isSubmitting}
+            >
+              {isSubmitting ? "Skickar…" : "Skicka betalning"}
+            </Button>
+          </div>
         </div>
-      </form>
-    </Container>
+        </form>
+      </Container>
+    </div>
   );
+}
+
+function getSubmitErrorMessage(error: unknown): string {
+  if (isApiError(error) || isApiValidationError(error)) {
+    return error.message;
+  }
+
+  return "Betalningen kunde inte skickas. Försök igen.";
+}
+
+function formatSek(amount: number): string {
+  return new Intl.NumberFormat("sv-SE", {
+    style: "currency",
+    currency: "SEK",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function getAccountLabel(account: string) {
+  const accounts: Record<string, string> = {
+    driftkonto: "Driftkonto",
+    lönekonto: "Lönekonto",
+    projektkonto: "Projektkonto",
+  };
+
+  return accounts[account] ?? account;
 }
 
 export default PaymentForm;

@@ -1,16 +1,22 @@
-import { ApiError } from "../error/api.error";
+import type { z } from "zod";
+import { ApiError, ApiValidationError } from "../error/api.error";
+import { getToken } from "./authToken";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 export async function api<T>(
   path: string,
   options: RequestInit = {},
+  schema?: z.ZodType<T>,
 ): Promise<T> {
+  const token = getToken();
+
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
-    credentials: "include",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
@@ -25,5 +31,22 @@ export async function api<T>(
     throw new ApiError(res.status, message, body);
   }
 
-  return body as T;
+  if (!schema) {
+    return body as T;
+  }
+
+  const result = schema.safeParse(body);
+
+  if (!result.success) {
+    if (import.meta.env.DEV) {
+      console.error(`Unexpected response shape from ${path}`, result.error.issues);
+    }
+
+    throw new ApiValidationError(
+      "Svaret från servern hade ett oväntat format.",
+      result.error.issues,
+    );
+  }
+
+  return result.data;
 }

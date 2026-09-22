@@ -1,5 +1,6 @@
 package se.comerit.seb.service;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import se.comerit.seb.domain.Account;
@@ -10,6 +11,7 @@ import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.exception.ApprovalStepAccessDeniedException;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -29,6 +31,7 @@ public class ApprovalService {
         this.auditService = auditService;
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
     public void approve(Long approvalStepId, Long actorId) {
         if (approvalStepId == null) {
@@ -58,6 +61,15 @@ public class ApprovalService {
         if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
+        }
+
+        boolean earlierStepPending = payment.getApprovalSteps().stream()
+                .anyMatch(step -> step.getStepNumber() < approvalStep.getStepNumber()
+                        && step.getStatus() == ApprovalStepStatus.PENDING);
+
+        if (earlierStepPending) {
+            throw new IllegalStateException(
+                    "Cannot approve step " + approvalStepId + ": an earlier step is still pending");
         }
 
         approvalStep.setStatus(ApprovalStepStatus.APPROVED);
@@ -99,6 +111,7 @@ public class ApprovalService {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
     public void reject(Long approvalStepId, Long actorId, String comment) {
         if (approvalStepId == null) {
@@ -156,5 +169,16 @@ public class ApprovalService {
                 payment.getId(),
                 description
         );
+    }
+
+    @Transactional(readOnly = true)
+    public int countPendingByAttestant(AuthenticatedUserContext user) {
+        return (int) paymentRepository
+                .findPendingApprovalsForAttestant(user.tenantId(), user.userId())
+                .stream()
+                .flatMap(payment -> payment.getApprovalSteps().stream())
+                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
+                .filter(step -> user.userId().equals(step.getAttestantId()))
+                .count();
     }
 }

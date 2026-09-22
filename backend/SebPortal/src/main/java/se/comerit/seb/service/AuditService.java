@@ -1,5 +1,6 @@
 package se.comerit.seb.service;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,6 +9,7 @@ import se.comerit.seb.domain.AuditEntry;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
 import se.comerit.seb.repository.AuditRepository;
 import se.comerit.seb.repository.PaymentRepository;
@@ -27,7 +29,8 @@ import java.util.stream.Collectors;
 public class AuditService {
 
     private static final String SYSTEM_USER_NAME = "Systemet";
-    private static final List<String> DECISION_ACTIONS = List.of(
+    private static final List<String> ATTESTANT_VISIBLE_ACTIONS = List.of(
+            "CREATE_PAYMENT",
             "APPROVE_PAYMENT",
             "REJECT_PAYMENT"
     );
@@ -59,13 +62,14 @@ public class AuditService {
         return auditRepository.save(entry);
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional(readOnly = true)
     public List<AuditEntryResponse> getAuditEntries(AuthenticatedUserContext user) {
         List<AuditEntry> entries = user.isAdmin()
                 ? auditRepository.findTop200ByTenantIdOrderByCreatedAtDesc(user.tenantId())
                 : auditRepository.findTop200ByTenantIdAndActionInOrderByCreatedAtDesc(
                         user.tenantId(),
-                        DECISION_ACTIONS);
+                        ATTESTANT_VISIBLE_ACTIONS);
 
         List<Long> userIds = entries.stream()
                 .map(AuditEntry::getUserId)
@@ -94,11 +98,14 @@ public class AuditService {
                             entry,
                             userNamesById.getOrDefault(entry.getUserId(), SYSTEM_USER_NAME),
                             payment.map(p -> p.getStatus().name()).orElse(null),
-                            payment.map(Payment::getReference).orElse(null));
+                            payment.map(Payment::getReference).orElse(null),
+                            payment.map(Payment::getAmount).orElse(null),
+                            payment.map(Payment::getCurrency).orElse(null));
                 })
                 .collect(Collectors.toList());
     }
 
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional(readOnly = true)
     public List<PaymentAuditTimelineEntryResponse> getPaymentAuditTimeline(
             AuthenticatedUserContext user,
@@ -109,15 +116,23 @@ public class AuditService {
 
         List<AuditEntry> auditEntries = auditRepository.findPaymentEvents(user.tenantId(), paymentId);
 
+        if (!user.isAdmin()) {
+            auditEntries = auditEntries.stream()
+                    .filter(entry -> ATTESTANT_VISIBLE_ACTIONS.contains(entry.getAction()))
+                    .collect(Collectors.toList());
+        }
+
         Set<Long> userIds = auditEntries.stream()
                 .map(AuditEntry::getUserId)
                 .filter(id -> id != null)
                 .collect(Collectors.toSet());
 
-        payment.getApprovalSteps().stream()
-                .map(ApprovalStep::getAttestantId)
-                .filter(id -> id != null)
-                .forEach(userIds::add);
+        if (user.isAdmin()) {
+            payment.getApprovalSteps().stream()
+                    .map(ApprovalStep::getAttestantId)
+                    .filter(id -> id != null)
+                    .forEach(userIds::add);
+        }
 
         Map<Long, String> userNamesById = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getName));
@@ -137,23 +152,25 @@ public class AuditService {
             ));
         }
 
-        for (ApprovalStep step : payment.getApprovalSteps()) {
-            LocalDateTime timestamp = step.getDecidedAt();
-            String eventType = "APPROVAL_STEP_" + step.getStatus().name();
-            String description = "Atteststeg %d är %s".formatted(
-                    step.getStepNumber(),
-                    step.getStatus().name());
+        if (user.isAdmin()) {
+            for (ApprovalStep step : payment.getApprovalSteps()) {
+                LocalDateTime timestamp = step.getDecidedAt();
+                String eventType = "APPROVAL_STEP_" + step.getStatus().name();
+                String description = "Atteststeg %d är %s".formatted(
+                        step.getStepNumber(),
+                        step.getStatus().name());
 
-            events.add(new TimelineEvent(
-                    timestamp,
-                    2,
-                    step.getId(),
-                    "APPROVAL_STEP-" + step.getId(),
-                    userNamesById.getOrDefault(step.getAttestantId(), SYSTEM_USER_NAME),
-                    eventType,
-                    description,
-                    step.getStepNumber()
-            ));
+                events.add(new TimelineEvent(
+                        timestamp,
+                        2,
+                        step.getId(),
+                        "APPROVAL_STEP-" + step.getId(),
+                        userNamesById.getOrDefault(step.getAttestantId(), SYSTEM_USER_NAME),
+                        eventType,
+                        description,
+                        step.getStepNumber()
+                ));
+            }
         }
 
         events.sort(Comparator
@@ -173,11 +190,24 @@ public class AuditService {
                     event.timestamp(),
                     event.stepNumber(),
                     payment.getStatus().name(),
-                    payment.getReference()
+                    payment.getReference(),
+                    payment.getAmount(),
+                    payment.getCurrency(),
+                    payment.getToIban()
             ));
         }
 
         return response;
+    }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @Transactional(readOnly = true)
+    public List<MyPaymentStatusResponse> getMyPaymentStatuses(AuthenticatedUserContext user) {
+        return paymentRepository
+                .findByTenantIdAndCreatedByOrderByCreatedAtDesc(user.tenantId(), user.userId())
+                .stream()
+                .map(MyPaymentStatusResponse::from)
+                .collect(Collectors.toList());
     }
 
     private record TimelineEvent(

@@ -1,14 +1,51 @@
-.mainContainer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
+.textField { margin-bottom: 2rem; }
 
-.body {
+.wrapper {
+    display: flex;
+    min-height: 100vh;
+    width: 100vw;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
     background-color: var(--bg-surface);
 }
 
-.textField {
-    text-align: center;
+.container {
+    display: flex;
+    width: min(100%, 52rem);
+    min-height: 31rem;
+    overflow: hidden;
+    border: 1px solid var(--border-card);
+    border-radius: 1.25rem;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-elevated);
 }
 
+.brandPanel {
+    display: flex;
+    width: 44%;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.5rem;
+    background: var(--btn-primary);
+    color: var(--text-on-primary);
+}
+
+.brandName { margin-bottom: 0.45rem; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.04em; }
+.brandPanel h1 { max-width: 13rem; font-size: 1.9rem; line-height: 1.1; letter-spacing: -0.035em; }
+.brandDescription { max-width: 16rem; margin-top: 1rem; color: rgba(255, 255, 255, 0.75); font-size: 0.9rem; line-height: 1.55; }
+
+.loginPanel { display: flex; width: 56%; flex-direction: column; justify-content: center; padding: 3rem 2.75rem; }
+.textField > p { margin-bottom: 0.45rem; color: var(--accent-muted); font-size: 0.78rem; font-weight: 750; letter-spacing: 0.07em; text-transform: uppercase; }
+.textField h2 { color: var(--text-primary); font-size: 1.65rem; letter-spacing: -0.025em; }
+.textField > span { display: block; margin-top: 0.6rem; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+
+@media (max-width: 680px) {
+    .wrapper { align-items: flex-start; padding: 1rem; }
+    .container { min-height: 0; flex-direction: column; }
+    .brandPanel, .loginPanel { width: 100%; }
+    .brandPanel { min-height: 13rem; padding: 2rem; }
+    .brandPanel h1 { max-width: none; font-size: 1.55rem; }
+    .brandDescription { max-width: 22rem; }
+    .loginPanel { padding: 2rem 1rem; }
+}

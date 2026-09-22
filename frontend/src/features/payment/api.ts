@@ -1,24 +1,31 @@
-import type {
-  CreatePaymentRequest,
-  PaymentFormData,
-  PaymentResponse,
-} from "./types";
+import type { PaymentFormData } from "./types";
+import {
+  createPaymentRequestSchema,
+  paymentConfigSchema,
+  paymentResponseSchema,
+} from "./schema";
 import { api } from "../../lib/api";
 
-export async function createPayment(
-  payment: PaymentFormData
-): Promise<PaymentResponse> {
-  const request: CreatePaymentRequest = {
+export async function createPayment(payment: PaymentFormData) {
+  const request = createPaymentRequestSchema.parse({
     fromAccountId: getAccountId(payment.account),
     toIban: payment.recipientIban.replaceAll(" ", ""),
     amount: Number(payment.amount),
     reference: payment.reference,
-  };
-
-  return api<PaymentResponse>("/api/payments", {
-    method: "POST",
-    body: JSON.stringify(request),
   });
+
+  return api(
+    "/api/payments",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+    paymentResponseSchema,
+  );
+}
+
+export async function getPaymentConfig() {
+  return api("/api/payments/config", {}, paymentConfigSchema);
 }
 
 function getAccountId(account: string): number {

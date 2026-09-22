@@ -51,9 +51,7 @@
         <div class="col-sm-12">
             <div class="panel panel-warning">
                 <div class="panel-heading">
-                    <h4 class="panel-title">Väntande attester
-                        <a href="/approvals" class="pull-right btn btn-xs btn-default">Visa attestkorg</a>
-                    </h4>
+                    <h4 class="panel-title">Väntande attester</h4>
                 </div>
                 <div class="panel-body">
                     <p th:if="${#lists.isEmpty(pendingApprovals)}" class="text-muted">Inga väntande attester.</p>
@@ -90,7 +88,6 @@
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <h4 class="panel-title">Senaste betalningar
-                        <a href="/payments/new" class="pull-right btn btn-xs btn-primary">Ny betalning</a>
                     </h4>
                 </div>
                 <div class="panel-body">

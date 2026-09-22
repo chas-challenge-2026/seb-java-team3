@@ -12,11 +12,13 @@ import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./features/payment/NewPayment"
 import AuditPage from "./features/audit/pages/AuditPage"
 import PaymentAuditTimelinePage from "./features/audit/pages/PaymentAuditTimelinePage";
+import MyPaymentsPage from "./features/audit/pages/MyPaymentsPage";
 import AttestPage from "./pages/AttestPage";
 
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { requireAuth } from "./lib/requireAuth";
+import { requireRole } from "./lib/requireRole";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -50,6 +52,7 @@ const uiTestRoute = createRoute({
 const newPaymentRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/payments/new",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
   component: NewPayment,
 });
 
@@ -62,18 +65,28 @@ const dashboardRoute = createRoute({
 const auditRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/audit",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ATTESTANT", "ADMIN"]),
   component: AuditPage,
+});
+
+const myPaymentsRoute = createRoute({
+  getParentRoute: () => authRoute,
+  path: "/my-payments",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
+  component: MyPaymentsPage,
 });
 
 const attestRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/attest",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ATTESTANT", "ADMIN"]),
   component: AttestPage,
 })
 
 const paymentAuditRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/payments/$paymentId/audit",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ATTESTANT", "ADMIN"]),
   component: PaymentAuditTimelinePage,
 });
 
@@ -85,6 +98,7 @@ const routeTree = rootRoute.addChildren([
     uiTestRoute,
     newPaymentRoute,
     auditRoute,
+    myPaymentsRoute,
     attestRoute,
     paymentAuditRoute,
   ]),

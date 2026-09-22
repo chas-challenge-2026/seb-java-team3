@@ -7,10 +7,25 @@
     flex: 1;
     min-width: 0;
     position: relative;
+    z-index: 0;
 
     display: flex;
     flex-direction: column;
     align-items: center;
     /* margin-top: 4rem; */
     background-color: var(--bg-surface);
+}
+
+.pageTransition {
+    width: 100%;
+    animation: pageEnter 180ms ease-out both;
+}
+
+@keyframes pageEnter {
+    from { opacity: 0; transform: translateY(0.25rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pageTransition { animation: none; }
 }

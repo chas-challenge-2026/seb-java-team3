@@ -1,6 +1,6 @@
 # ADR 0008 Lagring av token i HttpOnly-cookie
 
-- **Status:** Accpterad
+- **Status:** Ersatt av ADR-0009
 - **Datum:** 2026-09-07
 - **Deltagare:** Samuel.L · drivande: Pontus Ingenius
 - **Berör:** Auth & behörighet

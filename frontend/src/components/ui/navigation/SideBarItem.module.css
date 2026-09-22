@@ -5,28 +5,39 @@
 .link {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.65rem;
     width: 100%;
-    padding: 0.75rem 1rem;
+    min-height: 2.75rem;
+    padding: 0.6rem 0.75rem;
     box-sizing: border-box;
 
     text-decoration: none;
-    color: inherit;
-    border-radius: 0.5rem;
-    transition: background-color 0.3s ease, padding-left 0.3s ease;
+    color: var(--text-navigation);
+    border-radius: 0.65rem;
+    transition: background-color 160ms ease, color 160ms ease;
     user-select: none;
     cursor: pointer;
 }
 
+.button {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+}
+
 .link:hover {
-    background-color: var(--bg-surface);
-    /* transform: translateX(4px); */
-    padding-left: 1.25rem;
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .active {
-    background-color: #eeeeee;
+    background-color: var(--bg-active);
+    color: var(--btn-primary);
+    font-weight: 650;
 }
+
+.link:focus-visible { outline: 3px solid var(--focus-outline); outline-offset: 2px; }
 
 .icon {
     display: flex;
@@ -34,21 +45,27 @@
     justify-content: center;
 }
 
+.active .icon { color: var(--btn-primary); }
+
 .label {
     flex: 1;
-    font-size: 1rem;
-    font-weight: 400;
+    font-size: 0.9rem;
+    font-weight: 500;
 }
 
 .badge {
     width: 1.6rem;
     height: 1.6rem;
     border-radius: 50%;
-    color: white;
+    color: var(--text-on-primary);
     text-align: center;
-    background-color: var(--btn-primary-hover);
-    font-size: 0.8rem;
+    background-color: var(--btn-primary);
+    font-size: 0.72rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
 }
+
+.danger { color: var(--danger-text-muted); }
+.danger:hover { background-color: var(--danger-bg-hover); color: var(--danger-text-strong); }

@@ -2,54 +2,60 @@ package se.comerit.seb.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import se.comerit.seb.dto.CreatePaymentRequest;
 import se.comerit.seb.dto.PaymentResponse;
+import se.comerit.seb.config.ApprovalThresholds;
+import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.PaymentService;
 
-import jakarta.servlet.http.HttpSession;
-import java.util.Map;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/payments")
 public class NewPaymentController {
 
     private final PaymentService paymentService;
+    private final JwtUserContext jwtUserContext;
+    private final ApprovalThresholds approvalThresholds;
 
-    public NewPaymentController(PaymentService paymentService) {
+    public NewPaymentController(PaymentService paymentService,
+                                JwtUserContext jwtUserContext,
+                                ApprovalThresholds approvalThresholds) {
         this.paymentService = paymentService;
+        this.jwtUserContext = jwtUserContext;
+        this.approvalThresholds = approvalThresholds;
     }
 
-    @PostMapping
-    public ResponseEntity<?> createPayment(@RequestBody CreatePaymentRequest request,
-                                           HttpSession session) {
-        Long userId = sessionLong(session, "userId");
-        Long tenantId = sessionLong(session, "tenantId");
+    public record PaymentConfigResponse(BigDecimal approvalThreshold) {}
 
-        if (userId == null || tenantId == null) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Not logged in"));
-        }
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @GetMapping("/config")
+    public PaymentConfigResponse getPaymentConfig() {
+        return new PaymentConfigResponse(approvalThresholds.getNoAttestantThreshold());
+    }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PostMapping
+    public ResponseEntity<?> createPayment(@RequestBody CreatePaymentRequest request) {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
         CreatePaymentRequest authenticatedRequest = new CreatePaymentRequest(
-                tenantId,
+                user.tenantId(),
                 request.fromAccountId(),
                 request.toIban(),
                 request.amount(),
                 request.reference(),
-                userId
+                user.userId()
         );
 
         PaymentResponse response = paymentService.createPayment(authenticatedRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    private Long sessionLong(HttpSession session, String name) {
-        Object value = session.getAttribute(name);
-        return value instanceof Number number ? number.longValue() : null;
     }
 }

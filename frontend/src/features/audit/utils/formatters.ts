@@ -1,13 +1,4 @@
-export function formatDateTime(timestamp: string | null): string {
-  if (!timestamp) {
-    return "Ej utförd";
-  }
-
-  return new Date(timestamp).toLocaleString("sv-SE", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
+export { formatDateTime, getDateTimeSortValue } from "../../../lib/dateTime";
 
 export function formatAuditStatus(status: string | null): string {
   switch (status) {
@@ -20,6 +11,19 @@ export function formatAuditStatus(status: string | null): string {
     default:
       return "-";
   }
+}
+
+export function formatAmount(amount: number | null, currency: string | null): string {
+  if (amount === null) {
+    return "-";
+  }
+
+  const formattedAmount = amount.toLocaleString("sv-SE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  return currency ? `${formattedAmount} ${currency}` : formattedAmount;
 }
 
 export function formatEventType(eventType: string): string {

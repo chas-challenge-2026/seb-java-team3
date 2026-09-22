@@ -1,5 +1,6 @@
 package se.comerit.seb.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record PaymentAuditTimelineEntryResponse(
@@ -11,5 +12,8 @@ public record PaymentAuditTimelineEntryResponse(
         LocalDateTime timestamp,
         Integer stepNumber,
         String status,
-        String reference
+        String reference,
+        BigDecimal amount,
+        String currency,
+        String toIban
 ) {}
