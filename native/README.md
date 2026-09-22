@@ -89,9 +89,10 @@ public interface CsvParserLib extends Library {
 
 ### Status
 - ✅ **IMPLEMENTERAD** — MOD97-algoritm, BIC-validering, enhetstester
+- ✅ **IMPLEMENTERAD** — JNA-integrering mot betalningsformuläret
 - **Issue #73:** MOD97-algoritm implementering
 - **Issue #74:** Enhetstester (denna fil)
-- **Issue #75:** JNA-integrering mot betalningsformuläret (nästa steg)
+- **Issue #75:** JNA-integrering mot betalningsformuläret (`backend/SebPortal/src/main/java/se/comerit/seb/infrastructure/iban/`)
 
 ### API
 
@@ -163,7 +164,9 @@ gcc -std=c99 -Wall -Wextra native/iban_validator_test.c native/iban_validator.c 
 ./native/build/test/iban_validator_test
 ```
 
-### Java JNA-wrapper (ska implementeras i #75)
+### Java JNA-wrapper (implementerad)
+
+Se `backend/SebPortal/src/main/java/se/comerit/seb/infrastructure/iban/IbanLib.java` och `IbanValidatorService.java`.
 
 ```java
 import com.sun.jna.*;
@@ -176,13 +179,15 @@ public interface IbanLib extends Library {
     int validate_bic(String bic);
 }
 
-// Anrop med graceful fallback om biblioteket saknas (matchar v1-beteendet):
+// Anrop med graceful fallback om biblioteket saknas — till skillnad från v1
+// (BUG-003) kör fallbacken en riktig Java MOD97-kontroll, inte bara ett
+// formatcheck, så ogiltiga kontrollsiffror stoppas även utan .so-filen:
 public boolean validateIban(String iban) {
-    if (!nativeLibraryAvailable) {
-        return fallbackValidateIban(iban); // regex fallback (= v1 BUG-003-läget)
+    if (!nativeLibAvailable) {
+        return validateIbanMod97(iban); // Java MOD97-fallback
     }
     IntByReference err = new IntByReference();
-    return IbanLib.INSTANCE.validate_iban(iban.replace(" ", ""), err) == 1;
+    return IbanLib.INSTANCE.validate_iban(iban, err) == 1;
 }
 ```
 
@@ -250,7 +255,7 @@ make all   # kompilerar alla tre .so-filer
 make test  # kör enhetstester (kräver check.h eller cmocka)
 ```
 
-`.so`-filerna måste ligga på `jna.library.path` (eller `java.library.path`) i runtime — t.ex. starta JVM med `-Djna.library.path=native/` eller kopiera in dem i Docker-imagen.
+`.so`-filerna måste ligga på `jna.library.path` (eller `java.library.path`) i runtime — t.ex. starta JVM med `-Djna.library.path=native/build/lib` eller kopiera in dem i Docker-imagen.
 
 Makefile (ska skapas i v2):
 ```makefile

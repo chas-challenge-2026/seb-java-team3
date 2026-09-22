@@ -7,6 +7,7 @@ import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.domain.*;
 import se.comerit.seb.dto.CreatePaymentRequest;
 import se.comerit.seb.dto.PaymentResponse;
+import se.comerit.seb.infrastructure.iban.IbanValidatorService;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
 
@@ -21,6 +22,7 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final ApprovalThresholds thresholds;
     private final AuditService auditService;
+    private final IbanValidatorService ibanValidator;
 
     // Constructor injection: Spring skapar automatiskt en instans av
     // PaymentService och fyller i dessa tre beroenden åt dig, baserat
@@ -28,11 +30,29 @@ public class PaymentService {
     public PaymentService(PaymentRepository paymentRepository,
                           UserRepository userRepository,
                           ApprovalThresholds thresholds,
-                          AuditService auditService) {
+                          AuditService auditService,
+                          IbanValidatorService ibanValidator) {
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
         this.thresholds = thresholds;
         this.auditService = auditService;
+        this.ibanValidator = ibanValidator;
+    }
+
+    private String normalizeAndValidateIban(CreatePaymentRequest request) {
+        if (request.toIban() == null || request.toIban().isBlank()) {
+            throw new IllegalArgumentException("IBAN får inte vara tomt");
+        }
+
+        String normalizedIban = ibanValidator.normalize(request.toIban());
+
+        if (!ibanValidator.validateIban(normalizedIban)) {
+            throw new IllegalArgumentException(
+                    "Invalid IBAN: " + ibanValidator.getIbanErrorMessage(normalizedIban)
+            );
+        }
+
+        return normalizedIban;
     }
 
     private void validateAmount(BigDecimal amount) {
@@ -58,12 +78,13 @@ public class PaymentService {
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 
+        String normalizedIban = normalizeAndValidateIban(request);
         validateAmount(request.amount());
 
         Payment payment = new Payment(
                 request.tenantId(),
                 request.fromAccountId(),
-                request.toIban(),
+                normalizedIban,
                 request.amount(),
                 request.reference(),
                 request.createdBy()
