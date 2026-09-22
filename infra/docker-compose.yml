@@ -31,8 +31,8 @@ services:
 
   app:
     build:
-      context: ../backend/SebPortal
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/SebPortal/Dockerfile
     expose:
       - "8084"
     environment:
