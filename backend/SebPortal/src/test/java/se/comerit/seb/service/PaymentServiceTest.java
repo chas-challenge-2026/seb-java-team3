@@ -166,6 +166,9 @@ class PaymentServiceTest {
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
         AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ApprovalThresholds thresholds = new ApprovalThresholds();
         thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
@@ -179,7 +182,7 @@ class PaymentServiceTest {
         when(paymentRepo.save(any(Payment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
 
         // Beloppet är EXAKT lika med tröskeln - det är själva gränsfallet vi testar
         CreatePaymentRequest request = new CreatePaymentRequest(
@@ -202,6 +205,9 @@ class PaymentServiceTest {
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
         AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ApprovalThresholds thresholds = new ApprovalThresholds();
         thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
@@ -215,7 +221,7 @@ class PaymentServiceTest {
         when(paymentRepo.save(any(Payment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
 
         // Ett öre över tröskeln - andra sidan av gränsfallet
         CreatePaymentRequest request = new CreatePaymentRequest(
