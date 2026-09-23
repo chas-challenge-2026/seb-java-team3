@@ -30,7 +30,7 @@ Vi ändrade flödet så att den agerande användaren hämtas från JWT-token. D�
 Vi valde att ta bort den gamla sessionsbaserade attestvyn i stället för att försöka underhålla två parallella lösningar. Vi förenklade alltså systemet till en gemensam väg genom JWT och API:et.
 
 **Hur vet vi att åtgärden fungerar?**  
-Vi testar skyddet både på servicenivå och genom hela kedjan från JWT-filter och säkerhetslager till controller och service. Testerna verifierar både att fel attestant får 403 och att inget förändras i systemet när försöket nekas.
+Vi testar skyddet både på servicenivå och genom hela kedjan från JWT-filter och säkerhetslager till controller och service. Testerna verifierar både att fel attestant får 403 och att inget förändras i systemet när försöket nekas. Det var en förhållandevis liten ändring för en risk med hög allvarlighetsgrad.
 
 **Vad är fortfarande osäkert?**  
 Vi behöver fortfarande verifiera isoleringen mellan olika tenants. Vi har inte heller testat adminrollens bypass-flöde fullt ut eller vad som händer om två attesteringar sker exakt samtidigt.
@@ -44,7 +44,7 @@ Den tidigare autentiseringslösningen hade två tydliga säkerhetsproblem. SQL-f
 Det här påverkar själva autentiseringen. Om inloggningsflödet kan manipuleras spelar övrig behörighetskontroll mindre roll, eftersom en angripare potentiellt kan få åtkomst som en annan användare.
 
 **Vad gjorde vi åt den?**  
-Vi slutade bygga SQL-frågor genom strängkonkatenering och flyttade autentiseringen till JPA. Vi ersatte också MD5 med BCrypt och migrerade befintliga lösenordshashar till den nya lösningen.
+Vi slutade bygga SQL-frågor genom strängkonkatenering och flyttade autentiseringen till JPA. Vi ersatte också MD5 med BCrypt och migrerade befintliga lösenordshashar till den nya lösningen. Det här var också en av anledningarna till att vi gick över till en lagerdelad arkitektur, controller, service, repository, i stället för att bygga SQL-frågor direkt i controllern. Det beslutet finns dokumenterat i en egen ADR.
 
 **Vad behövde vi ändra eller välja bort?**  
 Vi valde bort den gamla autentiseringskoden och gick över till en tydligare lagerstruktur med JPA i stället för att försöka säkra den gamla SQL-baserade lösningen.
