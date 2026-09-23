@@ -56,3 +56,24 @@ Bestäms på måndag. 30/8
 ## Beslut → beslutslogg
 
 Tar vi ett vägval av betydelse (ramverk, arkitektur, avgränsning, tröskelvärde)? Skriv en kort ADR i `docs/decisions/`.
+
+## Riskhantering
+
+Vi kör riskanalysen enligt RMR-arbetsboken: Identify → Assess → Prioritise → Mitigate → Monitor. Poäng = Sannolikhet × Konsekvens (1–25). Svar väljs bland de fyra T:na: Treat, Tolerate, Transfer, Terminate.
+
+Vi markerar inte en risk som åtgärdad för att vi tror att den är löst. Vi ska kunna peka på koden och ett test som visar det.
+
+- Innan vi ändrar status på en risk som går att kontrollera i kod tittar vi på koden som faktiskt finns.
+- Om åtgärden innebär ett vägval, till exempel kring arkitektur, tröskelvärden eller tokenlagring, dokumenterar vi beslutet i `docs/decisions/`. Det gäller också när vi ändrar ett tidigare beslut.
+- Om en nyare lösning redan täcker samma funktion tar vi bort den sårbara gamla koden i stället för att laga den.
+- Vi uppdaterar status i riskregistret (`Open`, `In progress`, `Mitigated`, `Accepted`) när arbetet går framåt, inte bara vid uppstarten.
+- Varje bugg behöver inte en egen rad i riskregistret. Det behövs först när buggen kan få allvarliga följder för systemet och vi måste ta ställning till om risken ska åtgärdas, accepteras eller flyttas. Annars hör buggen hemma i backloggen.
+
+
+### Den här veckan (v6)
+- Gick igenom samtliga kod-verifierbara risker mot faktisk kod, fil för fil, i stället för att lita på registrets tidigare status.
+- Skrev nya tester som bevisar mitigeringen i stället för att bara påstå den: `ApprovalApiControllerOwnershipTest` (ägarskap på atteststeg), gränsfallstester på betalningströskeln plus en utförandegrind (`ApprovalServiceTest`), `AuthServiceInjectionTest` mot en riktig SQL-motor (inloggning).
+- Tog bort gammal, sårbar v1-kod (`PaymentController`, `BatchController`) i stället för att patcha den, eftersom v2 redan hade ett motsvarande, säkrare flöde.
+- Låste tröskelbeslutet (strikt `>`, inte `>=`) i både kod och tester, i stället för att låta det vara underförstått.
+- Skrev en ny ADR när vi upptäckte att koden avvikit från ett tidigare beslut (byte från HttpOnly-cookie till JWT i `localStorage`) utan att avvikelsen var dokumenterad, och lade in den som en egen, medvetet accepterad risk i registret.
+- Valde vilka risker som skulle lyftas i CTO-filmen utifrån två kriterier tillsammans: allvarlighetsgrad OCH att åtgärden går att bevisa med ett körbart test, inte bara beskriva i ord.
