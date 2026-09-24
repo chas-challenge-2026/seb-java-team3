@@ -26,13 +26,15 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+
+
 ### 2026-09-21 ADR 0009 Pontus Ingenius
-- **Verktyg:** Claude
-- **Använde AI till:** Renskriva ADR 0009
-- **Genererades:**
-- **Hur jag granskade/ändrade:** Genom att läsa texten 
-- **Valde bort (om något):** Inget
-- **Spår:** PR #, issue #
+
+* **Verktyg:** Claude
+* **Använde AI till:** Att renskriva och förbättra formuleringarna i ADR 0009 för att göra innehållet tydligare och mer strukturerat.
+* **Genererades:** En omformulerad version av texten med tydligare språk och struktur.
+* **Hur jag granskade/ändrade:** Jag läste igenom den genererade texten och kontrollerade att innehållet stämde överens med det beslut och den information som skulle dokumenteras.
+* **Valde bort (om något):** Inget.
 
 ### 2026-09-15 — Tröskelbelopp backend: order-grind + API-status (#118) AdnanZasella
 - **Verktyg:** Claude
@@ -117,6 +119,14 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 - **Valde bort (om något):** -
 - **Spår:**
 ---
+### 2026-08-17 Förståelse för TanStack Query Pontus Ingenius
+
+* **Verktyg:** ChatGPT
+* **Använde AI till:** För att få hjälp att förstå hur TanStack Query fungerar, framför allt hur queries används för att hämta och hantera data från backend samt hur caching, loading states och error states fungerar.
+* **Genererades:** Förklaringar och exempel på hur `useQuery` används, hur `queryKey` och `queryFn` fungerar samt hur TanStack Query hanterar caching och uppdatering av data.
+* **Hur jag granskade/ändrade:** Jag jämförde AI:s förklaringar och kodexempel med vår befintliga kod och testade koncepten i projektet för att säkerställa att jag förstod hur de fungerade i praktiken. Jag anpassade exemplen till projektets struktur istället för att kopiera dem direkt.
+* **Valde bort (om något):** Jag valde bort delar av exemplen som inte var relevanta för projektet och använde främst AI för förståelse snarare än för att generera färdig kod.
+* **Spår:** PR #, issue #
 
 ## Tips
 

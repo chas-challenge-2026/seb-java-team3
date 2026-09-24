@@ -4,7 +4,7 @@ Närvarande: Jonathan, Marcus, Pontus, Adnan, Samuel, Mohammed
 
 ## Sprintmål
 - CTO-filmen inlämnad i tid (torsdag 24/9 kl 16), byggd kring 2-3 riskhistorier där vi
-  visar risk → beslut → hur vi verifierar.
+  visar risk -> beslut -> hur vi verifierar.
 - Sekundärt: de risker vi lyfter i filmen är bevisade i koden med gröna tester, inte
   bara påstådda (residualen är verklig, inte ett mål).
 

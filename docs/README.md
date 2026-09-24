@@ -13,5 +13,7 @@ Det här är kartan över all vår dokumentation. Vet du inte var något ska lig
 | docs/decisions/ | Beslutslogg (ADR:er). Ett viktigt vägval = en fil. Varför, inte bara vad. | Vid varje beslut |
 | docs/test-status.md | Teststatus: vad som testas, vad som är grönt/rött, täckning i grova drag. | Löpande |
 | docs/ai-usage.md | Dokumenterad AI-användning. Hur AI påverkat kod/beslut/analys. | Löpande |
+| docs/sprints | Dokumentation över våra sprintmål och sprint reviews. | Löpande |
+
 
 
