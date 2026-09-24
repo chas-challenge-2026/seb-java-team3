@@ -1,8 +1,8 @@
 # ADR 0004 - Lagerdelad arkitektur med Spring Data JPA
 
-- **Status:** Föreslagen
+- **Status:** Accepterad
 - **Datum:** 2026-08-27
-- **Deltagare:** [fyll i] · drivande: Pontus Ingenius 
+- **Deltagare:** Team-SEB-3 · drivande: Pontus Ingenius 
 - **Berör:** Backend-arkitektur (alla epics)
 - **Relaterade issues:** (inga ännu)
 
