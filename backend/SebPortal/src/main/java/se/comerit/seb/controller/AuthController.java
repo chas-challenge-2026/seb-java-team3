@@ -1,19 +1,15 @@
 package se.comerit.seb.controller;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.servlet.http.HttpSession;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseBody;
 
 import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.LoginResponse;
@@ -24,7 +20,7 @@ import se.comerit.seb.security.JwtService;
 import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.AuthService;
 
-@Controller
+@RestController
 public class AuthController {
 
     private final AuthService authService;
@@ -42,31 +38,7 @@ public class AuthController {
         this.userRepository = userRepository;
     }
 
-    @GetMapping({"/", "/login"})
-    public String loginPage(HttpSession session) {
-        if (session.getAttribute("userId") != null) {
-            return "redirect:/dashboard";
-        }
-        return "login";
-    }
-
-    @PostMapping("/login")
-    public String doLogin(@RequestParam String email,
-                          @RequestParam String password,
-                          HttpSession session,
-                          Model model) {
-        Optional<User> user = authService.authenticate(email, password);
-        if (user.isEmpty()) {
-            model.addAttribute("error", "Invalid email or password.");
-            return "login";
-        }
-
-        storeAuthenticatedUser(session, user.get());
-        return "redirect:/dashboard";
-    }
-
     @PostMapping("/api/auth/login")
-    @ResponseBody
     public ResponseEntity<?> apiLogin(@RequestBody LoginRequest request) {
         Optional<User> user =
                 authService.authenticate(request.getEmail(), request.getPassword());
@@ -82,7 +54,6 @@ public class AuthController {
     }
 
     @GetMapping("/api/auth/me")
-    @ResponseBody
     public ResponseEntity<?> currentUser() {
         AuthenticatedUserContext authenticated = jwtUserContext.requireAuthenticated();
         User user = userRepository.findById(authenticated.userId())
@@ -93,14 +64,6 @@ public class AuthController {
 
     private AuthenticatedUserContext toAuthenticatedUserContext(User user) {
         return new AuthenticatedUserContext(user.getId(), user.getTenantId(), user.getRole());
-    }
-
-    private void storeAuthenticatedUser(HttpSession session, User user) {
-        session.setAttribute("userId", user.getId());
-        session.setAttribute("userName", user.getName());
-        session.setAttribute("userEmail", user.getEmail());
-        session.setAttribute("role", user.getRole());
-        session.setAttribute("tenantId", user.getTenantId());
     }
 
     public static class LoginRequest {
@@ -122,11 +85,5 @@ public class AuthController {
         public void setPassword(String password) {
             this.password = password;
         }
-    }
-
-    @GetMapping("/logout")
-    public String logout(HttpSession session) {
-        session.invalidate();
-        return "redirect:/login";
     }
 }
