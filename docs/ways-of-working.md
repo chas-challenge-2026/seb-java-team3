@@ -50,7 +50,8 @@ Ett kort är klart när:
 
 ## Veckorytm
 
-Bestäms på måndag. 30/8
+Sprintplanering sker på måndag. Där vi sätter sprintmål för veckan, fixar kanban.
+Tisdag:
 
 
 ## Beslut → beslutslogg
