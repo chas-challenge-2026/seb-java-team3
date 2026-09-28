@@ -25,6 +25,10 @@ WORKDIR /app
 COPY backend/SebPortal/pom.xml .
 RUN mvn dependency:resolve -q
 COPY backend/SebPortal/src ./src
+
+# Lägg in den byggda React-appen i Springs static/ så att den paketeras in i jar-filen
+COPY --from=frontend-build /frontend/dist ./src/main/resources/static/
+
 RUN mvn package -DskipTests -q
 
 # ---- Stage 4: runtime ----
