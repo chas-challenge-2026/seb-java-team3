@@ -11,7 +11,6 @@ import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./features/payment/NewPayment"
 import AuditPage from "./features/audit/pages/AuditPage"
-import PaymentAuditTimelinePage from "./features/audit/pages/PaymentAuditTimelinePage";
 import MyPaymentsPage from "./features/audit/pages/MyPaymentsPage";
 import AttestPage from "./pages/AttestPage";
 
@@ -83,13 +82,6 @@ const attestRoute = createRoute({
   component: AttestPage,
 })
 
-const paymentAuditRoute = createRoute({
-  getParentRoute: () => authRoute,
-  path: "/payments/$paymentId/audit",
-  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ATTESTANT", "ADMIN"]),
-  component: PaymentAuditTimelinePage,
-});
-
 const routeTree = rootRoute.addChildren([
   loginRoute,
 
@@ -100,7 +92,6 @@ const routeTree = rootRoute.addChildren([
     auditRoute,
     myPaymentsRoute,
     attestRoute,
-    paymentAuditRoute,
   ]),
 ]);
 

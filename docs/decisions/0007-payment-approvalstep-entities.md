@@ -2,7 +2,7 @@
 
 - **Status:** Accepterad
 - **Datum:** 2026-09-04
-- **Deltagare:** team-seb-3 · drivande:
+- **Deltagare:** Team-seb-3
 - **Berör:** Epic 1 (Arkitektur & lager), Epic 3 (Betalning & approval-kedja)
 - **Relaterade issues:** #45 (beror på #46 / PR #59)
 

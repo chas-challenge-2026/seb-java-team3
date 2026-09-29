@@ -38,7 +38,7 @@ Inte oviktigt, utan för att en stabil kärna slår fem halvfärdiga flöden. By
 - Påminnelser via e-post (kö, retry)
 - Dubbel attest / attestant 2 (VD) och tröskeltrappa
 - Batch/CSV-uppladdning
-- Native C/C++-moduler (CSV-parser, IBAN/BIC, audit-signering)
+- Native C/C++-moduler (CSV-parser, audit-signering)
 - Kontoöversikt/dashboard som egen vy (v1 har den redan, låg prioritet)
 - Compliance-export, refresh-token-rotation, 2FA, valutaomvandling
 
