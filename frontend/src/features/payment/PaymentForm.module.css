@@ -81,6 +81,9 @@
 
 .formBody { padding: 1.5rem 1.25rem 1.25rem; }
 
+.requiredLegend { margin: 0 0 0.75rem; color: var(--text-secondary); font-size: 0.78rem; }
+.requiredMark { color: var(--danger-text); }
+
 .sectionHeading { margin: 0.45rem 0 0.85rem; }
 .sectionHeading + .wrapper { margin-bottom: 1.4rem; }
 .sectionHeading h3 { color: var(--text-heading); font-size: 0.9rem; }

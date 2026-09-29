@@ -1,17 +1,37 @@
 import styles from "./AttestGrid.module.css";
 import Button from "../../components/ui/buttons/Button";
+import ButtonLink from "../../components/ui/buttons/ButtonLink";
 import { useApprovals } from "./useApprovals";
-import IconMessage from "./IconMessage";
-import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
+import IconMessage from "../../components/ui/feedback/IconMessage";
+import LoadErrorMessage from "../../components/ui/feedback/LoadErrorMessage";
+import { CircleCheck, Clock3, PartyPopper } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
 import { formatDateTime } from "../../lib/dateTime";
 
 export default function AttestGrid() {
-  const { data, isLoading, isError, approve } = useApprovals();
+  const { data, isLoading, isError, isFetching, refetch, approve } = useApprovals();
 
   if (isLoading) return <p>Laddar…</p>;
-  if (isError) return <IconMessage message="Kunde inte hämta attestkorgen!" icon={TriangleAlert} variant="error"/>;
-  if (!data?.length) return <IconMessage title="Allt är klart" message="Inget väntar på ditt godkännande just nu." icon={PartyPopper}/>;
+  if (isError) return (
+    <LoadErrorMessage
+      title="Kunde inte hämta attestkorgen"
+      onRetry={() => refetch()}
+      isRetrying={isFetching}
+    />
+  );
+  if (!data?.length) return (
+    <IconMessage
+      title="Allt är klart"
+      message="Inget väntar på ditt godkännande just nu."
+      icon={PartyPopper}
+      actions={
+        <>
+          <ButtonLink to="/">Till översikt</ButtonLink>
+          <ButtonLink to="/audit" variant="primary">Visa historik</ButtonLink>
+        </>
+      }
+    />
+  );
   return (
     <Container maxWidth="lg">
       <section className={styles.card} aria-label="Väntande attesteringar">

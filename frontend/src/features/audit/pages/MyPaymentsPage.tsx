@@ -1,21 +1,38 @@
 import { useQuery } from "@tanstack/react-query";
 import { CreditCard } from "lucide-react";
+import ButtonLink from "../../../components/ui/buttons/ButtonLink";
+import IconMessage from "../../../components/ui/feedback/IconMessage";
+import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
 import { formatAmount, formatAuditStatus, formatDateTime } from "../utils/formatters";
 import styles from "../components/AuditGrid.module.css";
 
 export default function MyPaymentsPage() {
-  const { data, isPending, isError } = useQuery(myPaymentsQueryOptions);
+  const { data, isPending, isError, isFetching, refetch } = useQuery(myPaymentsQueryOptions);
 
   return (
     <Container maxWidth="xl" style={{ marginTop: "2rem" }}>
       {isPending ? (
         <p>Laddar dina betalningar…</p>
       ) : isError ? (
-        <p role="alert">Kunde inte hämta dina betalningar. Försök igen senare.</p>
+        <LoadErrorMessage
+          title="Kunde inte hämta dina betalningar"
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+        />
       ) : data.length === 0 ? (
-        <p>Du har inte skapat några betalningar än.</p>
+        <IconMessage
+          title="Inga betalningar än"
+          message="Betalningar du skapar visas här, med status och detaljer."
+          icon={CreditCard}
+          actions={
+            <>
+              <ButtonLink to="/">Till översikt</ButtonLink>
+              <ButtonLink to="/payments/new" variant="primary">Ny betalning</ButtonLink>
+            </>
+          }
+        />
       ) : (
         <section className={styles.card} aria-label="Mina betalningar">
           <header className={styles.header}>

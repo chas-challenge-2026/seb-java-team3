@@ -15,6 +15,11 @@
     
 }
 
+/* ButtonLink renderar en <a> */
+a.btnBase {
+    text-decoration: none;
+}
+
 .fullWidth {
     width: 100%;
 }

@@ -1,14 +1,16 @@
 import Styles from "./IconMessage.module.css"
 import type { LucideIcon } from "lucide-react"
+import type { ReactNode } from "react"
 
 interface IconMessageProps {
     message: string;
     icon: LucideIcon;
     title?: string;
     variant?: "success" | "error";
+    actions?: ReactNode;
 }
 
-const IconMessage = ({ message, icon: Icon, title, variant = "success" }: IconMessageProps) => {
+const IconMessage = ({ message, icon: Icon, title, variant = "success", actions }: IconMessageProps) => {
   return (
     <section className={`${Styles.wrapper} ${Styles[variant]}`} aria-live="polite">
         <div className={Styles.iconWrapper}>
@@ -16,6 +18,7 @@ const IconMessage = ({ message, icon: Icon, title, variant = "success" }: IconMe
         </div>
         {title && <h2 className={Styles.title}>{title}</h2>}
         <p className={Styles.message}>{message}</p>
+        {actions && <div className={Styles.actions}>{actions}</div>}
     </section>
   )
 }
