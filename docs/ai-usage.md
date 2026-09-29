@@ -26,7 +26,21 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
-
+### 2026-09-24 — Ta bort v1-kod (Thymeleaf-UI + sessionsinloggning) i backend Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att gå igenom backend och kartlägga vilka filer som är ärvda från v1 och vilka vi byggt i v2, med hjälp av git-historiken (vad som fanns i första commiten `d201ecc` och vad som lagts till sedan). Att kontrollera vad som faktiskt använder de gamla filerna innan något togs bort, och sedan genomföra borttagningen och verifiera att appen fortfarande fungerar.
+- **Genererades:**
+  - Borttagning av `DashboardController`, `SecurityConfig`, `SessionAuthenticationFilter`, `SessionUserContext`, `CurrentUserRoles`, Thymeleaf-mallarna och `style.css`.
+  - Ändringar i `AuthController` och `AuditController`: de gamla sidorna togs bort, och båda är nu `@RestController`. Dessutom ändringar i `Role`, `RoleAccessDeniedHandler`, `JwtSecurityConfig`, `pom.xml` (thymeleaf/jdbc/mail borttagna) och `application.properties`.
+  - Uppdateringar i 4 testklasser, commit-meddelande och PR-beskrivning.
+- **Hur jag granskade/ändrade:** Jag bad först AI:n lista vad som var gammalt och vad som var nytt innan något togs bort, och lät den återställa en första version för att bestämma mig för om det skulle göras nu eller läggas som task till backend-gruppen. Jag kontrollerade att borttagningen stämmer med v2-kraven (Thymeleaf ska ersättas med REST + React), med vår regel i `ways-of-working.md` om att ta bort sårbar gammal kod i stället för att laga den, och med ADR 0002 (v1-dokumentationen bevaras i `docs/v1/` och v1-koden finns kvar i git-historiken). Den viktigaste risken var att `@EnableMethodSecurity` låg i `SecurityConfig`. Den flyttades till `JwtSecurityConfig`, annars hade alla `@PreAuthorize`-kontroller slutat gälla. Det bekräftas av `RoleAuthorizationTest`. Verifiering:
+  - Före ändringen var 67/67 tester gröna, efter ändringen 66/66. Det enda borttagna testet gällde den gamla sessionen.
+  - Hela MVP-flödet kördes mot appen i Docker med riktig Postgres: inloggning, skapa betalning över tröskeln, badge-räknare, godkänn, saldot dras och tidslinjen visar händelserna.
+  - Fel roll ger 403, ingen token ger 401 och `/dashboard` samt `/login` ger nu 404.
+- **Valde bort (om något):**
+  - Att bygga in frontend i Dockerfile nu. Det behövs för att demo:n ska fungera på stage och tas som egen task före live-demon.
+  - Att fixa att ett dubbelgodkännande ger 500 i stället för 409/400. Buggen fanns redan innan och blockeringen fungerar, bara felkoden är fel. Den blir en egen task.
+- **Spår:** Commit `52b6a2c`, branch `cleanup-old-files`, PR #
 
 ### 2026-09-21 ADR 0009 Pontus Ingenius
 
