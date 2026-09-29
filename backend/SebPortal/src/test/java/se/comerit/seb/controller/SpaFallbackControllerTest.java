@@ -37,6 +37,14 @@ class SpaFallbackControllerTest {
     }
 
     @Test
+    void root_withoutToken_forwardsToIndex() throws Exception {
+        // React äger startsidan. Utan token skickar Reacts egen auth-guard vidare till /login.
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+    }
+
+    @Test
     void frontendRoute_withoutToken_forwardsToIndex() throws Exception {
         mockMvc.perform(get("/attest"))
                 .andExpect(status().isOk())
@@ -93,6 +101,14 @@ class SpaFallbackControllerTest {
     @Test
     void rootFile_isNotForwarded() throws Exception {
         mockMvc.perform(get("/favicon.svg"))
+                .andExpect(status().isNotFound())
+                .andExpect(forwardedUrl(null));
+    }
+
+    @Test
+    void indexHtml_isNotForwarded() throws Exception {
+        // Målet för forwarden måste serveras som fil. Annars skulle forwarden loopa.
+        mockMvc.perform(get("/index.html"))
                 .andExpect(status().isNotFound())
                 .andExpect(forwardedUrl(null));
     }

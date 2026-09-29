@@ -18,10 +18,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 // ren fallback. Mönstren täcker en och två nivåer (/attest, /payments/new), vilket är alla
 // routes i frontend/src/router.tsx. Spring 6 tillåter inte ** mitt i ett mönster, så en ny
 // route med tre nivåer behöver ett mönster till här.
+//
+// "/" mappas uttryckligen så att React äger startsidan. Spring Boot kan servera index.html
+// på / av sig självt (welcome page), men bara om filen fanns när appen startade, och utan att
+// det syns i koden. Med en egen mappning går / samma väg som övriga routes och går att testa.
 @Controller
 public class SpaFallbackController {
 
     @GetMapping({
+            "/",
             "/{path:(?!api$)[^.]+}",
             "/{path:(?!api$)[^.]+}/{subpath:[^.]+}"
     })
