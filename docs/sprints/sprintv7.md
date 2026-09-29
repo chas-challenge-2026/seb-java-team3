@@ -11,12 +11,12 @@ Vem är tillgänglig och ungefär hur mycket denna vecka?
 ## Sprint backlog ( kopplat till målet)
 | Uppgift                                                      | Ägare | Est. | Kopplar till målet?        |
 | ------------------------------------------------------------ | ----- | ---- | -------------------------- |
-| DM-film                                                      |       | M    | Ja, primärt                |
-| UX-film (Emma), visa prototyp/flöden                         |       | M    | Ja, primärt                |
-| Serva React-appen i Dockerfile + fallback-routing (Kvar p.1) |       | L    | Ja, live-demo              |
-| Ett E2E-test för MVP-tråden, Playwright                      |       | M    | Ja, live-demo              |
+| DM-film                                                      |Adnan, Markus, Mohammed, Samuel| M    | Ja, primärt                |
+| UX-film (Emma), visa prototyp/flöden                         |Marcus, Pontus| M    | Ja, primärt                |
+| Serva React-appen i Dockerfile + fallback-routing (Kvar p.1) |Jonathan, Adnan| L    | Ja, live-demo              |
+| Ett E2E-test för MVP-tråden, Playwright                      | Pontus | M    | Ja, live-demo              |
 | README för Verision 2                                        |       | S    | Ja, examinator läser först |
-| Checka in riskregistret i repot                              |       | S    | Ja, spårbart               |
+| Checka in riskregistret i repot                              |Pontus| S    | Ja, spårbart               |
 ## Stretch (tas om tid finns, annars v8)
 | Uppgift                                                               | Ägare | Est. |     |
 | --------------------------------------------------------------------- | ----- | ---- | --- |
@@ -32,12 +32,12 @@ Vem är tillgänglig och ungefär hur mycket denna vecka?
 | -------------------------------------------------------- | ----------------------- | -------------- | ------------ |
 | #156 Serva React i Docker + fallback (demo-blockerare 1) | Build, api, test & docs | Jonathan       | L            |
 | #164 E2E-test för MVP-tråden(Playwirght)                 | Test                    | Pontus         | M            |
-| Välj innehåll DM-film                                    | Film                    | ____           | S            |
+| Välj innehåll DM-film                                    | Film                    |Adnan, Markus, Mohammed, Samuel           | S            |
 | Välj innehåll UX-film (UX-val, antaganden, flöden)       | Film                    | Marcus, Pontus | S            |
-| Spela in DM-filmen (Loom, max 5 min)                     | Film                    |                | S            |
-| Spela in UX-filmen (Loom, max 5 min)                     | Film                    |                | S            |
+| Spela in DM-filmen (Loom, max 5 min)                     | Film                    |Adnan, Markus, Mohammed, Samuel| S            |
+| Spela in UX-filmen (Loom, max 5 min)                     | Film                    |Marcus, Pontus | S            |
 | Lämna in UX-film                                         | Film                    | Marcus,Pontus  | S            |
-| Lämna in DM-film                                         | Film                    |                | S            |
+| Lämna in DM-film                                         | Film                    |Adnan, Markus, Mohammed, Samuel | S            |
 
 ## Risker och beroenden (F3) 
 | Risk / beroende                       | Sannolikhet | Påverkan | Vad gör vi åt det                                                           |
