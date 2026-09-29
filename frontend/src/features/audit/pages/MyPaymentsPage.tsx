@@ -3,6 +3,7 @@ import { CreditCard } from "lucide-react";
 import ButtonLink from "../../../components/ui/buttons/ButtonLink";
 import IconMessage from "../../../components/ui/feedback/IconMessage";
 import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
+import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
 import { formatAmount, formatAuditStatus, formatDateTime } from "../utils/formatters";
@@ -14,7 +15,7 @@ export default function MyPaymentsPage() {
   return (
     <Container maxWidth="xl" style={{ marginTop: "2rem" }}>
       {isPending ? (
-        <p>Laddar dina betalningar…</p>
+        <LoadingMessage message="Laddar dina betalningar…" />
       ) : isError ? (
         <LoadErrorMessage
           title="Kunde inte hämta dina betalningar"

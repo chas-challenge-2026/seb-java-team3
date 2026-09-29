@@ -6,6 +6,7 @@ import { latestAuditEntryByPayment, toAuditEntry } from "../utils/mappers";
 import Container from "../../../components/ui/layout/Container";
 import IconMessage from "../../../components/ui/feedback/IconMessage";
 import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
+import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 
 export default function AuditPage() {
     const { data, isPending, isError, isFetching, refetch } = useQuery(auditQueryOptions);
@@ -13,7 +14,7 @@ export default function AuditPage() {
     return (
         <Container maxWidth="xl" style={{ marginTop: "2rem" }}>
             {isPending ? (
-                <p>Laddar händelser…</p>
+                <LoadingMessage message="Laddar händelser…" />
             ) : isError ? (
                 <LoadErrorMessage
                     title="Kunde inte hämta händelserna"

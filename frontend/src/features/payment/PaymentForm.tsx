@@ -455,7 +455,7 @@ function PaymentForm() {
               ref={amountRef}
               label="Belopp (SEK)"
               required
-              placeholder="1000.00"
+              placeholder="1 000,00"
               value={formData.amount}
               onChange={(event) => {
                 setFormData((prev) => ({ ...prev, amount: event.target.value }));

@@ -43,6 +43,21 @@ describe("paymentAmountSchema", () => {
     },
   );
 
+  it.each([
+    ["1500,50", "1500.50"],
+    ["1 500,50", "1500.50"],
+    ["1\u00a0500", "1500"],
+    ["  250,5 ", "250.5"],
+  ])("normalizes the Swedish format %s to %s", (value, expected) => {
+    const result = paymentAmountSchema.safeParse(value);
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(expected);
+  });
+
+  it("rejects an amount with more than one decimal separator", () => {
+    expect(paymentAmountSchema.safeParse("1,500,50").success).toBe(false);
+  });
+
   it("rejects zero", () => {
     expect(paymentAmountSchema.safeParse("0").success).toBe(false);
   });
