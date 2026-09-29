@@ -21,8 +21,6 @@ import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
 import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.security.RoleAccessDeniedHandler;
-import se.comerit.seb.security.SecurityConfig;
-import se.comerit.seb.security.SessionAuthenticationFilter;
 import se.comerit.seb.service.ApprovalService;
 import se.comerit.seb.service.AuditService;
 
@@ -43,8 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // audit) är mockat, så det är den verkliga ägarkollen i servicen som ger 403 här - till
 // skillnad från ApprovalApiControllerSecurityTest, där servicen själv är mockad.
 @WebMvcTest(ApprovalApiController.class)
-@Import({JwtSecurityConfig.class, SecurityConfig.class, SessionAuthenticationFilter.class,
-        RoleAccessDeniedHandler.class, JwtService.class, JwtUserContext.class, ApprovalService.class})
+@Import({JwtSecurityConfig.class, RoleAccessDeniedHandler.class, JwtService.class, JwtUserContext.class, ApprovalService.class})
 class ApprovalApiControllerOwnershipTest {
 
     private static final Long TENANT_ID = 1L;
