@@ -1,0 +1,36 @@
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: min(100%, 36rem);
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+    color: var(--text-muted);
+    text-align: center;
+    /* Visas först efter en kort stund så att snabba laddningar inte blinkar till */
+    animation: fadeIn 200ms ease-out 300ms both;
+}
+
+.spinner {
+    color: var(--accent-muted);
+    animation: spin 900ms linear infinite;
+}
+
+.message {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+}

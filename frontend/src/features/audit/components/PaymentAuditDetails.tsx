@@ -20,7 +20,7 @@ export default function PaymentAuditDetails({
   if (isPending) {
     return (
       <div id={id} className={styles.detailsPanel}>
-        <p className={styles.stateText}>Laddar händelsekedja...</p>
+        <p className={styles.stateText}>Laddar händelsekedjan…</p>
       </div>
     );
   }

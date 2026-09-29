@@ -139,6 +139,33 @@ describe("PaymentForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("accepts an amount written in Swedish format", async () => {
+    mockedCreatePayment.mockResolvedValue({
+      id: 1,
+      amount: 1500.5,
+      toIban: "SE4550000000058398257466",
+      status: "COMPLETED",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+
+    await selectAccount(user, "Driftkonto");
+    await user.type(
+      screen.getByLabelText(/^Mottagar-IBAN/),
+      "SE45 5000 0000 0583 9825 7466",
+    );
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1 500,50");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    await waitFor(() =>
+      expect(mockedCreatePayment).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: "1500.50" }),
+      ),
+    );
+  });
+
   it("shows an approval notice for a payment awaiting approval", async () => {
     mockedCreatePayment.mockResolvedValue({
       id: 2,
