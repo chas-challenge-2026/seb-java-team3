@@ -395,12 +395,6 @@ function PaymentForm() {
             <h3>Betalningsuppgifter</h3>
             <p>Ange mottagare, belopp och en referens för betalningen.</p>
           </div>
-          {approvalThreshold !== null && (
-            <p className={styles.thresholdInfo}>
-              <Info size={17} aria-hidden="true" />
-              Betalningar över {formatSek(approvalThreshold)} behöver attesteras.
-            </p>
-          )}
           <div className={styles.formGrid}>
             <div className={styles.fullWidth}>
               <Input
@@ -412,7 +406,7 @@ function PaymentForm() {
                   setErrors((prev) => ({ ...prev, recipientIban: undefined }));
                 }}
                 error={errors.recipientIban}
-              />
+                />
             </div>
 
             <Input
@@ -425,7 +419,7 @@ function PaymentForm() {
               }}
               error={errors.amount}
               inputMode="decimal"
-            />
+              />
 
             <Input
               label="Referens"
@@ -436,8 +430,14 @@ function PaymentForm() {
                 setErrors((prev) => ({ ...prev, reference: undefined }));
               }}
               error={errors.reference}
-            />
+              />
           </div>
+              {approvalThreshold !== null && (
+                <p className={styles.thresholdInfo}>
+                  <Info size={17} aria-hidden="true" />
+                  Betalningar över {formatSek(approvalThreshold)} behöver attesteras.
+                </p>
+              )}
 
           <div className={styles.paymentActions}>
             {submitError && (
