@@ -42,7 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } catch (JwtException | IllegalArgumentException ignored) {
                 // Ogiltig/utgången/manipulerad token, eller en claim som inte gick att tolka
                 // (t.ex. ett role-namn som inte finns i Role-enumet) => ingen inloggning sätts.
-                // SecurityConfig avgör sen om den anropade endpointen kräver auth (401 följer normalt).
+                // JwtSecurityConfig avgör sen om den anropade endpointen kräver auth (401 följer normalt).
             }
         }
 

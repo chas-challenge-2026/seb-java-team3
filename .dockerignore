@@ -1,0 +1,21 @@
+# Git och IDE
+.git
+.gitignore
+.idea
+.vscode
+*.iml
+
+# Frontend: byggs om i containern med npm ci och npm run build
+frontend/node_modules
+frontend/dist
+
+# Backend: byggs om i containern med mvn package
+backend/SebPortal/target
+
+# Native: byggs om i containern med make
+native/build
+
+# Hemligheter och lokala miljöfiler ska aldrig in i en image
+.env
+.env.*
+**/.env

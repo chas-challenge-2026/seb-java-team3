@@ -1,13 +1,11 @@
 package se.comerit.seb.controller;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.dto.AuditEntryResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
-import se.comerit.seb.security.SessionUserContext;
 import se.comerit.seb.service.AuditService;
 import se.comerit.seb.security.JwtUserContext;
 
@@ -27,11 +25,9 @@ class AuditControllerTest {
         @Test
         void getAuditEntries_shouldReturnCreateAndApproveEvents() throws Exception {
                 AuditService auditService = mock(AuditService.class);
-                SessionUserContext sessionUserContext = mock(SessionUserContext.class);
                 JwtUserContext jwtUserContext = mock(JwtUserContext.class);
                 AuditController controller = new AuditController(
                                 auditService,
-                                sessionUserContext,
                                 jwtUserContext);
                 MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
@@ -47,9 +43,7 @@ class AuditControllerTest {
                 when(jwtUserContext.requireAuthenticated()).thenReturn(admin);
                 when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, approveEvent));
 
-                MockHttpSession session = new MockHttpSession();
-
-                mockMvc.perform(get("/api/audit").session(session))
+                mockMvc.perform(get("/api/audit"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$[*].action",
                                                 containsInAnyOrder("CREATE_PAYMENT", "APPROVE_PAYMENT")));

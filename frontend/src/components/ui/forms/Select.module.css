@@ -8,6 +8,7 @@
 }
 
 .selectLabel { color: var(--text-heading); font-size: 0.84rem; font-weight: 650; }
+.requiredMark { color: var(--danger-text); }
 
 .trigger {
   display: flex;

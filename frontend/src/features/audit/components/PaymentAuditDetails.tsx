@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import styles from "./AuditGrid.module.css";
 import PaymentAuditStep from "./PaymentAuditStep";
 import { paymentAuditTimelineQueryOptions } from "../queries/auditQueryOptions";
+import { formatAmount } from "../utils/formatters";
 
 type PaymentAuditDetailsProps = {
   paymentId: string;
@@ -19,7 +20,7 @@ export default function PaymentAuditDetails({
   if (isPending) {
     return (
       <div id={id} className={styles.detailsPanel}>
-        <p className={styles.stateText}>Laddar händelsekedja...</p>
+        <p className={styles.stateText}>Laddar händelsekedjan…</p>
       </div>
     );
   }
@@ -42,8 +43,25 @@ export default function PaymentAuditDetails({
     );
   }
 
+  // Mottagare, belopp och referens gäller hela betalningen, inte enskilda steg
+  const [payment] = data;
+
   return (
     <div id={id} className={styles.detailsPanel}>
+      <dl className={styles.paymentSummary}>
+        <div>
+          <dt>Mottagare</dt>
+          <dd className={styles.iban}>{payment.toIban ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>Belopp</dt>
+          <dd>{formatAmount(payment.amount, payment.currency)}</dd>
+        </div>
+        <div>
+          <dt>Referens</dt>
+          <dd>{payment.reference?.trim() || "-"}</dd>
+        </div>
+      </dl>
       <ol className={styles.timeline}>
         {data.map((entry) => (
           <PaymentAuditStep key={entry.sequence} entry={entry} />

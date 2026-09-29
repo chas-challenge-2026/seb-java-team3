@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LoginForm from "./LoginForm";
 import { useLogin } from "./useLogin";
+import { ApiError } from "../../error/api.error";
 
 vi.mock("./useLogin", () => ({
   useLogin: vi.fn(),
@@ -69,5 +70,28 @@ describe("LoginForm", () => {
     render(<LoginForm />);
 
     expect(screen.getByRole("button", { name: /loggar in/i })).toBeDisabled();
+  });
+
+  it("shows a friendly message when the credentials are wrong", () => {
+    mockLoginState({
+      error: new ApiError(401, "Du har blivit utloggad. Logga in igen.", {
+        error: "Invalid email or password",
+      }),
+    });
+
+    render(<LoginForm />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Fel e-post eller lösenord.");
+    expect(screen.queryByText(/utloggad/)).not.toBeInTheDocument();
+  });
+
+  it("shows the API error message for other failures", () => {
+    mockLoginState({
+      error: new ApiError(0, "Kunde inte nå servern. Kontrollera din anslutning och försök igen om en stund."),
+    });
+
+    render(<LoginForm />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Kunde inte nå servern.");
   });
 });

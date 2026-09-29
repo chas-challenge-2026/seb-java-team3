@@ -23,7 +23,14 @@ import type {
 import { paymentFormSchema } from "./schema";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import { createPayment, getPaymentConfig } from "./api";
-import { isApiError, isApiValidationError } from "../../error/api.error";
+import {
+  isApiError,
+  isApiValidationError,
+  NETWORK_ERROR_STATUS,
+} from "../../error/api.error";
+
+// Samma ordning som fälten visas i formuläret
+const FIELD_ORDER = ["account", "recipientIban", "amount", "reference"] as const;
 
 function PaymentForm() {
   const navigate = useNavigate();
@@ -51,6 +58,32 @@ function PaymentForm() {
   const [returningToForm, setReturningToForm] = useState(false);
   const [isFormEntering, setIsFormEntering] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLButtonElement>(null);
+  const recipientIbanRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const referenceRef = useRef<HTMLInputElement>(null);
+  const focusFirstErrorRef = useRef(false);
+
+  // Körs efter att felen renderats, så att skärmläsare läser upp felet med fältet
+  useEffect(() => {
+    if (!focusFirstErrorRef.current) {
+      return;
+    }
+
+    focusFirstErrorRef.current = false;
+
+    const fieldRefs = {
+      account: accountRef,
+      recipientIban: recipientIbanRef,
+      amount: amountRef,
+      reference: referenceRef,
+    };
+    const firstInvalidField = FIELD_ORDER.find((field) => errors[field]);
+
+    if (firstInvalidField) {
+      fieldRefs[firstInvalidField].current?.focus();
+    }
+  }, [errors]);
 
   useEffect(() => {
     let isActive = true;
@@ -207,6 +240,7 @@ function PaymentForm() {
 
     if (!result.success) {
       setErrors(zodIssuesToFieldErrors<keyof PaymentFormErrors>(result.error));
+      focusFirstErrorRef.current = true;
       return;
     }
 
@@ -338,6 +372,7 @@ function PaymentForm() {
                 : ""
           }`}
           onSubmit={handleSubmit}
+          noValidate
         >
         <header className={styles.formHeader}>
           <div>
@@ -347,12 +382,17 @@ function PaymentForm() {
         </header>
 
         <div className={styles.formBody}>
+          <p className={styles.requiredLegend}>
+            Fält markerade med <span className={styles.requiredMark} aria-hidden="true">*</span> är obligatoriska.
+          </p>
           <div className={styles.sectionHeading}>
             <h3>Från konto</h3>
             <p>Välj vilket konto betalningen ska dras från.</p>
           </div>
           <Select
+            ref={accountRef}
             label="Konto"
+            required
             value={formData.account}
             placeholder="Välj konto"
             onChange={(value) => {
@@ -395,16 +435,12 @@ function PaymentForm() {
             <h3>Betalningsuppgifter</h3>
             <p>Ange mottagare, belopp och en referens för betalningen.</p>
           </div>
-          {approvalThreshold !== null && (
-            <p className={styles.thresholdInfo}>
-              <Info size={17} aria-hidden="true" />
-              Betalningar över {formatSek(approvalThreshold)} behöver attesteras.
-            </p>
-          )}
           <div className={styles.formGrid}>
             <div className={styles.fullWidth}>
               <Input
+                ref={recipientIbanRef}
                 label="Mottagar-IBAN"
+                required
                 placeholder="SE45 5000 0000 0583 9825 7466"
                 value={formData.recipientIban}
                 onChange={(event) => {
@@ -412,12 +448,14 @@ function PaymentForm() {
                   setErrors((prev) => ({ ...prev, recipientIban: undefined }));
                 }}
                 error={errors.recipientIban}
-              />
+                />
             </div>
 
             <Input
+              ref={amountRef}
               label="Belopp (SEK)"
-              placeholder="1000.00"
+              required
+              placeholder="1 000,00"
               value={formData.amount}
               onChange={(event) => {
                 setFormData((prev) => ({ ...prev, amount: event.target.value }));
@@ -425,9 +463,10 @@ function PaymentForm() {
               }}
               error={errors.amount}
               inputMode="decimal"
-            />
+              />
 
             <Input
+              ref={referenceRef}
               label="Referens"
               placeholder="Faktura #1234"
               value={formData.reference}
@@ -436,8 +475,14 @@ function PaymentForm() {
                 setErrors((prev) => ({ ...prev, reference: undefined }));
               }}
               error={errors.reference}
-            />
+              />
           </div>
+              {approvalThreshold !== null && (
+                <p className={styles.thresholdInfo}>
+                  <Info size={17} aria-hidden="true" />
+                  Betalningar över {formatSek(approvalThreshold)} behöver attesteras.
+                </p>
+              )}
 
           <div className={styles.paymentActions}>
             {submitError && (
@@ -456,8 +501,6 @@ function PaymentForm() {
             <Button
               type="submit"
               variant="primary"
-              buttonStyle="icon-text"
-              icon="check"
               disabled={Boolean(pendingConfirmation) || isSubmitting}
               aria-busy={isSubmitting}
             >
@@ -471,8 +514,34 @@ function PaymentForm() {
   );
 }
 
+const SERVER_UNREACHABLE_MESSAGE =
+  "Kunde inte nå servern. Betalningen har inte skickats. Försök igen om en stund.";
+
+// Används när betalningen kan ha registrerats trots felet, så att den inte skickas två gånger
+const UNCERTAIN_OUTCOME_MESSAGE =
+  "Något gick fel och vi vet inte om betalningen registrerades. Kontrollera under Mina betalningar innan du försöker igen.";
+
 function getSubmitErrorMessage(error: unknown): string {
-  if (isApiError(error) || isApiValidationError(error)) {
+  // Servern svarade, men svaret gick inte att läsa
+  if (isApiValidationError(error)) {
+    return UNCERTAIN_OUTCOME_MESSAGE;
+  }
+
+  if (isApiError(error)) {
+    // Inget svar, eller 502/503 från proxyn när backend är nere: inget har registrerats
+    if (
+      error.status === NETWORK_ERROR_STATUS ||
+      error.status === 502 ||
+      error.status === 503
+    ) {
+      return SERVER_UNREACHABLE_MESSAGE;
+    }
+
+    if (error.status >= 500) {
+      return UNCERTAIN_OUTCOME_MESSAGE;
+    }
+
+    // Backendens eget meddelande, eller api.ts standardmeddelande för statuskoden
     return error.message;
   }
 
