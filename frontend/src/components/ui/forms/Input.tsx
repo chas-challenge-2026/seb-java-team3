@@ -16,6 +16,7 @@ const Input = ({
   type,
   className = "",
   ref,
+  required,
   ...inputProps
 }: TextInputProps) => {
   const reactId = useId();
@@ -28,6 +29,7 @@ const Input = ({
       {label && (
         <label className={styles.inputLabel} htmlFor={inputId}>
           {label}
+          {required && <span className={styles.requiredMark} aria-hidden="true"> *</span>}
         </label>
       )}
       <div className={styles.wrap}>
@@ -37,6 +39,7 @@ const Input = ({
           name={name}
           type={isPassword ? (revealed ? "text" : "password") : type}
           className={`${styles.inputField}${isPassword ? ` ${styles.inputPassword}` : ""}${error ? ` ${styles.inputError}` : ""}${className ? ` ${className}` : ""}`}
+          required={required}
           aria-invalid={!!error}
           aria-describedby={error ? `${inputId}-error` : undefined}
           {...inputProps}

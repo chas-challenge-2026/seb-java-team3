@@ -1,3 +1,6 @@
+// Status för ApiError när servern inte gick att nå alls, dvs. inget HTTP-svar finns
+export const NETWORK_ERROR_STATUS = 0;
+
 export class ApiError extends Error {
   status: number;
   data?: unknown;

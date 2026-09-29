@@ -16,6 +16,8 @@ interface SelectProps {
   id?: string;
   name?: string;
   disabled?: boolean;
+  required?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export default function Select({
@@ -27,6 +29,8 @@ export default function Select({
   id,
   name,
   disabled = false,
+  required = false,
+  ref,
 }: SelectProps) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
@@ -89,10 +93,16 @@ export default function Select({
 
   return (
     <div className={styles.wrapper} ref={rootRef}>
-      {label && <label className={styles.selectLabel} htmlFor={selectId}>{label}</label>}
+      {label && (
+        <label className={styles.selectLabel} htmlFor={selectId}>
+          {label}
+          {required && <span className={styles.requiredMark} aria-hidden="true"> *</span>}
+        </label>
+      )}
       {name && <input type="hidden" name={name} value={value} />}
 
       <button
+        ref={ref}
         id={selectId}
         type="button"
         className={`${styles.trigger}${isOpen ? ` ${styles.triggerOpen}` : ""}`}
@@ -100,6 +110,7 @@ export default function Select({
         aria-controls={listboxId}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
+        aria-required={required || undefined}
         aria-activedescendant={isOpen ? `${selectId}-option-${highlightedIndex}` : undefined}
         disabled={disabled}
         onClick={() => (isOpen ? setIsOpen(false) : open())}

@@ -36,11 +36,7 @@ export default function LoginForm() {
 
   const fieldErrors: FieldErrors = { ...serverFieldErrors, ...clientErrors };
 
-  const message = isApiError(error)
-    ? error.message
-    : error
-      ? "Couldn't reach the server."
-      : null;
+  const message = getLoginErrorMessage(error);
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
@@ -53,7 +49,7 @@ export default function LoginForm() {
         onChange={(e) => setEmail(e.target.value)}
         error={fieldErrors.email}
         className={styles.inputField}
-        required
+        aria-required
       />
       <Input
         label="Lösenord"
@@ -64,7 +60,7 @@ export default function LoginForm() {
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
         className={styles.inputField}
-        required
+        aria-required
       />
 
       {message && Object.keys(fieldErrors).length === 0 && (
@@ -77,4 +73,21 @@ export default function LoginForm() {
       </div>
     </form>
   );
+}
+
+function getLoginErrorMessage(error: unknown): string | null {
+  if (!error) {
+    return null;
+  }
+
+  // Vid inloggning betyder 401 fel uppgifter, inte att sessionen gått ut
+  if (isApiError(error) && error.status === 401) {
+    return "Fel e-post eller lösenord. Kontrollera uppgifterna och försök igen.";
+  }
+
+  if (isApiError(error)) {
+    return error.message;
+  }
+
+  return "Något gick fel när du skulle loggas in. Försök igen om en stund.";
 }

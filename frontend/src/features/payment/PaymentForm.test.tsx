@@ -20,10 +20,10 @@ const mockedGetPaymentConfig = vi.mocked(getPaymentConfig);
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await selectAccount(user, "Driftkonto");
   await user.type(
-    screen.getByLabelText("Mottagar-IBAN"),
+    screen.getByLabelText(/^Mottagar-IBAN/),
     "SE45 5000 0000 0583 9825 7466",
   );
-  await user.type(screen.getByLabelText("Belopp (SEK)"), "1000.00");
+  await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1000.00");
 }
 
 async function selectAccount(
@@ -54,8 +54,8 @@ describe("PaymentForm", () => {
     render(<PaymentForm />);
 
     await selectAccount(user, "Driftkonto");
-    await user.type(screen.getByLabelText("Mottagar-IBAN"), "not-an-iban");
-    await user.type(screen.getByLabelText("Belopp (SEK)"), "1000.00");
+    await user.type(screen.getByLabelText(/^Mottagar-IBAN/), "not-an-iban");
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1000.00");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
 
     expect(await screen.findByText("Ange en giltig IBAN.")).toBeInTheDocument();
@@ -67,10 +67,10 @@ describe("PaymentForm", () => {
     const { container } = render(<PaymentForm />);
 
     await user.type(
-      screen.getByLabelText("Mottagar-IBAN"),
+      screen.getByLabelText(/^Mottagar-IBAN/),
       "SE45 5000 0000 0583 9825 7466",
     );
-    await user.type(screen.getByLabelText("Belopp (SEK)"), "1000.00");
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1000.00");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
 
     await waitFor(() => {
@@ -79,6 +79,34 @@ describe("PaymentForm", () => {
       );
     });
     expect(mockedCreatePayment).not.toHaveBeenCalled();
+  });
+
+  it("moves focus to the first invalid field when submitting", async () => {
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+
+    await user.type(screen.getByLabelText(/^Mottagar-IBAN/), "not-an-iban");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox")).toHaveFocus();
+    });
+
+    await selectAccount(user, "Driftkonto");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^Mottagar-IBAN/)).toHaveFocus();
+    });
+  });
+
+  it("marks the required fields", () => {
+    render(<PaymentForm />);
+
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^Mottagar-IBAN/)).toBeRequired();
+    expect(screen.getByLabelText(/^Belopp \(SEK\)/)).toBeRequired();
+    expect(screen.getByLabelText(/^Referens/)).not.toBeRequired();
   });
 
   it("submits the normalized data and shows the confirmation on success", async () => {
@@ -123,8 +151,8 @@ describe("PaymentForm", () => {
     render(<PaymentForm />);
 
     await fillValidForm(user);
-    await user.clear(screen.getByLabelText("Belopp (SEK)"));
-    await user.type(screen.getByLabelText("Belopp (SEK)"), "5000");
+    await user.clear(screen.getByLabelText(/^Belopp \(SEK\)/));
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "5000");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
 
     expect(await screen.findByText("Väntar på attest")).toBeInTheDocument();
@@ -145,6 +173,36 @@ describe("PaymentForm", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Ingen attestant finns tillgänglig.",
+    );
+  });
+
+  it("shows a friendly message instead of 502 when the backend is down", async () => {
+    mockedCreatePayment.mockRejectedValue(
+      new ApiError(502, "Kunde inte nå servern. Kontrollera din anslutning och försök igen om en stund."),
+    );
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Kunde inte nå servern. Betalningen har inte skickats.");
+    expect(alert).not.toHaveTextContent("502");
+  });
+
+  it("asks the user to check before retrying when the outcome is uncertain", async () => {
+    mockedCreatePayment.mockRejectedValue(
+      new ApiError(500, "Något gick fel hos oss. Försök igen om en stund."),
+    );
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kontrollera under Mina betalningar innan du försöker igen.",
     );
   });
 
