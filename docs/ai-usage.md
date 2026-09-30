@@ -26,6 +26,22 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-09-29 — SPA-fallback, React äger / och rök-test (#160, #161, #162) Jonathan Isaksson
+- **Verktyg:** Claude
+- **Använde AI till:** Att kolla projektets status och granska #153 innan vi byggde vidare på den. Sedan hjälpt till att implementera och verifiera delar av (#160–#162).
+- **Genererades:**
+  - `SpaFallbackController`, som forwardar frontend-routes och `/` till `index.html` men undantar `/api` och filer, samt `SpaFallbackControllerTest` med 10 tester.
+  - `scripts/smoke-spa.mjs`, ett rök-test mot en app som är igång.
+- **Hur jag granskade/ändrade:** Jag bad om en statuskoll och en review av #153 innan någon kod skrevs, och mergade #177 och #153 innan vi byggde vidare. Varje ändring granskades och Korrigerades personligen där det behövdes.
+  - 76/76 backendtester gröna. Mutationskoll: med lösa mönster (`.+`) failade exakt de fyra tester som skyddar `/api` och filer, och utan `/` i mappningen failade root-testet.
+  - Rök-testet gav 18/18 OK mot appen i Docker med riktig Postgres, med och utan inloggning.
+  - I webbläsare: direktlänk och riktig omladdning på `/attest`, samt direktladdning av `/payments/new`, `/my-payments` och `/audit` inloggad som admin.
+- **Valde bort (om något):**
+  - En resource-resolver som skickar alla okända sökvägar till `index.html` oavsett djup. Den är svårare att läsa och testa, och controllern med mönster täcker alla dagens routes. Begränsningen till två nivåer står i koden.
+  - Ett `@SpringBootTest` med riktig databas för att visa att `index.html` faktiskt serveras. Det verifieras i stället av rök-testet mot den byggda appen.
+  - En egen Not Found-sida i React. Den ligger utanför scope och är flaggad i PR:en.
+- **Spår:** Commits `3ff7ed6`, `4c987bb`, `aa5b76a`, issue #160, #161, #162 (del av #156), PR #
+
 ### 2026-09-24 — Ta bort v1-kod (Thymeleaf-UI + sessionsinloggning) i backend Pontus Ingenius
 - **Verktyg:** Claude Code
 - **Använde AI till:** Att gå igenom backend och kartlägga vilka filer som är ärvda från v1 och vilka vi byggt i v2, med hjälp av git-historiken (vad som fanns i första commiten `d201ecc` och vad som lagts till sedan). Att kontrollera vad som faktiskt använder de gamla filerna innan något togs bort, och sedan genomföra borttagningen och verifiera att appen fortfarande fungerar.

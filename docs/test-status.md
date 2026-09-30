@@ -2,7 +2,7 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-09-24  
+**Senast uppdaterad:** 2026-09-29  
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
@@ -10,14 +10,15 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
 | Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
-| Backend · JUnit | 12 klasser, 67 tester | 62 gröna i lokal Surefire-rapport 2026-09-21; 5 tillkomna tester är inte lokalt verifierade |
+| Backend · JUnit | 13 klasser, 76 tester | Alla gröna vid lokal körning 2026-09-29 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
+| Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
 | E2E · hela användarflödet | 0 tester | Ingen E2E-svit finns |
 
-De fem backendtesterna finns i `IbanValidatorServiceTest` och lades till efter den senaste lokala körningen. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Kontrollera resultatet i Actions innan de räknas som verifierade.
+Alla 76 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-09-29. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
-**Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet.
+**Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
 
 Backendens unit-tester använder mockade repositories. De verifierar servicelogik men inte transaktioner eller rollback mot en riktig databas.
 
@@ -39,7 +40,7 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 | Login skyddas mot SQL-injektion (BUG-001, R-06) | Int | Grön | `AuthServiceInjectionTest` · 12 tester med H2 |
 | Lösenord hanteras med BCrypt (BUG-002, R-06) | Int | Delvis | `AuthServiceInjectionTest.controlCase_validCredentialsAuthenticate` |
 | Attestant får bara hantera egna steg (BUG-011, R-03) | Int | Grön | `ApprovalApiControllerOwnershipTest` · 3; `ApprovalServiceTest.approve/reject_shouldThrowAccessDenied_*` |
-| Roller och åtkomst via `@PreAuthorize` (#79) | Int | Delvis | `RoleAuthorizationTest` · 17 |
+| Roller och åtkomst via `@PreAuthorize` (#79) | Int | Delvis | `RoleAuthorizationTest` · 16 |
 | JWT-signering, utgång och ogiltiga token | Unit | Grön | `JwtServiceTest` · 4; `JwtAuthenticationFilterTest` · 3; `JwtUserContextTest` · 5 |
 | Saknad eller ogiltig token mot API ger 401 | Int | Grön | `ApprovalApiControllerSecurityTest.approve_withoutToken/withGarbageToken_returns401` |
 | Loginformulärets validering och fel | Komp | Grön | `LoginForm.test.tsx` · 4; `auth/schema.test.ts` · 7 |
@@ -48,10 +49,10 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 
 **Avgränsningar och kvar att testa**
 
-- SQL-injektionstesterna gäller login: sex payloads i e-post, tre i lösenord och ett försök med `DROP TABLE` som lämnar data orörd. Äldre `DashboardController` bygger fortfarande SQL genom att lägga ihop strängar med `tenantId` från sessionen och saknar test.
+- SQL-injektionstesterna gäller login: sex payloads i e-post, tre i lösenord och ett försök med `DROP TABLE` som lämnar data orörd. Den äldre `DashboardController`, som byggde SQL genom att lägga ihop strängar, togs bort i #153.
 - BCrypt verifieras indirekt. Test saknas för att neka en MD5-hash och för V7-migreringen.
 - Ägarskapstestet går genom JWT, controller och riktig service. Fel attestant får 403 utan att steg, saldo eller audit ändras. `RoleAuthorizationTest` täcker de tre rollerna, lista, godkänn, avvisa, audit, tidslinje, betalningsskapande och 401. `/api/my-payments` och `/api/approvals/count` återstår.
-- JWT-testerna täcker fel nyckel och trasig token; ogiltig eller saknad token ger ingen autentisering. JWT går före en äldre sessionscookie. Formulärtesterna täcker ogiltig e-post, tomt lösenord, trimning och låst knapp under inloggning. API-klienttesterna täcker token med och utan värde, `ApiError` och validering av svar.
+- JWT-testerna täcker fel nyckel och trasig token; ogiltig eller saknad token ger ingen autentisering. Formulärtesterna täcker ogiltig e-post, tomt lösenord, trimning och låst knapp under inloggning. API-klienttesterna täcker token med och utan värde, `ApiError` och validering av svar.
 - `ProtectedRoute.test.tsx` finns inte. Test behövs för omdirigering till login och spärr vid fel roll.
 
 ### Betalning och godkännande
@@ -82,7 +83,8 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 
 **Avgränsningar och kvar att testa**
 
-- IBAN-fallen omfattar giltiga svenska och tyska nummer, mellanslag och fel kontrollsiffra. Backendtesterna ingår bland de fem som inte verifierats i senaste lokala körningen.
+- IBAN-fallen omfattar giltiga svenska och tyska nummer, mellanslag och fel kontrollsiffra.
+- Seed-datans IBAN:er klarar inte MOD97, utom `SE4550000000058398257466`. Ett E2E-test som betalar till någon av de andra stoppas därför av valideringen, i formuläret eller med 400 från API:t.
 - BIC har bara två fall i regex-fallbacken. Native-modulen är byggd, men Check-testerna körs varken i CI eller Java-sviten; Java kör med native avstängt. `normalize()` saknar bland annat tester för NUL och längd över 34 tecken.
 - Formulärvalideringen är testad, men fokus och tabbordning är inte det.
 
@@ -115,6 +117,21 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 - Frågorna filtrerar på `tenantId`, men inget negativt test verifierar åtkomst mellan kunder för audit, betalningar eller `my-payments`. `AuditControllerMyPaymentsTest.shouldReturnOnlyOwnPayments` mockar servicen och testar därför inte filtreringen.
 - `findPaymentEvents` sorterar på `createdAt, id`, men lika tidsstämplar är inte testade. Även namnet `getMyPaymentStatuses_shouldReturnOnlyOwnPayments` beskriver inte tydligt vad testet verifierar.
 
+### Servering av frontend (SPA-routing)
+
+| Kontroll | Typ | Status | Teststöd |
+| --- | --- | --- | --- |
+| Frontend-routes och `/` forwardas till `index.html` utan token (#160, #161) | Int | Grön | `SpaFallbackControllerTest.root_*`, `frontendRoute_*`, `nestedFrontendRoute_*`, `unknownFrontendRoute_*` |
+| `/api/**` och filer forwardas inte; `/api` kräver fortfarande token | Int | Grön | `SpaFallbackControllerTest.unknownApiRoute_*`, `apiRoot_*`, `apiRoute_*`, `assetFile_*`, `rootFile_*`, `indexHtml_*` |
+| Byggd app servar React på frontend-routes, filer som filer och `/api` som API (#162) | Rök | Grön | `scripts/smoke-spa.mjs` · 18 kontroller mot Docker 2026-09-29 |
+
+**Avgränsningar och kvar att testa**
+
+- MockMvc utför inte forwarden. Att `index.html` faktiskt serveras ur jar-filen verifieras bara av rök-testet, som körs manuellt.
+- Mönstren täcker routes med en och två nivåer. `/a/b/c` ger 404, så en ny route med tre nivåer behöver ett mönster och ett test till.
+- Direktladdning av `/attest`, `/payments/new`, `/my-payments` och `/audit` samt omladdning på `/attest` kontrollerades manuellt i webbläsare mot Docker 2026-09-29.
+- Rök-testet mot stage återstår tills ändringen är mergad och deployad.
+
 ### Övriga frontendtester
 
 | Kontroll | Typ | Status | Teststöd |
@@ -139,7 +156,7 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 | 2 | Checka in och kör samtidighetstestet; testa rollback för saldo och audit mot databas. | Låsning och transaktionsutfall är inte verifierade i repot. |
 | 3 | Testa tenant-gränser och de två saknade behörighetsvägarna. | Filtrering och åtkomst till `/api/my-payments` och `/api/approvals/count` behöver verifieras. |
 | 4 | Testa skyddade routes och badge; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
-| 5 | Verifiera de fem IBAN-testerna i Actions och rätta de två missvisande testnamnen. | Status och testnamn ska spegla vad som faktiskt körs och testas. |
+| 5 | Rätta de två missvisande testnamnen. | Testnamnen ska spegla vad som faktiskt testas. |
 
 ## 6. Köra testerna
 
@@ -164,6 +181,13 @@ cd native
 make test
 ```
 
-GitHub Actions körs vid push och PR mot `develop`: `maven.yml` kör `mvn package` och `frontend.yml` kör lint, Vitest och build. Native C körs inte i CI. Något E2E-kommando finns ännu inte.
+```bash
+# Rök-test · kräver att appen är igång (se "Köra lokalt" i DRIFT.md)
+# Med SMOKE_EMAIL och SMOKE_PASSWORD körs även kontrollerna som kräver token
+node scripts/smoke-spa.mjs
+node scripts/smoke-spa.mjs https://<stage-adress>
+```
+
+GitHub Actions körs vid push och PR mot `develop`: `maven.yml` kör `mvn package` och `frontend.yml` kör lint, Vitest och build. Native C och rök-testet körs inte i CI. Något E2E-kommando finns ännu inte.
 
 Täckningsgrad hjälper till att hitta luckor. Det viktiga är att varje AC har ett test som faktiskt verifierar beteendet.
