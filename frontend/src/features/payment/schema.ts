@@ -33,12 +33,17 @@ export const ibanSchema = z
   .min(1, "Ange mottagarens IBAN.")
   .refine(isValidIban, "Ange en giltig IBAN.");
 
+// Tillåter svenskt format som "1 500,50": mellanslag (även hårda) tas bort och komma blir punkt
 export const paymentAmountSchema = z
   .string()
-  .trim()
-  .min(1, "Ange ett belopp.")
-  .regex(/^\d+(\.\d{1,2})?$/, "Ange ett giltigt belopp med maximalt två decimaler.")
-  .refine((value) => Number(value) > 0, "Beloppet måste vara större än 0.");
+  .transform((value) => value.replace(/[\s\u00a0\u202f]/g, "").replace(",", "."))
+  .pipe(
+    z
+      .string()
+      .min(1, "Ange ett belopp.")
+      .regex(/^\d+(\.\d{1,2})?$/, "Ange ett giltigt belopp med högst två decimaler.")
+      .refine((value) => Number(value) > 0, "Beloppet måste vara större än 0."),
+  );
 
 export const paymentReferenceSchema = z
   .string()

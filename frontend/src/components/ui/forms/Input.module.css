@@ -12,6 +12,8 @@
   font-weight: 650;
 }
 
+.requiredMark { color: var(--danger-text); }
+
 .inputField {
     width: 100%;
     height: 2.75rem;

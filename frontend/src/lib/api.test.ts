@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { api } from "./api";
-import { ApiError, ApiValidationError } from "../error/api.error";
+import { ApiError, ApiValidationError, NETWORK_ERROR_STATUS } from "../error/api.error";
 import { setToken } from "./authToken";
 
 function jsonResponse(status: number, body: unknown) {
@@ -62,7 +62,7 @@ describe("api", () => {
     });
   });
 
-  it("falls back to the status text when the error body has no message", async () => {
+  it("falls back to a Swedish default message when the error body has no message", async () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(null, { status: 500, statusText: "Internal Server Error" }),
     );
@@ -70,8 +70,45 @@ describe("api", () => {
     await expect(api("/api/ping")).rejects.toMatchObject({
       name: "ApiError",
       status: 500,
-      message: "500 Internal Server Error",
+      message: "Något gick fel hos oss. Försök igen om en stund.",
     });
+  });
+
+  it("ignores an empty server message", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(401, { error: "Unauthorized", message: "" }));
+
+    await expect(api("/api/ping")).rejects.toMatchObject({
+      status: 401,
+      message: "Du har blivit utloggad. Logga in igen.",
+    });
+  });
+
+  it("uses the unreachable message for 502 from the proxy", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response("", { status: 502, statusText: "Bad Gateway" }),
+    );
+
+    await expect(api("/api/ping")).rejects.toMatchObject({
+      status: 502,
+      message: expect.stringContaining("Kunde inte nå servern"),
+    });
+  });
+
+  it("turns network failures into an ApiError with status 0", async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(api("/api/ping")).rejects.toMatchObject({
+      name: "ApiError",
+      status: NETWORK_ERROR_STATUS,
+      message: expect.stringContaining("Kunde inte nå servern"),
+    });
+  });
+
+  it("rethrows aborted requests unchanged", async () => {
+    const abortError = new DOMException("Aborted", "AbortError");
+    vi.mocked(fetch).mockRejectedValue(abortError);
+
+    await expect(api("/api/ping")).rejects.toBe(abortError);
   });
 
   it("returns the schema-parsed data when a schema is provided", async () => {
