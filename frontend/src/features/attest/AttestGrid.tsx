@@ -64,7 +64,7 @@ export default function AttestGrid() {
         message={
           showFeedbackInCard
             ? `${feedback.text} Inget mer väntar på ditt godkännande.`
-            : "Inget väntar på ditt godkännande just nu."
+            : "Inga betalningar väntar på godkännande just nu."
         }
         icon={PartyPopper}
         actions={

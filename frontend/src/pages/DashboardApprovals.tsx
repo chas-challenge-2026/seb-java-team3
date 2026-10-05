@@ -38,7 +38,7 @@ export default function DashboardApprovals() {
     return (
       <section className={`${styles.panel} ${styles.empty}`} aria-labelledby="dashboard-approvals-title">
         <PartyPopper size={30} aria-hidden="true" />
-        <h2 id="dashboard-approvals-title">Inget väntar på din attest</h2>
+        <h2 id="dashboard-approvals-title">Inga betalningar väntar på attest</h2>
       </section>
     );
   }

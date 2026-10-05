@@ -9,7 +9,6 @@ import styles from "./Dashboard.module.css";
 export function Dashboard() {
   const unavailable = false;
   const { data: user } = useUser();
-  const hasApprovalAccess = user?.role === "ATTESTANT" || user?.role === "ADMIN";
 
   return (
     <Container maxWidth="lg" className={styles.page}>
@@ -28,12 +27,16 @@ export function Dashboard() {
       ) : (
         <>
           <UserAvatarDashboard name={user?.name ?? "Användare"} />
-          {hasApprovalAccess && <DashboardApprovals />}
-          {hasApprovalAccess ? (
-            <DashboardAccounts
-              standalone
-              showNewPayment={user?.role !== "ATTESTANT"}
-            />
+          {user?.role === "ADMIN" ? (
+            <>
+              <DashboardAccountsAndPayments />
+              <DashboardApprovals />
+            </>
+          ) : user?.role === "ATTESTANT" ? (
+            <>
+              <DashboardApprovals />
+              <DashboardAccounts standalone showNewPayment={false} />
+            </>
           ) : (
             <DashboardAccountsAndPayments />
           )}
