@@ -12,7 +12,7 @@ export function Dashboard() {
 
   return (
     <Container maxWidth="lg" className={styles.page}>
-      <h1>Översikt</h1>
+      {/* <h1>Översikt</h1> */}
 
       {unavailable ? (
         <section className={styles.status} aria-labelledby="dashboard-status-title">

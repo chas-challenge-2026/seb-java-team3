@@ -13,7 +13,7 @@ export default function MyPaymentsPage() {
   const { data, isPending, isError, isFetching, refetch } = useQuery(myPaymentsQueryOptions);
 
   return (
-    <Container maxWidth="xl" style={{ marginTop: "2rem" }}>
+    <Container maxWidth="xl">
       {isPending ? (
         <LoadingMessage message="Laddar dina betalningar…" />
       ) : isError ? (

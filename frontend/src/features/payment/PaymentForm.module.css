@@ -44,7 +44,7 @@
   justify-content: center;
   flex: 0 0 auto;
   max-width: 100%;
-  margin: 4rem auto;
+  margin: 1rem auto 4rem;
   transition: width 350ms ease-out;
 }
 
@@ -200,7 +200,7 @@
 }
 
 @media (max-width: 540px) {
-  .paymentCardWrapper { margin: 1.5rem auto; }
+  .paymentCardWrapper { margin: 1rem auto 1.5rem; }
   .formHeader { align-items: flex-start; padding: 1.35rem 1.25rem; }
   .formBody { padding: 1.25rem 0.75rem 1rem; }
   .confirmationBody { padding: 1.25rem 0.75rem 1.5rem; }

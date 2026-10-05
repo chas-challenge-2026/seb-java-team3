@@ -18,6 +18,7 @@
 
 .pageTransition {
     width: 100%;
+    padding-top: 1rem;
     animation: pageEnter 180ms ease-out both;
 }
 
