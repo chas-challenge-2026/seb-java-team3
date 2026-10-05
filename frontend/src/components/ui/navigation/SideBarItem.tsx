@@ -12,6 +12,7 @@ interface SidebarItemProps {
     route?: AppRoute;
     onClick?: () => void;
     tone?: "default" | "danger";
+    iconOnlyOnMobile?: boolean;
 }
 
 const SideBarItem = ({
@@ -22,8 +23,9 @@ const SideBarItem = ({
     route,
     onClick,
     tone = "default",
+    iconOnlyOnMobile = false,
 }: SidebarItemProps) => {
-  const className = `${Styles.link} ${active ? Styles.active : ""} ${tone === "danger" ? Styles.danger : ""}`;
+  const className = `${Styles.link} ${active ? Styles.active : ""} ${tone === "danger" ? Styles.danger : ""} ${iconOnlyOnMobile ? Styles.iconOnlyOnMobile : ""}`;
   const content = (
     <>
       {icon && (
@@ -45,11 +47,11 @@ const SideBarItem = ({
   return (
     <li className={Styles.item}>
         {route ? (
-          <Link className={className} to={route} aria-current={active ? "page" : undefined}>
+          <Link className={className} to={route} aria-label={label} title={label} aria-current={active ? "page" : undefined}>
             {content}
           </Link>
         ) : (
-          <button className={`${className} ${Styles.button}`} type="button" onClick={onClick}>
+          <button className={`${className} ${Styles.button}`} type="button" onClick={onClick} aria-label={label} title={label}>
             {content}
           </button>
         )}

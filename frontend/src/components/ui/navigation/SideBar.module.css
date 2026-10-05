@@ -33,3 +33,78 @@
 .navList { display: flex; flex-direction: column; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
 .bottomArea { padding-top: 1rem; }
 .divider { height: 1px; margin: 1rem 0; background: var(--border-subtle); }
+
+@media (max-width: 1000px) {
+    .sideBar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "brand actions"
+            "navigation navigation";
+        gap: 0.25rem 0.5rem;
+        flex: 0 0 auto;
+        align-self: stretch;
+        width: 100%;
+        height: auto;
+        padding: 0.4rem 0.75rem 0;
+        overflow: visible;
+        border-right: 0;
+        border-bottom: 1px solid var(--border-default);
+    }
+
+    .sideBar > div:first-child {
+        display: contents;
+    }
+
+    .brand {
+        grid-area: brand;
+        min-width: 0;
+        min-height: 2.75rem;
+        padding: 0.25rem 0.35rem;
+        margin: 0;
+        border: 0;
+    }
+
+    .brand h2 {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+
+    .sideBar > div:first-child > nav {
+        grid-area: navigation;
+        min-width: 0;
+    }
+
+    .navList {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0 0 0.45rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .navList::-webkit-scrollbar {
+        display: none;
+    }
+
+    .bottomArea {
+        grid-area: actions;
+        display: flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0;
+    }
+
+    .bottomArea .navList {
+        gap: 0.1rem;
+        padding: 0;
+        overflow: visible;
+    }
+
+    .divider {
+        display: none;
+    }
+}

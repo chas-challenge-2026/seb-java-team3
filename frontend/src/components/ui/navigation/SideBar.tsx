@@ -100,12 +100,14 @@ const SideBar = () => {
             label={theme === "light" ? "Mörkt läge" : "Ljust läge"}
             icon={theme === "light" ? <Moon size={iconSize} /> : <Sun size={iconSize} />}
             onClick={handleThemeToggle}
+            iconOnlyOnMobile
           />
           <SideBarItem
             label="Logga ut"
             icon={<LogOut size={iconSize} />}
             onClick={handleLogout}
             tone="danger"
+            iconOnlyOnMobile
           />
           </ul>
         </nav>
@@ -113,6 +115,7 @@ const SideBar = () => {
         <UserAvatar
           name={user?.name ?? "Användare"}
           companyName="Malmö Bygg"
+          compact
         />
       </div>
     </aside>

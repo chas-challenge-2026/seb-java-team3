@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-router";
 import AppLayout from "./components/ui/layout/AppLayout";
 
-import { Dashboard } from "./pages/Dashboard";
+import { Dashboard } from "./features/dashboard/Dashboard";
 import { Login } from "./pages/Login";
 import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./features/payment/NewPayment"

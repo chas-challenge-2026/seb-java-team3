@@ -18,7 +18,14 @@
 
 .pageTransition {
     width: 100%;
+    padding-top: 1rem;
     animation: pageEnter 180ms ease-out both;
+}
+
+@media (max-width: 1000px) {
+    .appLayout {
+        flex-direction: column;
+    }
 }
 
 @keyframes pageEnter {
