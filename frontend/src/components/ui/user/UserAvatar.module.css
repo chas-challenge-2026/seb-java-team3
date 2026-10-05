@@ -16,6 +16,12 @@
     background-color: var(--bg-surface);
 }
 
+.avatarContainerCompact {
+    width: auto;
+    height: auto;
+    padding: 0;
+}
+
 .avatar {
     width: 2.25rem;
     height: 2.25rem;

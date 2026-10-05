@@ -21,6 +21,12 @@
     animation: pageEnter 180ms ease-out both;
 }
 
+@media (max-width: 1000px) {
+    .appLayout {
+        flex-direction: column;
+    }
+}
+
 @keyframes pageEnter {
     from { opacity: 0; transform: translateY(0.25rem); }
     to { opacity: 1; transform: translateY(0); }

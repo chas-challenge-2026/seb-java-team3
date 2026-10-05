@@ -6,6 +6,7 @@ interface UserAvatarProps {
     firstName?: string;
     lastName?: string;
     companyName: string;
+    compact?: boolean;
 }
 
 const UserAvatar: React.FC<UserAvatarProps> = ({
@@ -13,6 +14,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     firstName,
     lastName,
     companyName,
+    compact = false,
 }) => {
 
     const displayName = name ?? ([firstName, lastName].filter(Boolean).join(" ") || "Användare");
@@ -24,14 +26,16 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
         .join("");
 
     return (
-        <div className={Styles.avatarContainer}>
+        <div className={`${Styles.avatarContainer} ${compact ? Styles.avatarContainerCompact : ""}`}>
             <div className={Styles.avatar}>
                 {profileInitials}
             </div>
-            <div className={Styles.textWrapper}>
-                <h2 className={Styles.userName}>{displayName}</h2>
-                <h3 className={Styles.userWorkplace}>{companyName}</h3>
-            </div>
+            {!compact && (
+                <div className={Styles.textWrapper}>
+                    <h2 className={Styles.userName}>{displayName}</h2>
+                    <h3 className={Styles.userWorkplace}>{companyName}</h3>
+                </div>
+            )}
         </div>
     )
 }
