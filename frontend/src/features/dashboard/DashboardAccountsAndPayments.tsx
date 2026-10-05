@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ArrowUpRight, Landmark } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { myPaymentsQueryOptions } from "../features/audit/queries/auditQueryOptions";
+import { myPaymentsQueryOptions } from "../audit/queries/auditQueryOptions";
 import {
   formatAmount,
   formatAuditStatus,
   formatDateTime,
-} from "../features/audit/utils/formatters";
-import { getDateTimeSortValue } from "../lib/dateTime";
+} from "../audit/utils/formatters";
+import { getDateTimeSortValue } from "../../lib/dateTime";
 import styles from "./DashboardAccountsAndPayments.module.css";
 
 const mockAccounts = [

@@ -1,9 +1,9 @@
 import { Wrench } from "lucide-react";
-import Container from "../components/ui/layout/Container";
-import UserAvatarDashboard from "../components/ui/user/UserAvatarDashboard";
-import { useUser } from "../features/auth/useUser";
+import Container from "../../components/ui/layout/Container";
+import { useUser } from "../auth/useUser";
 import DashboardAccountsAndPayments, { DashboardAccounts } from "./DashboardAccountsAndPayments";
 import DashboardApprovals from "./DashboardApprovals";
+import UserAvatarDashboard from "./UserAvatarDashboard";
 import styles from "./Dashboard.module.css";
 
 export function Dashboard() {

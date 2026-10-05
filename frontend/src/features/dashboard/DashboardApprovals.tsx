@@ -1,6 +1,6 @@
-import { useApprovals } from "../features/attest/useApprovals";
-import { formatAmount } from "../features/audit/utils/formatters";
-import { formatDateTime } from "../lib/dateTime";
+import { useApprovals } from "../attest/useApprovals";
+import { formatAmount } from "../audit/utils/formatters";
+import { formatDateTime } from "../../lib/dateTime";
 import { ArrowRight, Clock3, PartyPopper, TriangleAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import styles from "./DashboardApprovals.module.css";
