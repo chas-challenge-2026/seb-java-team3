@@ -30,12 +30,10 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
             <div className={Styles.avatar}>
                 {profileInitials}
             </div>
-            {!compact && (
-                <div className={Styles.textWrapper}>
-                    <h2 className={Styles.userName}>{displayName}</h2>
-                    <h3 className={Styles.userWorkplace}>{companyName}</h3>
-                </div>
-            )}
+            <div className={Styles.textWrapper}>
+                <h2 className={Styles.userName}>{displayName}</h2>
+                <h3 className={Styles.userWorkplace}>{companyName}</h3>
+            </div>
         </div>
     )
 }
