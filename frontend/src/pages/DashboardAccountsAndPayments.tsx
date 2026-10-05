@@ -35,39 +35,7 @@ export default function DashboardAccountsAndPayments() {
 
   return (
     <div className={styles.dashboardSummary}>
-      <section className={styles.accounts} aria-labelledby="dashboard-accounts-title">
-        <header className={styles.sectionHeader}>
-          <div>
-            <h2 id="dashboard-accounts-title">Konton</h2>
-            <p>Samlad överblick över företagets konton.</p>
-          </div>
-          <span className={styles.mockLabel}>Exempeldata</span>
-        </header>
-
-        <div className={styles.accountList}>
-          {mockAccounts.map((account) => (
-            <article className={styles.account} key={account.name}>
-              <div className={styles.accountHeading}>
-                <span className={styles.accountIcon} aria-hidden="true">
-                  <Landmark size={18} />
-                </span>
-                <div>
-                  <h3>{account.name}</h3>
-                  <p>{account.number}</p>
-                </div>
-              </div>
-              <p className={styles.balance}>
-                {sekFormatter.format(account.balance)} <span>SEK</span>
-              </p>
-            </article>
-          ))}
-        </div>
-
-        <div className={styles.total}>
-          <span>Totalt saldo, exempel</span>
-          <strong>{sekFormatter.format(mockTotal)} SEK</strong>
-        </div>
-      </section>
+      <DashboardAccounts />
 
       <section className={styles.payments} aria-labelledby="dashboard-payments-title">
         <header className={styles.sectionHeader}>
@@ -115,5 +83,56 @@ export default function DashboardAccountsAndPayments() {
         )}
       </section>
     </div>
+  );
+}
+
+export function DashboardAccounts({
+  standalone = false,
+  showNewPayment = true,
+}: {
+  standalone?: boolean;
+  showNewPayment?: boolean;
+}) {
+  return (
+    <section
+      className={`${styles.accounts} ${standalone ? styles.accountStandalone : ""}`}
+      aria-labelledby="dashboard-accounts-title"
+    >
+      <header className={styles.sectionHeader}>
+        <div>
+          <h2 id="dashboard-accounts-title">Konton</h2>
+          <p>Samlad överblick över företagets konton.</p>
+        </div>
+        {showNewPayment && (
+          <Link className={styles.allPayments} to="/payments/new">
+            Ny betalning <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        )}
+      </header>
+
+      <div className={styles.accountList}>
+        {mockAccounts.map((account) => (
+          <article className={styles.account} key={account.name}>
+            <div className={styles.accountHeading}>
+              <span className={styles.accountIcon} aria-hidden="true">
+                <Landmark size={18} />
+              </span>
+              <div>
+                <h3>{account.name}</h3>
+                <p>{account.number}</p>
+              </div>
+            </div>
+            <p className={styles.balance}>
+              {sekFormatter.format(account.balance)} <span>SEK</span>
+            </p>
+          </article>
+        ))}
+      </div>
+
+      <div className={styles.total}>
+        <span>Totalt saldo</span>
+        <strong>{sekFormatter.format(mockTotal)} SEK</strong>
+      </div>
+    </section>
   );
 }

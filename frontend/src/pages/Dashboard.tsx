@@ -2,12 +2,14 @@ import { Wrench } from "lucide-react";
 import Container from "../components/ui/layout/Container";
 import UserAvatarDashboard from "../components/ui/user/UserAvatarDashboard";
 import { useUser } from "../features/auth/useUser";
-import DashboardAccountsAndPayments from "./DashboardAccountsAndPayments";
+import DashboardAccountsAndPayments, { DashboardAccounts } from "./DashboardAccountsAndPayments";
+import DashboardApprovals from "./DashboardApprovals";
 import styles from "./Dashboard.module.css";
 
 export function Dashboard() {
   const unavailable = false;
   const { data: user } = useUser();
+  const hasApprovalAccess = user?.role === "ATTESTANT" || user?.role === "ADMIN";
 
   return (
     <Container maxWidth="lg" className={styles.page}>
@@ -26,7 +28,15 @@ export function Dashboard() {
       ) : (
         <>
           <UserAvatarDashboard name={user?.name ?? "Användare"} />
-          <DashboardAccountsAndPayments />
+          {hasApprovalAccess && <DashboardApprovals />}
+          {hasApprovalAccess ? (
+            <DashboardAccounts
+              standalone
+              showNewPayment={user?.role !== "ATTESTANT"}
+            />
+          ) : (
+            <DashboardAccountsAndPayments />
+          )}
         </>
       )}
     </Container>
