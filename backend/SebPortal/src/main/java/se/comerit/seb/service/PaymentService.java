@@ -9,6 +9,7 @@ import se.comerit.seb.dto.CreatePaymentRequest;
 import se.comerit.seb.dto.PaymentResponse;
 import se.comerit.seb.infrastructure.iban.IbanValidatorService;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.UserRepository;
 
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
     private final ApprovalThresholds thresholds;
     private final AuditService auditService;
     private final IbanValidatorService ibanValidator;
@@ -29,11 +31,13 @@ public class PaymentService {
     // på att de redan är @Service/@Component/@Repository någon annanstans.
     public PaymentService(PaymentRepository paymentRepository,
                           UserRepository userRepository,
+                          AccountRepository accountRepository,
                           ApprovalThresholds thresholds,
                           AuditService auditService,
                           IbanValidatorService ibanValidator) {
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
+        this.accountRepository = accountRepository;
         this.thresholds = thresholds;
         this.auditService = auditService;
         this.ibanValidator = ibanValidator;
@@ -61,6 +65,26 @@ public class PaymentService {
         }
     }
 
+    private void validateFromAccountBelongsToTenant(Long fromAccountId, Long tenantId) {
+        if (fromAccountId == null) {
+            throw new IllegalArgumentException("Från-konto måste anges");
+        }
+
+        // accounts.id är INT i databasen. Ett för stort Long-värde skulle annars
+        // "slå runt" vid omvandlingen och kunna peka på ett helt annat konto.
+        if (fromAccountId <= 0 || fromAccountId > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Från-kontot finns inte eller tillhör inte ditt företag");
+        }
+
+        boolean ownsAccount = accountRepository.existsByIdAndTenantId(fromAccountId.intValue(), tenantId);
+
+        // Samma meddelande oavsett om kontot saknas eller tillhör ett annat företag,
+        // så att man inte kan lista ut vilka konto-id som finns hos andra kunder.
+        if (!ownsAccount) {
+            throw new IllegalArgumentException("Från-kontot finns inte eller tillhör inte ditt företag");
+        }
+    }
+
     private User findAttestant(Long tenantId) {
         List<User> attestants = userRepository.findByTenantIdAndRole(tenantId, Role.ATTESTANT);
 
@@ -80,6 +104,7 @@ public class PaymentService {
 
         String normalizedIban = normalizeAndValidateIban(request);
         validateAmount(request.amount());
+        validateFromAccountBelongsToTenant(request.fromAccountId(), request.tenantId());
 
         Payment payment = new Payment(
                 request.tenantId(),
