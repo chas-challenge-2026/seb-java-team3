@@ -80,7 +80,7 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 | --- | --- | --- | --- |
 | IBAN kontrolleras med MOD97 (BUG-003, R-10) | Unit | Grön | `IbanValidatorServiceTest`; `payment/schema.test.ts` (`ibanSchema`) |
 | BIC-format enligt ISO 9362 | Unit | Delvis | `IbanValidatorServiceTest.testValidBic/testInvalidBic` |
-| Native C-validering via JNA | Unit | Delvis | `native/iban_validator_test.c` · 36 Check-tester |
+| Native C-validering via JNA | Unit | Delvis | `native/iban/iban_validator_test.c` · 36 Check-tester |
 | Felaktigt IBAN stoppas i formuläret | Komp | Delvis | `PaymentForm.test.tsx` · test för ogiltigt IBAN |
 
 **Avgränsningar och kvar att testa**

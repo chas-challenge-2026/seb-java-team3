@@ -52,7 +52,10 @@ ChasChallenge/
 │   ├── docker-compose.yml
 │   └── seed.sql                  — Schema + testdata
 ├── native/
-│   └── README.md                 — Spec för C/C++ native moduler (v2)
+│   ├── README.md                 — Spec för C/C++ native moduler (v2)
+│   ├── Makefile                  — Bygger alla moduler
+│   ├── iban/                     — IBAN/BIC-validator (+ tester)
+│   └── csv/                      — CSV-batchparser (under arbete)
 └── shared/
     └── example-batch.csv         — Exempelfil för batchuppladdning
 ```

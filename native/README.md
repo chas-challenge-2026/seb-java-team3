@@ -16,7 +16,7 @@ Denna katalog innehåller (i v2) tre prestandakritiska och säkerhetskritiska mo
 
 ## Modul 1: CSV-batchparser
 
-**Fil:** `csv_parser.c` / `csv_parser.h`  
+**Fil:** `csv/csv_parser.c` / `csv/csv_parser.h`  
 **Kompilering:** `gcc -O2 -fopenmp -shared -fPIC -o libcsvparser.so csv_parser.c`
 
 ### API
@@ -81,11 +81,12 @@ public interface CsvParserLib extends Library {
 
 ## Modul 2: IBAN/BIC-validator
 
-**Filer:** 
+**Filer (i `native/iban/`):** 
 - `iban_validator.h` — API-definition
 - `iban_validator.c` — Implementering (ISO 13616 MOD97 + ISO 9362 BIC-validering)
 - `iban_validator_test.c` — Enhetstester (Check framework)
-- `Makefile` — Bygg- och testskript
+- `test_simple.c` — Fristående testprogram utan Check
+- `Makefile` — Bygg- och testskript för modulen (anropas från `native/Makefile`)
 
 ### Status
 - ✅ **IMPLEMENTERAD** — MOD97-algoritm, BIC-validering, enhetstester
@@ -156,10 +157,10 @@ Testsviten (`iban_validator_test.c`) täcker:
 
 ```bash
 # Bygga delad bibliotek (.so):
-gcc -O2 -shared -fPIC -o native/build/lib/libiban.so native/iban_validator.c
+gcc -O2 -shared -fPIC -o native/build/lib/libiban.so native/iban/iban_validator.c
 
 # Länka test (kräver Check-ramverk):
-gcc -std=c99 -Wall -Wextra native/iban_validator_test.c native/iban_validator.c \
+gcc -std=c99 -Wall -Wextra native/iban/iban_validator_test.c native/iban/iban_validator.c \
     $(pkg-config --cflags --libs check) -o native/build/test/iban_validator_test
 ./native/build/test/iban_validator_test
 ```
@@ -195,7 +196,7 @@ public boolean validateIban(String iban) {
 
 ## Modul 3: Audit-signering (append-only, tamper-evident)
 
-**Fil:** `audit_signer.c` / `audit_signer.h`  
+**Fil:** `audit/audit_signer.c` / `audit/audit_signer.h`  
 **Kompilering:** `gcc -O2 -shared -fPIC -o libauditsigner.so audit_signer.c -lssl -lcrypto`
 
 ### Format
@@ -251,29 +252,12 @@ public interface AuditSignerLib extends Library {
 
 ```bash
 cd native/
-make all   # kompilerar alla tre .so-filer
-make test  # kör enhetstester (kräver check.h eller cmocka)
+make lib          # bygger alla .so-filer till native/build/lib/
+make test         # kör enhetstester för alla moduler (kräver Check)
+make test-iban    # kör bara en moduls tester
+make iban         # bygger bara en modul
 ```
+
+Varje modul ligger i en egen mapp (`native/iban/`, `native/csv/`, `native/audit/`) med en egen `Makefile`. Toppnivå-`Makefile` loopar över modulerna i `MODULES` — lägg till nya moduler där. Mellanfiler hamnar i `native/build/<modul>/` och alla bibliotek i `native/build/lib/`.
 
 `.so`-filerna måste ligga på `jna.library.path` (eller `java.library.path`) i runtime — t.ex. starta JVM med `-Djna.library.path=native/build/lib` eller kopiera in dem i Docker-imagen.
-
-Makefile (ska skapas i v2):
-```makefile
-CC = gcc
-CFLAGS = -O2 -Wall -fPIC
-LDFLAGS = -shared
-
-all: libcsvparser.so libiban.so libauditsigner.so
-
-libcsvparser.so: csv_parser.c
-	$(CC) $(CFLAGS) -fopenmp $(LDFLAGS) -o $@ $<
-
-libiban.so: iban_validator.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
-
-libauditsigner.so: audit_signer.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lssl -lcrypto
-
-clean:
-	rm -f *.so
-```
