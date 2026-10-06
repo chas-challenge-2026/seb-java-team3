@@ -343,4 +343,33 @@ class PaymentServiceTest {
         verifyNoInteractions(accountRepo, paymentRepo, auditService);
     }
 
+    @Test
+    void missingTenant_shouldBeRejectedWithoutDatabaseLookup() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        // tenantId = null: utan företag får frågan aldrig köras, annars matchar "ingen tenant"
+        // konton som saknar företag (null blir "tenant_id IS NULL" i den härledda frågan)
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                null, 1L, "SE8550000000054910000003",
+                new BigDecimal("7500"), "Utan företag", 1L
+        );
+
+        // ACT + ASSERT
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.createPayment(request));
+        assertEquals("Från-kontot finns inte eller tillhör inte ditt företag", ex.getMessage());
+        verifyNoInteractions(accountRepo, paymentRepo, auditService);
+    }
+
 }

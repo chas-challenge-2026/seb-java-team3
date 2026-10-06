@@ -34,6 +34,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // #116:s ägarkontroll genom hela kedjan: JWT-filter -> säkerhetskedjor -> controller ->
@@ -111,7 +112,8 @@ class ApprovalApiControllerOwnershipTest {
     void approve_asAttestantWhoOwnsTheStep_returns204AndApprovesTheStep() throws Exception {
         Account account = mock(Account.class);
         when(account.getBalance()).thenReturn(new BigDecimal("1000.00"));
-        when(accountRepository.findById(ACCOUNT_ID.intValue())).thenReturn(Optional.of(account));
+        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
+                .thenReturn(Optional.of(account));
 
         mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
@@ -119,6 +121,22 @@ class ApprovalApiControllerOwnershipTest {
 
         assertEquals(ApprovalStepStatus.APPROVED, step.getStatus());
         assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
+    }
+
+    // R-04: rätt attestant, men betalningen pekar på ett konto som ägs av ett annat företag.
+    // Den tenant-scopade frågan svarar tomt (som databasen gör), så pengarna flyttas inte.
+    @Test
+    void approve_whenTheAccountBelongsToAnotherTenant_returns400AndDoesNotCompleteThePayment() throws Exception {
+        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Från-kontot finns inte eller tillhör inte ditt företag"));
+
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        verifyNoInteractions(auditService);
     }
 
     private String tokenFor(Long userId) {
