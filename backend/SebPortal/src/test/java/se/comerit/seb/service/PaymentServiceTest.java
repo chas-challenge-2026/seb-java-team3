@@ -6,6 +6,7 @@ import se.comerit.seb.domain.*;
 import se.comerit.seb.dto.CreatePaymentRequest;
 import se.comerit.seb.dto.PaymentResponse;
 import se.comerit.seb.infrastructure.iban.IbanValidatorService;
+import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
 
@@ -24,6 +25,8 @@ class PaymentServiceTest {
         // ARRANGE: bygg upp testmiljön
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
         AuditService auditService = mock(AuditService.class);
         IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
         when(ibanValidator.validateIban(anyString())).thenReturn(true);
@@ -39,7 +42,7 @@ class PaymentServiceTest {
         when(paymentRepo.save(any(Payment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
 
         CreatePaymentRequest request = new CreatePaymentRequest(
                 1L, 1L, "SE8550000000054910000003",
@@ -61,6 +64,8 @@ class PaymentServiceTest {
         // ARRANGE
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
         AuditService auditService = mock(AuditService.class);
         IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
         when(ibanValidator.validateIban(anyString())).thenReturn(true);
@@ -83,7 +88,7 @@ class PaymentServiceTest {
         when(paymentRepo.save(any(Payment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
 
         CreatePaymentRequest request = new CreatePaymentRequest(
                 1L, 1L, "SE8550000000054910000003",
@@ -103,13 +108,15 @@ class PaymentServiceTest {
         // ARRANGE
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
         ApprovalThresholds thresholds = new ApprovalThresholds();
         AuditService auditService = mock(AuditService.class);
         IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
         when(ibanValidator.validateIban(anyString())).thenReturn(true);
         when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
 
         CreatePaymentRequest request = new CreatePaymentRequest(
                 1L, 1L, "SE8550000000054910000003",
@@ -126,6 +133,8 @@ class PaymentServiceTest {
         // ARRANGE
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
         AuditService auditService = mock(AuditService.class);
         IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
         when(ibanValidator.validateIban(anyString())).thenReturn(true);
@@ -138,7 +147,7 @@ class PaymentServiceTest {
         when(paymentRepo.save(any(Payment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
 
         CreatePaymentRequest request = new CreatePaymentRequest(
                 1L, 1L, "SE8550000000054910000003",
@@ -165,6 +174,8 @@ class PaymentServiceTest {
         // ARRANGE
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
         AuditService auditService = mock(AuditService.class);
         IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
         when(ibanValidator.validateIban(anyString())).thenReturn(true);
@@ -182,7 +193,7 @@ class PaymentServiceTest {
         when(paymentRepo.save(any(Payment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
 
         // Beloppet är EXAKT lika med tröskeln - det är själva gränsfallet vi testar
         CreatePaymentRequest request = new CreatePaymentRequest(
@@ -204,6 +215,8 @@ class PaymentServiceTest {
         // ARRANGE
         PaymentRepository paymentRepo = mock(PaymentRepository.class);
         UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
         AuditService auditService = mock(AuditService.class);
         IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
         when(ibanValidator.validateIban(anyString())).thenReturn(true);
@@ -221,7 +234,7 @@ class PaymentServiceTest {
         when(paymentRepo.save(any(Payment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentService service = new PaymentService(paymentRepo, userRepo, thresholds, auditService, ibanValidator);
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
 
         // Ett öre över tröskeln - andra sidan av gränsfallet
         CreatePaymentRequest request = new CreatePaymentRequest(
