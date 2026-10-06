@@ -17,6 +17,11 @@ public class Account {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    // NYTT: vilket företag (tenant) kontot tillhör. Kolumnen finns redan i
+    // databasen (V2__create_accounts.sql), vi mappar den bara till Java.
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
     @Column(name = "balance", precision = 15, scale = 2)
     private BigDecimal balance;
 
@@ -25,6 +30,11 @@ public class Account {
 
     public Integer getId() {
         return id;
+    }
+
+    // NYTT: bara getter, ingen setter, ett konto ska aldrig byta företag.
+    public Long getTenantId() {
+        return tenantId;
     }
 
     public BigDecimal getBalance() {
