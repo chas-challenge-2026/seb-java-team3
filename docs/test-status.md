@@ -2,7 +2,7 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-09-29  
+**Senast uppdaterad:** 2026-10-06  
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
@@ -10,12 +10,12 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
 | Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
-| Backend · JUnit | 13 klasser, 76 tester | Alla gröna vid lokal körning 2026-09-29 |
+| Backend · JUnit | 13 klasser, 79 tester | Alla gröna vid lokal körning 2026-10-06 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
 | E2E · hela användarflödet | 0 tester | Ingen E2E-svit finns |
 
-Alla 76 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-09-29. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Alla 79 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-06. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -59,7 +59,8 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 6; `PaymentForm.test.tsx` · 7; `payment/schema.test.ts` |
+| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 9; `PaymentForm.test.tsx` · 7; `payment/schema.test.ts` |
+| Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup` |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
 | Stegen godkänns i ordning och betalningen slutförs först vid sista steget | Unit | Grön | `ApprovalServiceTest.approve_shouldNotCompletePaymentWhileAnotherStepIsStillPending`, `approve_concurrentApproval_shouldThrowAndRollback` |
 | Saldo dras vid slutligt godkännande (BUG-009, R-02) | Unit | Delvis | `ApprovalServiceTest.finalApproval_*` |
@@ -71,6 +72,7 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 - `approve_concurrentApproval_shouldThrowAndRollback` testar att ett tidigare steg fortfarande väntar. Namnet antyder samtidighet, men det är inte vad testet verifierar.
 - Saldo, status och audit sätts i samma `@Transactional`-metod. Rollback mot riktig databas är inte testad.
 - Koden använder `PESSIMISTIC_WRITE` via `PaymentRepository.findByApprovalStepIdForUpdate`. `ApprovalConcurrencyTest` med 20 tester kördes lokalt 2026-09-21 men är inte incheckad. Dubbelgodkännande saknar därför ett test i repot.
+- Ägarkontrollen av från-kontot (#187) görs i `PaymentService` via `AccountRepository.existsByIdAndTenantId`. Testerna mockar repositoryt, så själva SQL-frågan mot databasen verifieras inte här. Okänt konto och annat företags konto ger samma 400-svar, så att konto-id hos andra kunder inte kan kartläggas.
 
 ### IBAN och BIC
 
