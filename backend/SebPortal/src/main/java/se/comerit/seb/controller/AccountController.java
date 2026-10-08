@@ -6,6 +6,7 @@ import se.comerit.seb.dto.AccountResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.AccountService;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -21,6 +22,7 @@ public class AccountController {
         this.jwtUserContext = jwtUserContext;
     }
 
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @GetMapping("/api/accounts")
     public List<AccountResponse> getAccounts() {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
