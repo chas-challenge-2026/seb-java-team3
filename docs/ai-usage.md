@@ -26,6 +26,18 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-10-08 — Tester för badge, rollskydd, route-skydd och tidslinjens ordning (#196, #197, #198) Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att skriva testerna för tre test-issues utifrån issuetexterna, köra dem och kontrollera att de faktiskt fångar fel. Att ta reda på var logiken som skulle testas låg: badgens 0-regel ligger i `SideBar`, inte i `SideBarItem`, och tidslinjens ordning bestäms på två ställen (`ORDER BY` i `AuditRepository.findPaymentEvents` och sorteringen i `AuditService.getPaymentAuditTimeline`).
+- **Genererades:**
+  - #197: `Badge.test.tsx` (badgen visar N vid N > 0, ingen badge vid 0), `ApprovalApiControllerCountTest` (`/api/approvals/count` räknar bara den inloggade attestantens egna steg, även på en betalning som delas med en annan attestant) och sex nya fall i `RoleAuthorizationTest` för `/api/approvals/count` och `/api/my-payments`.
+  - #198: `requireAuth.test.ts` (utan token eller med avvisad token skickas man till `/login` och token rensas) och `requireRole.test.ts` (fel roll skickas till `/`, rätt roll släpps in, med samma rollistor som `router.tsx`).
+  - #196: `AuditRepositoryPaymentEventsTest` (H2: skapa före godkänn efter `created_at`, inte efter id) och `AuditServiceTimelineTest` (kronologisk ordning, och vid samma tidsstämpel en numerisk tie-break så att `AUDIT-9` kommer före `AUDIT-10` oavsett indataordning).
+  - Verifiering: AI:n körde backendtesterna i samma Maven-image som CI och frontendsviten med Vitest (85/85 gröna). Som mutationskoll tog den bort tie-breaken och `ORDER BY` i en kopia av koden, och då failade exakt de två tester som ska vakta dem.
+- **Hur jag granskade/ändrade:** Granska koden, ändra olika beroende för att få rött resultat för att få full förståelse för vad som är gjort och vad vi faktiskt testar. t.ex. bytte approvalCount > 0 mot >= 0 i SideBar.tsx:68, se Badge.test.tsx bli rött.
+- **Valde bort (om något):** Ett test på repository-nivå för tie-breaken vid samma tidsstämpel. H2 lämnar ut raderna i id-ordning även utan `entry.id ASC`, så testet hade blivit grönt oavsett. Tie-breaken testas i stället i servicen, där mutationskollen visade att testet fångar felet. Själva `/api/accounts`-endpointen byggdes inte, den kontrollerades bara.
+- **Spår:** Commits `89ff721`, `8da631c`, `bb54eed` · issue #196, #197, #198
+
 ### 2026-09-30 — Frontend i Docker-bygget + dokumentation (#157, #159, #163) AdnanZasella
 - **Verktyg:** Claude
 - **Använde AI till:** Steg-för-steg-vägledning genom #157, #159 och #163. Jag bad om ett steg i taget och en förklaring av varför innan jag gick vidare, för att förstå multi-stage-byggen, Docker-lagercachning och build context. Fick också hjälp att felsöka när Dockerfilen inte hittades (den ligger i `backend/SebPortal/`, inte i roten), att rätta commit-meddelanden som blivit fel med interaktiv rebase, och att formulera PR-texter.
