@@ -54,7 +54,7 @@ Databasvolymen i er driftmiljö innehåller datafiler från nuvarande Postgres-v
 
 ## Nollställa databasen i driftmiljön
 
-Ni kan inte själva nollställa databasen i stage/prod. Skicka ett techsupport-ärende: https://chas-challenge.comerit.se/support/
+Ni kan inte själ va nollställa databasen i stage/prod. Skicka ett techsupport-ärende: https://chas-challenge.comerit.se/support/
 
 ## Frontend i v2
 

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import se.comerit.seb.domain.Account;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AccountRepository extends JpaRepository<Account, Integer> {
@@ -15,6 +16,11 @@ public interface AccountRepository extends JpaRepository<Account, Integer> {
     // SELECT count(*) > 0 FROM accounts WHERE id = ? AND tenant_id = ?
     // Parametriserad, alltså ingen risk för SQL-injektion.
     boolean existsByIdAndTenantId(Integer id, Long tenantId);
+
+    // SELECT * FROM accounts WHERE tenant_id = ? ORDER BY id ASC
+    // Tenant-filtret sitter i själva frågan, så ett företag kan aldrig få
+    // någon annans konton. Parametriserad, alltså ingen SQL-injektion.
+    List<Account> findByTenantIdOrderByIdAsc(Long tenantId);
 
     // Hämtar kontot BARA om det tillhör rätt företag, och låser raden (SELECT ... FOR UPDATE)
     // tills transaktionen är klar. Används när pengar faktiskt flyttas (ApprovalService):

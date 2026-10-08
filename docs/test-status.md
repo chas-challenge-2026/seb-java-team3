@@ -2,7 +2,7 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-06  
+**Senast uppdaterad:** 2026-09-29  
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
@@ -13,7 +13,7 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Backend · JUnit | 14 klasser, 93 tester | Alla gröna vid lokal körning 2026-10-06 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · hela användarflödet | 0 tester | Ingen E2E-svit finns |
+| E2E · Playwright | 2 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts` | Gröna vid lokal körning ____ (fyll i datum) |
 
 Alla 93 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-06. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
@@ -26,10 +26,10 @@ Backendens unit-tester använder mockade repositories. De verifierar servicelogi
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Ej testad | Ingen E2E-svit |
+| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Delvis | `frontend/e2e/mvp-flow.spec.ts` (#164) |
 | Sista godkännandet slutför betalningen, drar saldo och skriver audit | Unit | Grön | `ApprovalServiceTest.finalApproval_shouldCompletePaymentDeductBalanceAndRecordAudit` |
 
-Delarna i användarflödet är testade var för sig. Det gröna servicetestet använder mockade repositories och verifierar inte att hela flödet fungerar ihop.
+E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Statusen är Delvis eftersom saldot inte syns i UI eller API än. Testet kontrollerar därför att betalningen är Genomförd, vilket bara indirekt visar att saldot dragits. Byt till en riktig saldokontroll när saldovyn finns. E2E körs manuellt mot en app som är igång och ingår inte i CI.
 
 ## 3. Teststatus per område
 
@@ -156,7 +156,7 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 
 | Prioritet | Att göra | Varför |
 | --- | --- | --- |
-| 1 | Lägg till ett E2E-test av MVP-flödet. | Ingen automatisk körning verifierar hela användarresan. |
+| 1 | Lägg till en riktig saldokontroll i E2E-testet när saldovyn finns, och kör E2E i CI. | E2E-testet verifierar saldot bara indirekt och körs manuellt. |
 | 2 | Checka in och kör samtidighetstestet; testa rollback för saldo och audit mot databas. | Låsning och transaktionsutfall är inte verifierade i repot. |
 | 3 | Testa tenant-gränser för audit, tidslinje, betalningar och attester (konton är klara) samt de två saknade behörighetsvägarna. | Filtrering och åtkomst till `/api/my-payments` och `/api/approvals/count` behöver verifieras. |
 | 4 | Testa skyddade routes och badge; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
@@ -186,12 +186,20 @@ make test
 ```
 
 ```bash
+# E2E · Playwright · kräver att appen är igång (npm run dev eller Docker)
+cd frontend
+npx playwright install chromium   # första gången
+npm run test:e2e
+E2E_BASE_URL=http://localhost:8084 npm run test:e2e   # mot Docker-bygget
+```
+
+```bash
 # Rök-test · kräver att appen är igång (se "Köra lokalt" i DRIFT.md)
 # Med SMOKE_EMAIL och SMOKE_PASSWORD körs även kontrollerna som kräver token
 node scripts/smoke-spa.mjs
 node scripts/smoke-spa.mjs https://<stage-adress>
 ```
 
-GitHub Actions körs vid push och PR mot `develop`: `maven.yml` kör `mvn package` och `frontend.yml` kör lint, Vitest och build. Native C och rök-testet körs inte i CI. Något E2E-kommando finns ännu inte.
+GitHub Actions körs vid push och PR mot `develop`: `maven.yml` kör `mvn package` och `frontend.yml` kör lint, Vitest och build. Native C, rök-testet och E2E körs inte i CI.
 
 Täckningsgrad hjälper till att hitta luckor. Det viktiga är att varje AC har ett test som faktiskt verifierar beteendet.
