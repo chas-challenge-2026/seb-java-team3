@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { getAccounts } from "../accounts/api";
 import PaymentForm from "./PaymentForm";
 import { createPayment, getPaymentConfig } from "./api";
 import { ApiError } from "../../error/api.error";
@@ -14,6 +16,14 @@ vi.mock("./api", () => ({
   getPaymentConfig: vi.fn(),
 }));
 
+vi.mock("../accounts/api", () => ({
+  getAccounts: vi.fn(),
+  accountsQueryOptions: { queryKey: ["accounts"], queryFn: () => getAccounts() },
+}));
+function render(ui: React.ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 const mockedCreatePayment = vi.mocked(createPayment);
 const mockedGetPaymentConfig = vi.mocked(getPaymentConfig);
 
@@ -31,11 +41,25 @@ async function selectAccount(
   accountName: string,
 ) {
   await user.click(screen.getByRole("combobox"));
-  await user.click(screen.getByRole("option", { name: new RegExp(accountName, "i") }));
+  await user.click(await screen.findByRole("option", { name: new RegExp(accountName, "i") }));
 }
 
 describe("PaymentForm", () => {
+  it("blocks submission when accounts cannot be loaded", async () => {
+    vi.mocked(getAccounts).mockRejectedValue(new Error("offline"));
+    render(<PaymentForm />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Kontona kunde inte hämtas");
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeDisabled();
+  });
+  it("shows an empty account list without placeholder accounts", async () => {
+    vi.mocked(getAccounts).mockResolvedValue([]);
+    render(<PaymentForm />);
+    expect(await screen.findByText("Företaget har inga konton att betala från.")).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toBeDisabled();
+  });
   beforeEach(() => {
+    vi.mocked(getAccounts).mockReset();
+    vi.mocked(getAccounts).mockResolvedValue([{ id: 42, name: "Driftkonto", iban: "SE4550000000058398257466", balance: 1234.5, currency: "SEK" }]);
     mockedCreatePayment.mockReset();
     mockedGetPaymentConfig.mockReset();
     mockedGetPaymentConfig.mockResolvedValue({ approvalThreshold: 5000 });
@@ -128,7 +152,7 @@ describe("PaymentForm", () => {
 
     expect(mockedCreatePayment).toHaveBeenCalledWith(
       expect.objectContaining({
-        account: "driftkonto",
+        account: "42",
         recipientIban: "SE45 5000 0000 0583 9825 7466",
         amount: "1000.00",
       }),
