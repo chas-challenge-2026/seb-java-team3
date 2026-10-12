@@ -25,12 +25,15 @@ docker compose up --build
 | Attestant | johan@malmobygg.se | password123 |
 | Admin | sara@malmobygg.se | password123 |
 
+React-appen och API:t serveras från samma port. Frontenden byggs i Docker och paketeras in i backend-jarfilen, så ingen separat frontend-server behövs. Hur bygget och routingen fungerar, och hur man kör frontenden i dev-läge med `npm run dev`, står i [DRIFT.md](DRIFT.md#så-har-vi-byggt-det-team-3).
+
 ---
 
 ## Mappstruktur
 
 ```
 ChasChallenge/
+├── .dockerignore                 — Utesluter node_modules, target, .git m.m. från Docker-bygget
 ├── backend/
 │   └── SebPortal/                — Spring Boot 2.7 (Spring MVC + Thymeleaf)
 │       ├── src/main/java/se/comerit/seb/
@@ -38,7 +41,7 @@ ChasChallenge/
 │       │   └── controller/       — En controller per sida, all logik här
 │       ├── src/main/resources/
 │       │   ├── templates/        — Thymeleaf-vyer
-│       │   ├── static/           — Statiska filer
+│       │   ├── static/           — Statiska filer (React-bygget kopieras hit i Docker)
 │       │   └── application.properties
 │       ├── Dockerfile
 │       └── pom.xml
@@ -47,7 +50,7 @@ ChasChallenge/
 │   ├── known-bugs.md             — Lista med 12 kända buggar (avsiktliga)
 │   ├── README-pain-points.md     — Vad som fungerar vs. går sönder
 │   └── v2-targets.md             — Vad ni ska bygga
-├── frontend/                     — Tom — er v2 React-app placeras här
+├── frontend/                     — React + TypeScript (Vite), byggs in i backend-imagen
 ├── infra/
 │   ├── docker-compose.yml
 │   └── seed.sql                  — Schema + testdata

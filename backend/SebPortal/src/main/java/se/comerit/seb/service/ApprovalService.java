@@ -19,6 +19,12 @@ import java.util.Objects;
 @Service
 public class ApprovalService {
 
+    // Samma text som PaymentService använder vid skapande: saknat konto, ogiltigt id och ett annat
+    // företags konto ska vara omöjliga att skilja åt, så att konto-id hos andra kunder inte
+    // går att kartlägga.
+    private static final String FROM_ACCOUNT_NOT_AVAILABLE =
+            "Från-kontot finns inte eller tillhör inte ditt företag";
+
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final AuditService auditService;
@@ -79,12 +85,10 @@ public class ApprovalService {
                 .allMatch(step -> step.getStatus() == ApprovalStepStatus.APPROVED);
 
         if (allApproved) {
-            Integer accountId = Math.toIntExact(payment.getFromAccountId());
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+            Account account = findAndLockAccountOfPaymentTenant(payment);
 
             if (account.getBalance() == null) {
-                throw new IllegalStateException("Account balance is missing: " + accountId);
+                throw new IllegalStateException("Account balance is missing: " + payment.getFromAccountId());
             }
 
             if (payment.getAmount() == null) {
@@ -180,5 +184,28 @@ public class ApprovalService {
                 .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
                 .filter(step -> user.userId().equals(step.getAttestantId()))
                 .count();
+    }
+
+    // Hämtar kontot som ska belastas och låser raden tills transaktionen är klar, men bara om
+    // kontot tillhör betalningens företag (R-04).
+    //  - PaymentService kontrollerar redan detta när betalningen skapas. Här kontrolleras det en
+    //    gång till, där pengarna faktiskt flyttas, eftersom betalningar som skapades innan den
+    //    kontrollen fanns (t.ex. väntande betalningar i stage) kan peka på ett annat företags konto.
+    //  - Låset gör att två godkännanden mot samma konto går efter varandra i stället för att båda
+    //    läsa samma saldo och skriva över varandras avdrag. Betalningsraden är redan låst av
+    //    findByApprovalStepIdForUpdate; låsordningen är alltid betalning före konto.
+    private Account findAndLockAccountOfPaymentTenant(Payment payment) {
+        Long fromAccountId = payment.getFromAccountId();
+
+        // accounts.id är INT i databasen. Ett Long utanför intervallet får inte "slå runt" till
+        // ett annat konto-id (4 294 967 297 blir 1 vid omvandling till int).
+        boolean validId = fromAccountId != null && fromAccountId > 0 && fromAccountId <= Integer.MAX_VALUE;
+        if (!validId) {
+            throw new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE);
+        }
+
+        return accountRepository
+                .findByIdAndTenantIdForUpdate(fromAccountId.intValue(), payment.getTenantId())
+                .orElseThrow(() -> new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE));
     }
 }

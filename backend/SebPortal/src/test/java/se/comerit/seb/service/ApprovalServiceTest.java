@@ -1,6 +1,9 @@
 package se.comerit.seb.service;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import se.comerit.seb.domain.Account;
 import se.comerit.seb.domain.ApprovalStep;
@@ -18,7 +21,9 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -59,7 +64,8 @@ class ApprovalServiceTest {
         when(account.getBalance()).thenReturn(startingBalance);
         when(paymentRepository.findByApprovalStepIdForUpdate(approvalStepId))
                 .thenReturn(Optional.of(payment));
-        when(accountRepository.findById(10)).thenReturn(Optional.of(account));
+        // Kontot hämtas med betalningens företag (tenant) och låses; se findByIdAndTenantIdForUpdate
+        when(accountRepository.findByIdAndTenantIdForUpdate(10, tenantId)).thenReturn(Optional.of(account));
 
         // ACT
         approvalService.approve(approvalStepId, actorId);
@@ -309,5 +315,86 @@ class ApprovalServiceTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void approve_shouldRefuseToDebitAccountOfAnotherTenant() {
+        // ARRANGE - R-04: betalningen tillhör företag 1 och pekar på konto 10, men konto 10 ägs av
+        // ett annat företag. Frågan är tenant-scopad, så databasen svarar "inget konto" (tomt).
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long tenantId = 1L;
+        Long actorId = 2L;
+        Payment payment = paymentWithPendingStep(actorId, tenantId, 10L);
+
+        when(paymentRepository.findByApprovalStepIdForUpdate(200L)).thenReturn(Optional.of(payment));
+        when(accountRepository.findByIdAndTenantIdForUpdate(10, tenantId)).thenReturn(Optional.empty());
+
+        // ACT + ASSERT
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> approvalService.approve(200L, actorId)
+        );
+        assertEquals("Från-kontot finns inte eller tillhör inte ditt företag", ex.getMessage());
+
+        // Kontot slås upp med betalningens företag och aldrig utan tenant (inget findById-fallback)
+        verify(accountRepository).findByIdAndTenantIdForUpdate(10, tenantId);
+        verify(accountRepository, never()).findById(anyInt());
+
+        // Steget hinner markeras i minnet innan undantaget kastas; att inget sparas garanteras av
+        // @Transactional (rollback vid RuntimeException). Därför kontrolleras här det som inte får
+        // hända alls: betalningen slutförs inte och ingen audit-post skrivs.
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(payment.getExecutedAt());
+        verifyNoInteractions(auditService);
+    }
+
+    // 0 och -1 är aldrig giltiga konto-id. 2 147 483 648 ryms inte i INT, och 4 294 967 297 skulle
+    // "slå runt" till konto 1 vid omvandling till int; null är en betalning som saknar från-konto
+    // (äldre rader eller manipulerad data). Alla ska nekas innan någon databasfråga görs.
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0L, -1L, 2_147_483_648L, 4_294_967_297L})
+    void approve_shouldRefuseInvalidFromAccountIdWithoutLookup(Long invalidAccountId) {
+        // ARRANGE
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long actorId = 2L;
+        Payment payment = paymentWithPendingStep(actorId, 1L, invalidAccountId);
+        when(paymentRepository.findByApprovalStepIdForUpdate(200L)).thenReturn(Optional.of(payment));
+
+        // ACT + ASSERT
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> approvalService.approve(200L, actorId)
+        );
+        assertEquals("Från-kontot finns inte eller tillhör inte ditt företag", ex.getMessage());
+
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
+    // Bygger en betalning med ett väntande steg åt attestanten (steg-id 200, betalning-id 100),
+    // redo att godkännas.
+    private static Payment paymentWithPendingStep(Long attestantId, Long tenantId, Long fromAccountId) {
+        Payment payment = new Payment(
+                tenantId, fromAccountId, "SE8550000000054910000003",
+                new BigDecimal("200.00"), "Testfaktura", attestantId);
+        ApprovalStep step = new ApprovalStep(attestantId, 1);
+        payment.addApprovalStep(step);
+
+        ReflectionTestUtils.setField(payment, "id", 100L);
+        ReflectionTestUtils.setField(step, "id", 200L);
+        return payment;
     }
 }
