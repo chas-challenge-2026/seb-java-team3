@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import PaymentForm from "./PaymentForm";
 import { createPayment, getPaymentConfig } from "./api";
@@ -16,6 +17,14 @@ vi.mock("./api", () => ({
 
 const mockedCreatePayment = vi.mocked(createPayment);
 const mockedGetPaymentConfig = vi.mocked(getPaymentConfig);
+
+function renderForm(queryClient = new QueryClient()) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PaymentForm />
+    </QueryClientProvider>,
+  );
+}
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await selectAccount(user, "Driftkonto");
@@ -42,7 +51,7 @@ describe("PaymentForm", () => {
   });
 
   it("shows the approval threshold loaded from the backend", async () => {
-    render(<PaymentForm />);
+    renderForm();
 
     expect(
       await screen.findByText(/betalningar över 5 000 kr behöver attesteras/i),
@@ -51,7 +60,7 @@ describe("PaymentForm", () => {
 
   it("shows a validation error and does not submit for an invalid IBAN", async () => {
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await selectAccount(user, "Driftkonto");
     await user.type(screen.getByLabelText(/^Mottagar-IBAN/), "not-an-iban");
@@ -64,7 +73,7 @@ describe("PaymentForm", () => {
 
   it("shows a validation error when no account is selected", async () => {
     const user = userEvent.setup();
-    const { container } = render(<PaymentForm />);
+    const { container } = renderForm();
 
     await user.type(
       screen.getByLabelText(/^Mottagar-IBAN/),
@@ -83,7 +92,7 @@ describe("PaymentForm", () => {
 
   it("moves focus to the first invalid field when submitting", async () => {
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await user.type(screen.getByLabelText(/^Mottagar-IBAN/), "not-an-iban");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
@@ -101,7 +110,7 @@ describe("PaymentForm", () => {
   });
 
   it("marks the required fields", () => {
-    render(<PaymentForm />);
+    renderForm();
 
     expect(screen.getByRole("combobox")).toHaveAttribute("aria-required", "true");
     expect(screen.getByLabelText(/^Mottagar-IBAN/)).toBeRequired();
@@ -119,7 +128,7 @@ describe("PaymentForm", () => {
     });
 
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
@@ -149,7 +158,7 @@ describe("PaymentForm", () => {
     });
 
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await selectAccount(user, "Driftkonto");
     await user.type(
@@ -175,7 +184,7 @@ describe("PaymentForm", () => {
       createdAt: "2026-01-01T00:00:00Z",
     });
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await fillValidForm(user);
     await user.clear(screen.getByLabelText(/^Belopp \(SEK\)/));
@@ -188,12 +197,36 @@ describe("PaymentForm", () => {
     ).toBeInTheDocument();
   });
 
+  // Dashboarden cachar Mina betalningar vid inloggning; utan invalidering syns inte
+  // den nya betalningen där förrän cachen blivit inaktuell (E2E-testet fångade det)
+  it("refreshes cached payment lists after the payment is created", async () => {
+    mockedCreatePayment.mockResolvedValue({
+      id: 3,
+      amount: 1000,
+      toIban: "SE4550000000058398257466",
+      status: "COMPLETED",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const user = userEvent.setup();
+    renderForm(queryClient);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["audit"] }),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["approvals"] });
+  });
+
   it("shows the API error when creating the payment fails", async () => {
     mockedCreatePayment.mockRejectedValue(
       new ApiError(409, "Ingen attestant finns tillgänglig."),
     );
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
@@ -208,7 +241,7 @@ describe("PaymentForm", () => {
       new ApiError(502, "Kunde inte nå servern. Kontrollera din anslutning och försök igen om en stund."),
     );
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
@@ -223,7 +256,7 @@ describe("PaymentForm", () => {
       new ApiError(500, "Något gick fel hos oss. Försök igen om en stund."),
     );
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
@@ -236,7 +269,7 @@ describe("PaymentForm", () => {
   it("disables the submit button while the payment is being created", async () => {
     mockedCreatePayment.mockReturnValue(new Promise(() => {}));
     const user = userEvent.setup();
-    render(<PaymentForm />);
+    renderForm();
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));

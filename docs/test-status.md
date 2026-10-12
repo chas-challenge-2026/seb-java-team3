@@ -9,11 +9,11 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
+| Frontend · Vitest | 12 filer, 88 tester | Alla gröna vid lokal körning 2026-10-12 |
 | Backend · JUnit | 18 klasser, 121 tester | Alla gröna vid lokal körning 2026-10-08 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 2 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts` | Gröna vid lokal körning ____ (fyll i datum) |
+| E2E · Playwright | 2 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts` | Gröna mot Docker 2026-10-12 |
 
 Alla 121 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-08. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
@@ -26,10 +26,10 @@ Backendens unit-tester använder mockade repositories. De verifierar servicelogi
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Delvis | `frontend/e2e/mvp-flow.spec.ts` (#164) |
+| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Grön | `frontend/e2e/mvp-flow.spec.ts` (#164) |
 | Sista godkännandet slutför betalningen, drar saldo och skriver audit | Unit | Grön | `ApprovalServiceTest.finalApproval_shouldCompletePaymentDeductBalanceAndRecordAudit` |
 
-E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Statusen är Delvis eftersom saldot inte syns i UI eller API än. Testet kontrollerar därför att betalningen är Genomförd, vilket bara indirekt visar att saldot dragits. Byt till en riktig saldokontroll när saldovyn finns. E2E körs manuellt mot en app som är igång och ingår inte i CI.
+E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Saldot läses från `GET /api/accounts` med initiatörens token före och efter, och testet kräver att Driftkonto minskat med exakt beloppet. Kontrollen görs mot API:t eftersom dashboarden ännu visar mockade konton; lägg till en kontroll i UI:t när saldovyn hämtar från backend. E2E körs manuellt mot en app som är igång och ingår inte i CI.
 
 ## 3. Teststatus per område
 
@@ -60,7 +60,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 7; `payment/schema.test.ts` |
+| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 13; `payment/schema.test.ts` |
 | Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup`, `missingTenant_shouldBeRejectedWithoutDatabaseLookup` |
 | Godkännande belastar bara kontot om det tillhör betalningens företag, och låser kontot (#191, R-04) | Unit + Int | Grön | `ApprovalServiceTest.approve_shouldRefuseToDebitAccountOfAnotherTenant`, `approve_shouldRefuseInvalidFromAccountIdWithoutLookup` · 5; `ApprovalApiControllerOwnershipTest.approve_whenTheAccountBelongsToAnotherTenant_*`; `AccountRepositoryTenantTest` · 6 (H2) |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
@@ -158,7 +158,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Prioritet | Att göra | Varför |
 | --- | --- | --- |
-| 1 | Lägg till en riktig saldokontroll i E2E-testet när saldovyn finns, och kör E2E i CI. | E2E-testet verifierar saldot bara indirekt och körs manuellt. |
+| 1 | Kör E2E i CI. | E2E-testet körs bara manuellt mot en app som är igång. |
 | 2 | Checka in och kör samtidighetstestet; testa rollback för saldo och audit mot databas. | Låsning och transaktionsutfall är inte verifierade i repot. |
 | 3 | Testa tenant-gränser för audit, tidslinje, betalningar och attester (konton är klara) samt de två saknade behörighetsvägarna. | Filtrering och åtkomst till `/api/my-payments` och `/api/approvals/count` behöver verifieras. |
 | 4 | Testa skyddade routes och badge; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
