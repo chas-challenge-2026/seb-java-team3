@@ -79,7 +79,7 @@ describe("paymentAmountSchema", () => {
 
 describe("paymentFormSchema", () => {
   const validForm = {
-    account: "driftkonto",
+    account: "42",
     recipientIban: "SE45 5000 0000 0583 9825 7466",
     amount: "1000.00",
     reference: "Faktura #1234",
@@ -89,7 +89,7 @@ describe("paymentFormSchema", () => {
     expect(paymentFormSchema.safeParse(validForm).success).toBe(true);
   });
 
-  it("rejects an account outside the known list", () => {
+  it("rejects an empty account", () => {
     const result = paymentFormSchema.safeParse({ ...validForm, account: "" });
     expect(result.success).toBe(false);
   });
