@@ -95,6 +95,9 @@ public class ApprovalService {
                 throw new IllegalStateException("Payment amount is missing: " + payment.getId());
             }
 
+            if (payment.getAmount().compareTo(account.getBalance()) > 0) {
+                throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
+            }
             account.setBalance(account.getBalance().subtract(payment.getAmount()));
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());

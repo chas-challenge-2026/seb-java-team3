@@ -269,7 +269,7 @@ class PaymentServiceTest {
         // ASSERT: 5000.01 är strikt över tröskeln => attestant krävs
         assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
         verify(account, never()).setBalance(any());
-        verify(accountRepo, never()).findByIdAndTenantIdForUpdate(anyInt(), anyLong());
+        verify(accountRepo).findByIdAndTenantIdForUpdate(1, 1L);
         verify(userRepo, times(1)).findByTenantIdAndRole(1L, Role.ATTESTANT);
     }
 
@@ -418,4 +418,28 @@ class PaymentServiceTest {
         verifyNoInteractions(paymentRepo, auditService, userRepo);
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"5000", "6000"})
+    void insufficientBalance_shouldRejectBeforeSavingOrAssigningAttestant(String amount) {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(accountRepo.existsByIdAndTenantId(1, 1L)).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("4999.99"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal(amount), "Test", 1L);
+        assertThrows(IllegalArgumentException.class, () -> service.createPayment(request));
+        verify(account, never()).setBalance(any());
+        verifyNoInteractions(paymentRepo, auditService, userRepo);
+    }
 }

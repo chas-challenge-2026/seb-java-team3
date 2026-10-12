@@ -22,7 +22,7 @@ import type {
   PaymentResponse,
 } from "./types";
 
-import { paymentFormSchema } from "./schema";
+import { paymentFormSchema, paymentAmountSchema } from "./schema";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import { createPayment, getPaymentConfig } from "./api";
 import {
@@ -45,6 +45,12 @@ function PaymentForm() {
     amount: "",
     reference: "",
   });
+
+  const selectedAccount = accounts.find((account) => String(account.id) === formData.account);
+  const parsedAmount = paymentAmountSchema.safeParse(formData.amount);
+  const exceedsBalance = selectedAccount !== undefined && parsedAmount.success &&
+    Number(parsedAmount.data) > selectedAccount.balance;
+  const balanceError = exceedsBalance ? "Beloppet överstiger tillgängligt saldo." : undefined;
 
   const [errors, setErrors] = useState<PaymentFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -250,6 +256,11 @@ function PaymentForm() {
 
     if (!accounts.some((account) => String(account.id) === result.data.account)) {
       setErrors({ account: "Välj ett tillgängligt konto." });
+      focusFirstErrorRef.current = true;
+      return;
+    }
+    if (exceedsBalance) {
+      setErrors({ amount: balanceError });
       focusFirstErrorRef.current = true;
       return;
     }
@@ -463,9 +474,12 @@ function PaymentForm() {
                 setFormData((prev) => ({ ...prev, amount: event.target.value }));
                 setErrors((prev) => ({ ...prev, amount: undefined }));
               }}
-              error={errors.amount}
+              error={balanceError ?? errors.amount}
               inputMode="decimal"
               />
+            {selectedAccount && <p className={styles.thresholdInfo}>
+              Tillgängligt saldo: {selectedAccount.balance.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedAccount.currency}
+            </p>}
 
             <Input
               ref={referenceRef}
@@ -503,7 +517,7 @@ function PaymentForm() {
             <Button
               type="submit"
               variant="primary"
-              disabled={Boolean(pendingConfirmation) || isSubmitting || accountsPending || accountsError || accounts.length === 0}
+              disabled={Boolean(pendingConfirmation) || isSubmitting || accountsPending || accountsError || accounts.length === 0 || exceedsBalance}
               aria-busy={isSubmitting}
             >
               {isSubmitting ? "Skickar…" : "Skicka betalning"}

@@ -45,6 +45,21 @@ async function selectAccount(
 }
 
 describe("PaymentForm", () => {
+  it("warns and blocks payment above the selected balance, then allows an equal amount", async () => {
+    vi.mocked(getAccounts).mockResolvedValue([{ id: 42, name: "Driftkonto", iban: "SE4550000000058398257466", balance: 1000, currency: "SEK" }]);
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+    await fillValidForm(user);
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "1 000,01");
+    expect(screen.getByText("Beloppet överstiger tillgängligt saldo.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeDisabled();
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "1000");
+    expect(screen.queryByText("Beloppet överstiger tillgängligt saldo.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeEnabled();
+  });
   it("blocks submission when accounts cannot be loaded", async () => {
     vi.mocked(getAccounts).mockRejectedValue(new Error("offline"));
     render(<PaymentForm />);
@@ -59,7 +74,7 @@ describe("PaymentForm", () => {
   });
   beforeEach(() => {
     vi.mocked(getAccounts).mockReset();
-    vi.mocked(getAccounts).mockResolvedValue([{ id: 42, name: "Driftkonto", iban: "SE4550000000058398257466", balance: 1234.5, currency: "SEK" }]);
+    vi.mocked(getAccounts).mockResolvedValue([{ id: 42, name: "Driftkonto", iban: "SE4550000000058398257466", balance: 10000, currency: "SEK" }]);
     mockedCreatePayment.mockReset();
     mockedGetPaymentConfig.mockReset();
     mockedGetPaymentConfig.mockResolvedValue({ approvalThreshold: 5000 });
