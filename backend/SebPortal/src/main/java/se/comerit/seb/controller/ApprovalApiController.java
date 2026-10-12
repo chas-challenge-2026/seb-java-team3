@@ -40,10 +40,12 @@ public class ApprovalApiController {
     public ResponseEntity<?> pendingApprovals() {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
-        List<PendingApprovalResponse> approvals = paymentRepository
-                .findPendingApprovalsForAttestant(user.tenantId(), user.userId())
+        List<Payment> payments = user.isAdmin()
+                ? paymentRepository.findPendingApprovalsForTenant(user.tenantId())
+                : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
+        List<PendingApprovalResponse> approvals = payments
                 .stream()
-                .flatMap(payment -> pendingStepsForUser(payment, user.userId()).stream())
+                .flatMap(payment -> pendingStepsForUser(payment, user).stream())
                 .toList();
 
         return ResponseEntity.ok(approvals);
@@ -62,7 +64,7 @@ public class ApprovalApiController {
     public ResponseEntity<?> approve(@PathVariable Long stepId) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
-        approvalService.approve(stepId, user.userId());
+        approvalService.approveForUser(stepId, user);
         return ResponseEntity.noContent().build();
     }
 
@@ -73,14 +75,14 @@ public class ApprovalApiController {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
         String comment = request == null ? null : request.comment();
-        approvalService.reject(stepId, user.userId(), comment);
+        approvalService.rejectForUser(stepId, user, comment);
         return ResponseEntity.noContent().build();
     }
 
-    private List<PendingApprovalResponse> pendingStepsForUser(Payment payment, Long userId) {
+    private List<PendingApprovalResponse> pendingStepsForUser(Payment payment, AuthenticatedUserContext user) {
         return payment.getApprovalSteps().stream()
                 .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                .filter(step -> userId.equals(step.getAttestantId()))
+                .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
                 .map(step -> PendingApprovalResponse.from(payment, step))
                 .toList();
     }

@@ -477,9 +477,6 @@ function PaymentForm() {
               error={balanceError ?? errors.amount}
               inputMode="decimal"
               />
-            {selectedAccount && <p className={styles.thresholdInfo}>
-              Tillgängligt saldo: {selectedAccount.balance.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedAccount.currency}
-            </p>}
 
             <Input
               ref={referenceRef}
