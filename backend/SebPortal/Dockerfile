@@ -1,4 +1,4 @@
-# ---- Stage 1: build native IBAN validator library (jammy, matches runtime glibc) ----
+# ---- Stage 1: build native libraries (IBAN, CSV, audit signer) (jammy, matches runtime glibc) ----
 FROM ubuntu:22.04 AS native-build
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential libssl-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -33,8 +33,14 @@ RUN mvn package -DskipTests -q
 
 # ---- Stage 4: runtime ----
 FROM eclipse-temurin:21-jre-jammy
+# libauditsigner.so är länkad mot libcrypto.so.3 (libssl3, matchar libssl-dev i native-build)
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+RUN mkdir -p /app/audit
 COPY --from=build /app/target/seb-portal-1.0-SNAPSHOT.jar app.jar
 COPY --from=native-build /native/build/lib/libiban.so /app/native/libiban.so
+COPY --from=native-build /native/build/lib/libcsvparser.so /app/native/libcsvparser.so
+COPY --from=native-build /native/build/lib/libauditsigner.so /app/native/libauditsigner.so
 EXPOSE 8084
 ENTRYPOINT ["java", "-Djna.library.path=/app/native", "-jar", "app.jar"]
