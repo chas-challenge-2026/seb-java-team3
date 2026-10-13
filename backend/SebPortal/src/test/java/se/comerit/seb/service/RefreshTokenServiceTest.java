@@ -266,6 +266,30 @@ class RefreshTokenServiceTest {
         assertEquals(Role.ADMIN, rotated.user().getRole());
     }
 
+    // ---- granskningen av ADR 0012: familjer som redan har en spärrad token ----
+
+    // En aktiv token i en familj som redan har en spärrad token ska stoppas och spärras, även om den
+    // själv varken är använd eller spärrad. Det fångar en efterföljare som skapades samtidigt som spärren.
+    @Test
+    void rotate_withAnActiveTokenInAFamilyThatAlreadyHasARevokedToken_isRejectedAndRevoked() {
+        givenAFamilyWithOneRevokedAndOneActiveToken();
+
+        assertTrue(service.rotate("active-raw").isEmpty());
+
+        assertNotNull(stored("active-raw").getRevokedAt());
+    }
+
+    // Städningen vid en ny inloggning får inte ta bort det som avslöjar den kvarlämnade aktiva token.
+    // Utan den regeln försvinner markören, och token går igen att använda direkt efter inloggningen.
+    @Test
+    void issueForLogin_doesNotWipeTheRevokedMarkerOfAFamilyThatStillHasALiveToken() {
+        givenAFamilyWithOneRevokedAndOneActiveToken();
+
+        service.issueForLogin(lisa.getId());
+
+        assertTrue(service.rotate("active-raw").isEmpty());
+    }
+
     // ---- konfiguration ----
 
     @Test
@@ -278,6 +302,17 @@ class RefreshTokenServiceTest {
     }
 
     // ---- hjälpmetoder ----
+
+    // Ett tillstånd som aldrig ska uppstå när allt går rätt till, men som försvaret på djupet ska hantera:
+    // en spärrad token och en aktiv token i samma familj. Token-värdena är kända så att de går att använda.
+    private void givenAFamilyWithOneRevokedAndOneActiveToken() {
+        UUID family = UUID.randomUUID();
+        RefreshToken revoked = tokens.saveAndFlush(new RefreshToken(
+                lisa.getId(), RefreshTokenService.hash("revoked-raw"), family, at(START).plusDays(3)));
+        jdbc.update("update refresh_tokens set revoked_at = ? where id = ?", at(START), revoked.getId());
+        tokens.saveAndFlush(new RefreshToken(
+                lisa.getId(), RefreshTokenService.hash("active-raw"), family, at(START).plusDays(7)));
+    }
 
     // Läser raden direkt ur databasen (tömmer persistence context först) så att testet ser det som
     // faktiskt sparats och inte en kopia i minnet.

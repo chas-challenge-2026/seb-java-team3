@@ -57,7 +57,9 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/login")
-    public ResponseEntity<?> apiLogin(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> apiLogin(
+            @RequestBody LoginRequest request,
+            @CookieValue(name = RefreshCookies.NAME, required = false) String previousRefreshToken) {
         Optional<User> user =
                 authService.authenticate(request.getEmail(), request.getPassword());
 
@@ -66,6 +68,13 @@ public class AuthController {
                     .status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid email or password"));
         }
+
+        // Den gamla sessionen i den här webbläsaren ska inte leva vidare bredvid den nya: annars
+        // blir dess token kvar aktiv i databasen, och en kopia av den kan roteras i upp till 7 dagar
+        // utan att någonsin upptäckas (den riktiga användaren skickar den aldrig igen). Görs först
+        // efter lyckad autentisering, så att ett felaktigt lösenord inte loggar ut någon.
+        // revoke() hanterar saknad och okänd token, så en första inloggning behöver inget undantag.
+        refreshTokenService.revoke(previousRefreshToken);
 
         String token = jwtService.generateToken(toAuthenticatedUserContext(user.get()));
         String refreshToken = refreshTokenService.issueForLogin(user.get().getId());

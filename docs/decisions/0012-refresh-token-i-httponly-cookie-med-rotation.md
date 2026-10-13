@@ -38,6 +38,9 @@ Regler:
 - **Strikt återanvändningsdetektion, ingen nådetid:** om en redan använd eller spärrad token visas igen spärras hela familjen och svaret blir 401. Både en eventuell tjuv och den riktiga användaren måste då logga in på nytt.
 - **Glidande session på 7 dagar:** varje ny refresh-token gäller 7 dagar från utfärdandet. En aktiv användare förblir inloggad, och efter 7 dagars inaktivitet krävs ny inloggning.
 - **Utloggning:** `POST /api/auth/logout` spärrar familjen och tömmer cookien.
+- **Ett lås per användare:** inloggning, förnyelse och utloggning tar först ett lås på användarens rad i `users` (`SELECT … FOR UPDATE`), innan token läses och prövas. Det räcker inte att låsa den token som prövas: en tjuv som visar en gammal token och en användare som förnyar den aktuella låser olika rader, och spärren (en `UPDATE`) ser då inte den efterföljare som skapas medan den väntar. Med låset kan två operationer för samma användare aldrig överlappa. Upptäckt i granskningen av PR:en.
+- **Inloggning spärrar webbläsarens gamla session:** efter lyckad autentisering spärras familjen i den gamla cookien. Annars blir dess token kvar aktiv i databasen, och en stulen kopia kan roteras i 7 dagar utan att upptäckas, eftersom användaren aldrig skickar den igen. Ett felaktigt lösenord spärrar ingenting.
+- **Försvar på djupet:** en aktiv token i en familj som redan har en spärrad token nekas och spärras. Städningen vid inloggning tar inte bort spärrade rader så länge familjen har en levande token, annars försvinner det som avslöjar den.
 - **Refresh läser om användaren** ur databasen. Rollbyten slår igenom vid nästa förnyelse, och en borttagen användare kan inte förnya (familjen spärras).
 - **CSRF för de två cookie-endpointsen** (`/refresh`, `/logout`): `SameSite=Strict`, cookien skickas bara till `Path=/api/auth`, och anropen måste ha headern `X-Requested-With`, som en annan sajt inte kan sätta utan att få sin begäran blockerad. Resten av `/api/**` är oförändrat och använder fortfarande bara Bearer.
 - **Frontend:** `credentials: "same-origin"` bara för login, refresh och logout (annars ignorerar webbläsaren `Set-Cookie`), en tyst förnyelse vid sidladdning, ett nytt försök efter förnyelse när ett anrop får 401, och en förnyelse i taget (single-flight, samordnad mellan flikar med Web Locks).
@@ -70,13 +73,14 @@ Regler:
 - **Access-token går fortfarande inte att återkalla inom sina 15 minuter.** → Acceptabelt: efter logout eller upptäckt stöld tar sessionen slut senast då.
 - **Frontend tappar access-token vid omladdning** och måste förnya tyst (ett extra anrop vid sidladdning).
 - **Utloggning i en flik är inte omedelbar i andra flikar** (deras access-token gäller upp till 15 minuter).
-- **Tabelltillväxt:** utgångna och spärrade rader städas bort för användaren vid inloggning.
+- **Serialisering per användare:** en användares inloggningar, förnyelser och utloggningar går efter varandra (några millisekunder per anrop). Olika användare påverkar inte varandra. Låset tas alltid först, så att två operationer inte kan låsa varandra i kors.
+- **Tabelltillväxt:** utgångna rader, och spärrade rader i familjer utan levande token, städas bort för användaren vid inloggning. En familj som förnyas var 15:e minut har upp till ungefär 670 rader per vecka, eftersom använda token sparas till de går ut.
 - **XSS försvinner inte.** Skadlig kod kan fortfarande läsa access-token i minnet och agera som användaren medan sidan är öppen, men får inget som håller länge.
 - **En omdeploy ogiltigförklarar gamla `localStorage`-token** (de ignoreras), så användare loggar in en gång på nytt.
 
 ## Uppföljning
 
-- Verifiera live före merge: migrationen V8 mot riktig Postgres, cookie-attributen, rotation, att återanvändning spärrar familjen, och ett E2E-scenario där sidan laddas om och användaren förblir inloggad.
+- Verifiera live före merge: migrationen V8 mot riktig Postgres, cookie-attributen, rotation, att återanvändning spärrar familjen, och ett E2E-scenario där sidan laddas om och användaren förblir inloggad. Racet från granskningen (en gammal token och den aktuella används samtidigt) är reproducerat mot Postgres 12 före och efter låset, i båda ordningarna. Det är körningar för hand, inte incheckade tester; de kräver en riktig databas i sviten (Testcontainers, #193).
 - När ADR:n är Accepterad: sätt ADR 0009 till "Delvis ersatt av ADR 0012", uppdatera R-13 i riskregistret (#201), och uppdatera `docs/mvp.md`, `docs/kravtolkning.md` och ADR 0003 där refresh-token-rotation står som breddning.
 - Omvärdera vid behov: nådetid vid återanvändning, absolut tak för sessionen, ett städjobb för utgångna rader, och "logga ut överallt".
 - Ratebegränsning av login och refresh ingår inte här och ligger kvar som separat punkt.

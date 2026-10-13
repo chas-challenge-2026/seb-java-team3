@@ -147,4 +147,55 @@ class RefreshTokenRepositoryTest {
         // Bara den angivna användarens rader städas
         assertTrue(repository.findById(otherUsersExpired.getId()).isPresent());
     }
+
+    // Granskningen av ADR 0012: en spärrad rad är det som avslöjar en aktiv token som blivit kvar i en
+    // spärrad familj. Den får därför inte städas bort av en inloggning så länge familjen har en levande token.
+    @Test
+    void deleteExpiredOrRevokedForUser_keepsARevokedRowWhileTheFamilyStillHasALiveToken() {
+        UUID partialFamily = UUID.randomUUID();
+        RefreshToken revokedMarker = save(USER_A, hash('a'), partialFamily, NOW.plusDays(3));
+        RefreshToken survivor = save(USER_A, hash('b'), partialFamily, NOW.plusDays(7));
+        jdbc.update("update refresh_tokens set revoked_at = ? where id = ?", NOW.minusHours(1), revokedMarker.getId());
+
+        UUID deadFamily = UUID.randomUUID();
+        RefreshToken deadRevoked = save(USER_A, hash('c'), deadFamily, NOW.plusDays(3));
+        jdbc.update("update refresh_tokens set revoked_at = ? where id = ?", NOW.minusHours(1), deadRevoked.getId());
+
+        // Även en spärrad rad som själv har gått ut ska ligga kvar så länge familjen har en levande token
+        UUID expiredMarkerFamily = UUID.randomUUID();
+        RefreshToken expiredMarker = save(USER_A, hash('d'), expiredMarkerFamily, NOW.minusDays(1));
+        RefreshToken liveSibling = save(USER_A, hash('e'), expiredMarkerFamily, NOW.plusDays(2));
+        jdbc.update("update refresh_tokens set revoked_at = ? where id = ?", NOW.minusDays(2), expiredMarker.getId());
+
+        int deleted = repository.deleteExpiredOrRevokedForUser(USER_A, NOW);
+
+        assertEquals(1, deleted);
+        assertTrue(repository.findById(deadRevoked.getId()).isEmpty(), "spärrad familj utan levande token städas");
+        assertTrue(repository.findById(revokedMarker.getId()).isPresent(), "markören ska ligga kvar");
+        assertTrue(repository.findById(survivor.getId()).isPresent());
+        assertTrue(repository.findById(expiredMarker.getId()).isPresent(), "utgången markör ska ligga kvar");
+        assertTrue(repository.findById(liveSibling.getId()).isPresent());
+    }
+
+    @Test
+    void findUserIdByTokenHash_returnsTheOwnerOrNothing() {
+        save(USER_B, hash('a'), UUID.randomUUID(), NOW.plusDays(7));
+
+        assertEquals(USER_B, repository.findUserIdByTokenHash(hash('a')).orElseThrow());
+        assertTrue(repository.findUserIdByTokenHash(hash('z')).isEmpty());
+    }
+
+    @Test
+    void existsByFamilyIdAndRevokedAtIsNotNull_isTrueOnlyForFamiliesWithARevokedToken() {
+        UUID withRevoked = UUID.randomUUID();
+        UUID withoutRevoked = UUID.randomUUID();
+        RefreshToken revoked = save(USER_A, hash('a'), withRevoked, NOW.plusDays(7));
+        save(USER_A, hash('b'), withRevoked, NOW.plusDays(7));
+        save(USER_A, hash('c'), withoutRevoked, NOW.plusDays(7));
+        jdbc.update("update refresh_tokens set revoked_at = ? where id = ?", NOW, revoked.getId());
+
+        assertTrue(repository.existsByFamilyIdAndRevokedAtIsNotNull(withRevoked));
+        assertFalse(repository.existsByFamilyIdAndRevokedAtIsNotNull(withoutRevoked));
+        assertFalse(repository.existsByFamilyIdAndRevokedAtIsNotNull(UUID.randomUUID()));
+    }
 }

@@ -4,6 +4,7 @@ import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -114,6 +116,39 @@ class AuthControllerRefreshTest {
 
         assertNull(result.getResponse().getHeader(HttpHeaders.SET_COOKIE));
         verify(refreshTokenService, never()).issueForLogin(any());
+    }
+
+    // Granskningen av ADR 0012: den gamla sessionen i webbläsaren ska inte leva vidare bredvid den nya,
+    // annars kan en stulen kopia av den roteras i 7 dagar utan att upptäckas.
+    @Test
+    void login_revokesThePreviousSessionOfThisBrowser_beforeIssuingTheNewOne() throws Exception {
+        when(authService.authenticate("lisa@malmobygg.se", "password123")).thenReturn(Optional.of(lisa));
+        when(refreshTokenService.issueForLogin(7L)).thenReturn(NEW_TOKEN);
+
+        mockMvc.perform(post("/api/auth/login")
+                        .cookie(new Cookie(RefreshCookies.NAME, OLD_TOKEN))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"lisa@malmobygg.se\",\"password\":\"password123\"}"))
+                .andExpect(status().isOk());
+
+        InOrder order = inOrder(refreshTokenService);
+        order.verify(refreshTokenService).revoke(OLD_TOKEN);
+        order.verify(refreshTokenService).issueForLogin(7L);
+    }
+
+    // Ett felaktigt lösenord får inte logga ut någon: den som skickar fel uppgifter har inte bevisat att den
+    // är användaren, så sessionen i den cookie som följer med ska lämnas orörd.
+    @Test
+    void login_withWrongCredentials_doesNotRevokeThePreviousSession() throws Exception {
+        when(authService.authenticate("lisa@malmobygg.se", "fel")).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .cookie(new Cookie(RefreshCookies.NAME, OLD_TOKEN))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"lisa@malmobygg.se\",\"password\":\"fel\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(refreshTokenService, never()).revoke(any());
     }
 
     // ---- refresh ----

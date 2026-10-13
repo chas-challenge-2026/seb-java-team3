@@ -26,10 +26,14 @@ import java.util.UUID;
 // Refresh-token (ADR 0012): utfärdar, roterar och spärrar de långlivade token som gör att en kort
 // access-token kan förnyas utan ny inloggning.
 //
-// Två val som är lätta att missa:
+// Tre val som är lätta att missa:
 //  - Ogiltiga förnyelser KASTAR INTE undantag utan returnerar tomt (Optional.empty). Ett undantag
 //    hade rullat tillbaka transaktionen, och därmed ångrat spärren av familjen när en återanvänd
 //    token upptäckts. Controllern gör tomt resultat till 401.
+//  - All hantering för en användare serialiseras med ett lås på användarens rad (lockUser). Det
+//    räcker inte att låsa den token som prövas: en tjuv som visar en gammal token och en användare
+//    som förnyar den aktuella låser olika rader, och spärren (en UPDATE) ser då inte den efterföljare
+//    som användaren skapar medan UPDATE:n väntar. Med ett lås per användare kan de aldrig överlappa.
 //  - Själva token-värdet sparas aldrig, bara dess SHA-256-hash. Slås ett värde upp görs det på hashen,
 //    så det finns ingen jämförelse av hemligheten som kan läcka via svarstid.
 @Service
@@ -85,6 +89,8 @@ public class RefreshTokenService {
     public String issueForLogin(Long userId) {
         LocalDateTime now = LocalDateTime.now(clock);
 
+        lockUser(userId);
+
         refreshTokenRepository.deleteExpiredOrRevokedForUser(userId, now);
 
         return createToken(userId, UUID.randomUUID(), now);
@@ -101,10 +107,21 @@ public class RefreshTokenService {
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
+        String tokenHash = hash(rawToken);
 
-        Optional<RefreshToken> found = refreshTokenRepository.findByTokenHashForUpdate(hash(rawToken));
+        // Okänd token: det finns ingen användare att låsa och ingen familj att spärra.
+        Optional<Long> owner = refreshTokenRepository.findUserIdByTokenHash(tokenHash);
+        if (owner.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // Användarens lås tas FÖRST, innan token läses och prövas. Allt som följer ser därför
+        // färdiga, committade rader för användaren, och en spärr av familjen ser alla dess token.
+        lockUser(owner.get());
+
+        Optional<RefreshToken> found = refreshTokenRepository.findByTokenHashForUpdate(tokenHash);
         if (found.isEmpty()) {
-            // Okänd token: det finns ingen familj att spärra.
+            // Raden städades bort medan vi väntade på låset.
             return Optional.empty();
         }
         RefreshToken token = found.get();
@@ -123,6 +140,17 @@ public class RefreshTokenService {
                 log.warn("Refresh-token återanvänd: user={}, family={}, {} token spärrade",
                         userId, familyId, revoked);
             }
+            return Optional.empty();
+        }
+
+        if (refreshTokenRepository.existsByFamilyIdAndRevokedAtIsNotNull(token.getFamilyId())) {
+            // Försvar på djupet: en familj som spärrats en gång är spärrad. Med lås per användare ska en
+            // aktiv token aldrig finnas kvar i en familj med spärrade token, men om det ändå händer
+            // (till exempel efter ett fel eller en manuell ändring) stoppas den här i stället för att
+            // få leva vidare med glidande giltighet.
+            log.warn("Aktiv refresh-token i en spärrad familj: user={}, family={}",
+                    token.getUserId(), token.getFamilyId());
+            refreshTokenRepository.revokeFamily(token.getFamilyId(), now);
             return Optional.empty();
         }
 
@@ -154,9 +182,23 @@ public class RefreshTokenService {
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
+        String tokenHash = hash(rawToken);
 
-        refreshTokenRepository.findByTokenHashForUpdate(hash(rawToken))
+        Optional<Long> owner = refreshTokenRepository.findUserIdByTokenHash(tokenHash);
+        if (owner.isEmpty()) {
+            return;
+        }
+
+        lockUser(owner.get());
+
+        refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .ifPresent(token -> refreshTokenRepository.revokeFamily(token.getFamilyId(), now));
+    }
+
+    // Serialiserar all refresh-token-hantering för en användare. Låset hålls till transaktionen är
+    // klar. Saknas användaren (till exempel en borttagen) finns inget att låsa och ingenting händer.
+    private void lockUser(Long userId) {
+        userRepository.findByIdForUpdate(userId);
     }
 
     // Glidande session: varje ny token gäller sessionLifetime från utfärdandet.
