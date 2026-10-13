@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { api } from "./api";
 import { ApiError, ApiValidationError, NETWORK_ERROR_STATUS } from "../error/api.error";
-import { setToken } from "./authToken";
+import { clearToken, setToken } from "./authToken";
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -13,7 +13,7 @@ function jsonResponse(status: number, body: unknown) {
 
 describe("api", () => {
   beforeEach(() => {
-    localStorage.clear();
+    clearToken();
     vi.stubGlobal("fetch", vi.fn());
   });
 
@@ -138,5 +138,124 @@ describe("api", () => {
     const schema = z.object({ count: z.number() });
 
     await expect(api("/api/count", {}, schema)).rejects.toBeInstanceOf(ApiError);
+  });
+
+  // ADR 0012: en utgången access-token förnyas tyst med refresh-cookien, och anropet görs om en gång.
+  describe("session refresh on 401", () => {
+    const sessionBody = {
+      token: "new-access-token",
+      id: 1,
+      name: "Ida Initiator",
+      email: "ida@example.com",
+      role: "INITIATOR",
+    };
+
+    function authorizationOfCall(index: number): string | undefined {
+      const [, init] = vi.mocked(fetch).mock.calls[index];
+      return (init?.headers as Record<string, string>).Authorization;
+    }
+
+    it("refreshes the session once and retries the request with the new token", async () => {
+      setToken("expired-token");
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse(401, {}))
+        .mockResolvedValueOnce(jsonResponse(200, sessionBody))
+        .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+      const result = await api<{ ok: boolean }>("/api/ping");
+
+      expect(result).toEqual({ ok: true });
+      expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toEqual([
+        "/api/ping",
+        "/api/auth/refresh",
+        "/api/ping",
+      ]);
+      expect(authorizationOfCall(0)).toBe("Bearer expired-token");
+      expect(authorizationOfCall(2)).toBe("Bearer new-access-token");
+    });
+
+    it("retries a POST too, since a 401 means nothing was carried out", async () => {
+      setToken("expired-token");
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse(401, {}))
+        .mockResolvedValueOnce(jsonResponse(200, sessionBody))
+        .mockResolvedValueOnce(jsonResponse(201, { id: 7 }));
+
+      const result = await api<{ id: number }>("/api/payments", {
+        method: "POST",
+        body: JSON.stringify({ amount: 100 }),
+      });
+
+      expect(result).toEqual({ id: 7 });
+      const [, retryInit] = vi.mocked(fetch).mock.calls[2];
+      expect(retryInit?.method).toBe("POST");
+      expect(retryInit?.body).toBe(JSON.stringify({ amount: 100 }));
+    });
+
+    it("gives up with the original 401 when the session cannot be refreshed", async () => {
+      setToken("expired-token");
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse(401, {}))
+        .mockResolvedValueOnce(jsonResponse(401, { error: "Session expired" }));
+
+      await expect(api("/api/ping")).rejects.toMatchObject({ name: "ApiError", status: 401 });
+
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries only once, so a second 401 is returned as an error and never loops", async () => {
+      setToken("expired-token");
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse(401, {}))
+        .mockResolvedValueOnce(jsonResponse(200, sessionBody))
+        .mockResolvedValueOnce(jsonResponse(401, {}));
+
+      await expect(api("/api/ping")).rejects.toMatchObject({ status: 401 });
+
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not try to refresh when the login itself returns 401", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse(401, { error: "Invalid email or password" }));
+
+      await expect(
+        api("/api/auth/login", { method: "POST", body: "{}" }),
+      ).rejects.toMatchObject({ status: 401 });
+
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("shares one refresh between requests that expire at the same time", async () => {
+      setToken("expired-token");
+      let refreshCalls = 0;
+      vi.mocked(fetch).mockImplementation(async (url, init) => {
+        if (String(url) === "/api/auth/refresh") {
+          refreshCalls += 1;
+          return jsonResponse(200, sessionBody);
+        }
+        const authorization = (init?.headers as Record<string, string>).Authorization;
+        return authorization === "Bearer new-access-token"
+          ? jsonResponse(200, { ok: true })
+          : jsonResponse(401, {});
+      });
+
+      const [first, second] = await Promise.all([api("/api/one"), api("/api/two")]);
+
+      expect(first).toEqual({ ok: true });
+      expect(second).toEqual({ ok: true });
+      expect(refreshCalls).toBe(1);
+    });
+
+    it("sends cookies only to the session endpoints", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse(200, {}));
+
+      await api("/api/auth/login", { method: "POST", body: "{}" });
+      await api("/api/payments");
+
+      const [, loginInit] = vi.mocked(fetch).mock.calls[0];
+      const [, paymentsInit] = vi.mocked(fetch).mock.calls[1];
+      expect(loginInit?.credentials).toBe("same-origin");
+      expect(paymentsInit?.credentials).toBe("omit");
+    });
   });
 });
