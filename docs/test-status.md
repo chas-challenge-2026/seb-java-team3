@@ -9,11 +9,11 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
+| Frontend · Vitest | 16 filer, 120 tester | Alla gröna vid lokal körning 2026-10-14 |
 | Backend · JUnit | 21 klasser, 132 tester | Alla gröna vid lokal körning 2026-10-12 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 2 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts` | Gröna vid lokal körning ____ (fyll i datum) |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Gröna vid lokal körning ____ (fyll i datum). `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |
 
 Alla 121 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-08. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
@@ -45,8 +45,13 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Token förfalskad med den gamla, publika hemligheten nekas; nyckeln slumpas vid start (ADR 0011) | Unit | Grön | `JwtServiceTest.tokenForgedWithAKnownSecret_isOnlyAcceptedByAServerUsingThatSecret`, `blankSecret_*`, `compromisedDevSecret_shouldBeRejectedAtStartup`, `explicitSecret_mustBeAtLeast32Bytes` |
 | Saknad eller ogiltig token mot API ger 401 | Int | Grön | `ApprovalApiControllerSecurityTest.approve_withoutToken/withGarbageToken_returns401` |
 | Loginformulärets validering och fel | Komp | Grön | `LoginForm.test.tsx` · 4; `auth/schema.test.ts` · 7 |
-| Skyddade routes och fel roll | Komp | Ej testad | Test för `requireAuth` och `requireRole` saknas |
-| API-klientens Bearer-token och felhantering | Unit | Grön | `lib/api.test.ts` · 8 |
+| Skyddade routes och fel roll (#198) | Unit | Grön | `lib/requireAuth.test.ts` · 7; `lib/requireRole.test.ts` · 6 |
+| Omladdning förnyar sessionen tyst och sparar användaren; utloggning går via servern (ADR 0012) | Unit | Grön | `lib/requireAuth.test.ts` (utan token i minnet) · 4; `features/auth/useLogout.test.tsx` · 2 |
+| Access-token hålls bara i minnet, och en gammal token i `localStorage` tas bort (ADR 0012) | Unit | Grön | `lib/authToken.test.ts` · 5 |
+| Tyst förnyelse: en förnyelse åt gången, Web Locks mellan flikar, nytt försök en gång efter 401, ingen loop, cookies bara till session-endpoints (ADR 0012) | Unit | Grön | `lib/authSession.test.ts` · 11; `lib/api.test.ts` (blocket "session refresh on 401") · 7 |
+| Sessionen finns kvar efter omladdning, cookien är HttpOnly, utloggning håller (ADR 0012) | E2E | Ej körd | `frontend/e2e/session.spec.ts` · 3 (skriven, körd för hand mot en riktig stack 2026-10-14) |
+| API-klientens Bearer-token och felhantering | Unit | Grön | `lib/api.test.ts` · 19 |
+| Access-token gäller 15 minuter med standardkonfigurationen (ADR 0012) | Int | Grön | `JwtLifetimeConfigTest` · 1 (läser `application.properties`) |
 
 **Avgränsningar och kvar att testa**
 
@@ -54,6 +59,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 - En kvarvarande MD5-hash nekas vid inloggning, även med rätt lösenord eller med hashen som lösenord, och ger 401 utan token. Efter V7 finns inga MD5-hashar kvar i seeden, alla hashar är BCrypt och matchar `password123`, och kolumnen `password_md5` är borta. V7 byter bara ut seedens hash: en användare med annat lösenord behåller sin MD5-hash men nekas vid inloggning. Den lokala Docker-databasen kontrollerades 2026-10-12 (0 MD5-hashar); stage är inte kontrollerad.
 - Ägarskapstestet går genom JWT, controller och riktig service. Fel attestant får 403 utan att steg, saldo eller audit ändras. `RoleAuthorizationTest` täcker de tre rollerna, lista, godkänn, avvisa, audit, tidslinje, betalningsskapande och 401. `/api/my-payments` och `/api/approvals/count` återstår.
 - JWT-testerna täcker fel nyckel och trasig token; ogiltig eller saknad token ger ingen autentisering. Nyckelhanteringen (ADR 0011) testas på enhetsnivå: slumpad nyckel per instans, förfalskning med den gamla hemligheten, avvisad läckt hemlighet och minsta längd. En helt startad applikationskontext (utan `jwt.secret`, och med `JWT_SECRET` satt) kontrollerades manuellt 2026-10-06 men finns inte som incheckat test. Formulärtesterna täcker ogiltig e-post, tomt lösenord, trimning och låst knapp under inloggning. API-klienttesterna täcker token med och utan värde, `ApiError` och validering av svar.
+- Frontenddelen av refresh token (ADR 0012) är enhetstestad, och kördes för hand 2026-10-14 mot en riktig stack (Postgres 12, backend med refresh, Vite, webbläsare): inloggning lämnar `localStorage` tomt, en omladdning förblir inloggad och roterar token i databasen, utloggning spärrar hela familjen, och en omstart av servern (ny signeringsnyckel) följs av 401, förnyelse och nytt försök utan ny inloggning. Det är inte incheckade tester. `session.spec.ts` är skriven men inte körd med Playwright, och två flikar som förnyar samtidigt (Web Locks) är bara enhetstestat. `jwt.expiration-ms` är 15 minuter, så frontend måste ha refresh-token för att inte logga ut användaren var 15:e minut.
 - `ProtectedRoute.test.tsx` finns inte. Test behövs för omdirigering till login och spärr vid fel roll.
 
 ### Betalning och godkännande
