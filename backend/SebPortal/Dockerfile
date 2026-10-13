@@ -1,6 +1,6 @@
 # ---- Stage 1: build native IBAN validator library (jammy, matches runtime glibc) ----
 FROM ubuntu:22.04 AS native-build
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /native
 COPY native/ ./
