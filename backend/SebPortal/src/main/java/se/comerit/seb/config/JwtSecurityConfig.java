@@ -48,10 +48,12 @@ public class JwtSecurityConfig {
                         .accessDeniedHandler(roleAccessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Enda öppna routen - man kan inte kräva en token för att få
-                        // sin första token. /api/auth/me kräver nu JWT precis som allt
-                        // annat, sen steg 6 flyttade dess interna logik dit också.
-                        .requestMatchers("/api/auth/login").permitAll()
+                        // De enda öppna routerna - man kan inte kräva en access-token för att få
+                        // sin första, eller för att förnya en som redan gått ut. /refresh och
+                        // /logout skyddas i stället av refresh-cookien (SameSite=Strict, egen
+                        // header), se AuthController och ADR 0012. /api/auth/me kräver JWT
+                        // precis som allt annat.
+                        .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
