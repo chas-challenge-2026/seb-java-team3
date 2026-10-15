@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Clock3, Info } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
@@ -36,6 +37,7 @@ const FIELD_ORDER = ["account", "recipientIban", "amount", "reference"] as const
 
 function PaymentForm() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const queryClient = useQueryClient();
   const { data: accounts = [], isPending: accountsPending, isError: accountsError, refetch: refetchAccounts } = useQuery(accountsQueryOptions);
 
@@ -269,6 +271,9 @@ function PaymentForm() {
 
     try {
       const payment = await createPayment(result.data);
+      // Dashboarden har redan cachat Mina betalningar, och en ADMIN ser även attestkön
+      qc.invalidateQueries({ queryKey: ["audit"] });
+      qc.invalidateQueries({ queryKey: ["approvals"] });
       setPendingConfirmation(payment);
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["audit"] });
