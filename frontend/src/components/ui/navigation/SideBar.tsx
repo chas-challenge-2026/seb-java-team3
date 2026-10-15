@@ -2,9 +2,8 @@ import Styles from "./SideBar.module.css";
 import SideBarItem from "./SideBarItem";
 import UserAvatar from "../user/UserAvatar";
 import { useUser } from "../../../features/auth/useUser";
-import { clearToken } from "../../../lib/authToken";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useLogout } from "../../../features/auth/useLogout";
+import { useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { getSavedTheme, transitionTheme, type Theme } from "../../../lib/theme";
 
@@ -23,18 +22,11 @@ const SideBar = () => {
   const { data: user } = useUser();
   const canApprove = user?.role === "ATTESTANT" || user?.role === "ADMIN";
   const { data: approvalCount } = usePendingApprovalCount(canApprove);
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const handleLogout = useLogout();
   const [theme, setTheme] = useState<Theme>(getSavedTheme);
 
   const iconSize = 16;
   const currentPath = useRouterState({ select: (state) => state.location.pathname });
-
-  const handleLogout = () => {
-    clearToken();
-    queryClient.clear();
-    navigate({ to: "/login" });
-  };
 
   const handleThemeToggle = () => {
     const nextTheme: Theme = theme === "light" ? "dark" : "light";
