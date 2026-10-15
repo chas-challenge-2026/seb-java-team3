@@ -3,6 +3,7 @@ package se.comerit.seb.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+import se.comerit.seb.domain.Account;
 import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
@@ -10,6 +11,7 @@ import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.dto.MyPaymentStatusResponse.ApprovalStepSummary;
+import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.AuditRepository;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
@@ -20,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
@@ -28,7 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 // UX-feedback: Mina betalningar visar vem som ska attestera, så att initiatören vet vem som ska
-// kontaktas om en betalning fastnar.
+// kontaktas om en betalning fastnar, och vilket konto betalningen dras från.
 class AuditServiceMyPaymentsTest {
 
     private static final Long TENANT = 1L;
@@ -42,13 +45,41 @@ class AuditServiceMyPaymentsTest {
 
     private PaymentRepository paymentRepository;
     private UserRepository userRepository;
+    private AccountRepository accountRepository;
     private AuditService auditService;
 
     @BeforeEach
     void setUp() {
         paymentRepository = mock(PaymentRepository.class);
         userRepository = mock(UserRepository.class);
-        auditService = new AuditService(mock(AuditRepository.class), userRepository, paymentRepository);
+        accountRepository = mock(AccountRepository.class);
+        auditService = new AuditService(mock(AuditRepository.class), userRepository, paymentRepository,
+                accountRepository);
+    }
+
+    @Test
+    void showsWhichAccountThePaymentIsDrawnFrom() {
+        Account driftkonto = account(1, "Driftkonto");
+        when(accountRepository.findByTenantIdOrderByIdAsc(TENANT)).thenReturn(List.of(driftkonto));
+        when(paymentRepository.findByTenantIdAndCreatedByWithApprovalSteps(TENANT, INITIATOR_ID))
+                .thenReturn(List.of(payment(100L)));
+
+        MyPaymentStatusResponse response = auditService.getMyPaymentStatuses(initiator).get(0);
+
+        assertEquals("Driftkonto", response.fromAccountName());
+    }
+
+    @Test
+    void anAccountOutsideTheCompany_isNeverNamed() {
+        // Frågan hämtar bara det egna företagets konton; betalningens konto finns inte bland dem
+        Account lonekonto = account(2, "Lönekonto");
+        when(accountRepository.findByTenantIdOrderByIdAsc(TENANT)).thenReturn(List.of(lonekonto));
+        when(paymentRepository.findByTenantIdAndCreatedByWithApprovalSteps(TENANT, INITIATOR_ID))
+                .thenReturn(List.of(payment(100L)));
+
+        MyPaymentStatusResponse response = auditService.getMyPaymentStatuses(initiator).get(0);
+
+        assertNull(response.fromAccountName());
     }
 
     @Test
@@ -129,6 +160,13 @@ class AuditServiceMyPaymentsTest {
             payment.addApprovalStep(step);
         }
         return payment;
+    }
+
+    private static Account account(Integer id, String name) {
+        Account account = mock(Account.class);
+        when(account.getId()).thenReturn(id);
+        when(account.getAccountName()).thenReturn(name);
+        return account;
     }
 
     private static User user(Long id, Long tenantId, String name) {

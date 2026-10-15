@@ -4,6 +4,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import se.comerit.seb.domain.Account;
 import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.AuditEntry;
 import se.comerit.seb.domain.Payment;
@@ -11,6 +12,7 @@ import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.AuditEntryResponse;
 import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
+import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.AuditRepository;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
@@ -38,13 +40,16 @@ public class AuditService {
     private final AuditRepository auditRepository;
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
+    private final AccountRepository accountRepository;
 
     public AuditService(AuditRepository auditRepository,
                         UserRepository userRepository,
-                        PaymentRepository paymentRepository) {
+                        PaymentRepository paymentRepository,
+                        AccountRepository accountRepository) {
         this.auditRepository = auditRepository;
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
+        this.accountRepository = accountRepository;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -218,8 +223,12 @@ public class AuditService {
                 .filter(attestant -> user.tenantId().equals(attestant.getTenantId()))
                 .collect(Collectors.toMap(User::getId, User::getName));
 
+        // Bara det egna företagets konton slås upp, så ett annat företags konto kan aldrig namnges (R-04)
+        Map<Long, String> accountNamesById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
+                .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+
         return payments.stream()
-                .map(payment -> MyPaymentStatusResponse.from(payment, attestantNamesById))
+                .map(payment -> MyPaymentStatusResponse.from(payment, accountNamesById, attestantNamesById))
                 .collect(Collectors.toList());
     }
 

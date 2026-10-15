@@ -30,7 +30,7 @@ class AuditControllerMyPaymentsTest {
 
         AuthenticatedUserContext initiator = new AuthenticatedUserContext(1L, 1L, Role.INITIATOR);
         MyPaymentStatusResponse ownPayment = new MyPaymentStatusResponse(
-                100L, "Testbetalning", new BigDecimal("500.00"), "SEK",
+                100L, "Testbetalning", new BigDecimal("500.00"), "SEK", "Driftkonto",
                 "SE1234567890123456789012", "PENDING_APPROVAL", null, null,
                 List.of(new MyPaymentStatusResponse.ApprovalStepSummary(1, "Johan Berg", "PENDING", null)));
 
@@ -41,6 +41,7 @@ class AuditControllerMyPaymentsTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].paymentId").value(100))
                 .andExpect(jsonPath("$[0].status").value("PENDING_APPROVAL"))
+                .andExpect(jsonPath("$[0].fromAccountName").value("Driftkonto"))
                 .andExpect(jsonPath("$[0].approvalSteps[0].stepNumber").value(1))
                 .andExpect(jsonPath("$[0].approvalSteps[0].attestantName").value("Johan Berg"))
                 .andExpect(jsonPath("$[0].approvalSteps[0].status").value("PENDING"));

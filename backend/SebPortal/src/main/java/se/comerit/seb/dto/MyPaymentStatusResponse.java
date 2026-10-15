@@ -15,6 +15,7 @@ public record MyPaymentStatusResponse(
         String reference,
         BigDecimal amount,
         String currency,
+        String fromAccountName,
         String toIban,
         String status,
         LocalDateTime createdAt,
@@ -31,7 +32,10 @@ public record MyPaymentStatusResponse(
     // Namn som visas om attestanten inte längre finns, så att steget ändå syns.
     static final String UNKNOWN_ATTESTANT = "Okänd attestant";
 
-    public static MyPaymentStatusResponse from(Payment payment, Map<Long, String> userNamesById) {
+    // fromAccountName är null om kontot inte finns (eller inte tillhör betalningens företag).
+    public static MyPaymentStatusResponse from(Payment payment,
+                                               Map<Long, String> accountNamesById,
+                                               Map<Long, String> userNamesById) {
         List<ApprovalStepSummary> steps = payment.getApprovalSteps().stream()
                 .map(step -> toSummary(step, userNamesById))
                 .toList();
@@ -41,6 +45,7 @@ public record MyPaymentStatusResponse(
                 payment.getReference(),
                 payment.getAmount(),
                 payment.getCurrency(),
+                accountNamesById.get(payment.getFromAccountId()),
                 payment.getToIban(),
                 payment.getStatus().name(),
                 payment.getCreatedAt(),

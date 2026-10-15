@@ -9,13 +9,13 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 30 klasser, 193 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Backend · JUnit | 30 klasser, 195 tester | Alla gröna vid lokal körning 2026-10-15 |
 | Frontend · Vitest | 17 filer, 143 tester | Alla gröna vid lokal körning 2026-10-15 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | `mvp-flow.spec.ts` och `smoke.spec.ts` gröna mot Docker 2026-10-12. Kontrollen av attestantens namn i Mina betalningar lades till i `mvp-flow.spec.ts` 2026-10-15 och är inte körd än. `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | `mvp-flow.spec.ts` och `smoke.spec.ts` gröna mot Docker 2026-10-12. Kontrollen av konto och attestantens namn i Mina betalningar lades till i `mvp-flow.spec.ts` 2026-10-15 och är inte körd än. `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |
 
-Alla 193 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Alla 195 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -127,14 +127,14 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Beslutshändelser skrivs atomärt (BUG-008, R-02) | Int | Delvis | Testerna ovan |
 | Tenant-filtrering hindrar läckage (R-04) | Int | Delvis | `AccountRepositoryTenantTest` · 6 och `AccountServiceTest` · 5 (konton, H2). Audit, tidslinje, betalningar och attester saknar fortfarande test av faktisk filtrering |
 | Ordningen är stabil vid samma tidsstämpel | Int | Ej testad | Inget sorteringstest |
-| Mina betalningar visar vem som ska attestera, vem som godkände och vem som avvisade (UX-feedback) | Unit + Int | Grön | `AuditServiceMyPaymentsTest` · 5; `AuditControllerMyPaymentsTest` (`approvalSteps` i svaret); `features/audit/utils/formatters.test.ts` · 6 |
+| Mina betalningar visar vilket konto betalningen dras från och vem som ska attestera, godkände eller avvisade (UX-feedback) | Unit + Int | Grön | `AuditServiceMyPaymentsTest` · 7; `AuditControllerMyPaymentsTest` (`fromAccountName` och `approvalSteps` i svaret); `features/audit/utils/formatters.test.ts` · 6 |
 
 **Avgränsningar och kvar att testa**
 
 - `AuditControllerTest` använder mockad service och `containsInAnyOrder`. Varken den faktiska sorteringen eller `AuditService.findPaymentEvents` verifieras.
 - Audit vid lyckad avvisning och rollback mot riktig databas saknar tester. Nekade åtgärder kontrolleras i ägarskapstesterna.
 - Frågorna filtrerar på `tenantId`, men inget negativt test verifierar åtkomst mellan kunder för audit, betalningar eller `my-payments`. `AuditControllerMyPaymentsTest.shouldReturnOnlyOwnPayments` mockar servicen och testar därför inte filtreringen.
-- Mina betalningar: attestantnamnen slås upp en gång för hela listan, och namn på användare från andra företag visas aldrig (`AuditServiceMyPaymentsTest.aUserFromAnotherCompany_isNeverNamed`). Repositoryt är mockat, så frågan `findByTenantIdAndCreatedByWithApprovalSteps` (betalningar och steg i en fråga) är bara kontrollerad mot en riktig databas genom att Spring godkänner den vid uppstart i Testcontainers-testet och genom en manuell kontroll av `/api/my-payments` mot Docker 2026-10-15.
+- Mina betalningar: attestantnamnen slås upp en gång för hela listan, och namn på användare och konton från andra företag visas aldrig (`AuditServiceMyPaymentsTest.aUserFromAnotherCompany_isNeverNamed`, `anAccountOutsideTheCompany_isNeverNamed`). Repositoryt är mockat, så frågan `findByTenantIdAndCreatedByWithApprovalSteps` (betalningar och steg i en fråga) är bara kontrollerad mot en riktig databas genom att Spring godkänner den vid uppstart i Testcontainers-testet och genom en manuell kontroll av `/api/my-payments` mot Docker 2026-10-15.
 - `findPaymentEvents` sorterar på `createdAt, id`, men lika tidsstämplar är inte testade. Även namnet `getMyPaymentStatuses_shouldReturnOnlyOwnPayments` beskriver inte tydligt vad testet verifierar.
 
 ### Servering av frontend (SPA-routing)
