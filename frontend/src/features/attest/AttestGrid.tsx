@@ -28,7 +28,7 @@ export default function AttestGrid() {
       onSuccess: () => {
         setFeedback({
           type: "success",
-          text: `Betalningen till ${step.mottagare} på ${formatBelopp(step)} är godkänd.`,
+          text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är godkänd.`,
         });
       },
       onError: (error) => {
@@ -182,11 +182,4 @@ export default function AttestGrid() {
       {content}
     </>
   );
-}
-
-function formatBelopp(step: AttestSteg): string {
-  return step.belopp.toLocaleString("sv-SE", {
-    style: "currency",
-    currency: step.currency,
-  });
 }

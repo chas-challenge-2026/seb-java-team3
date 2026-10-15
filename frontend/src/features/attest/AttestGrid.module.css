@@ -90,6 +90,7 @@
    bryts inte. Får tabellen inte plats scrollar den i sidled (.tableWrap). */
 .grid.contentSized { table-layout: auto; }
 .grid.contentSized th { white-space: nowrap; }
+.grid.contentSized th, .grid.contentSized td { padding-left: 0.9rem; padding-right: 0.9rem; }
 .noWrap { white-space: nowrap; }
 .reference { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; }
 

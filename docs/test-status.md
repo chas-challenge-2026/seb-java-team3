@@ -10,7 +10,7 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
 | Backend · JUnit | 31 klasser, 199 tester | Alla gröna vid lokal körning 2026-10-15 |
-| Frontend · Vitest | 17 filer, 144 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Frontend · Vitest | 17 filer, 145 tester | Alla gröna vid lokal körning 2026-10-15 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | `mvp-flow.spec.ts` och `smoke.spec.ts` gröna mot Docker 2026-10-12. Kontrollen av konto och attestantens namn i Mina betalningar lades till i `mvp-flow.spec.ts` 2026-10-15 och är inte körd än. `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |

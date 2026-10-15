@@ -58,6 +58,14 @@ describe("AttestGrid", () => {
     expect(within(row).getByText("Lisa Persson")).toBeInTheDocument();
   });
 
+  it("shows the amount the same way as Mina betalningar", () => {
+    mockApprovals(vi.fn());
+    render(<AttestGrid />);
+
+    const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+    expect(within(row).getByText(/^12\s500,00 SEK$/)).toBeInTheDocument();
+  });
+
   it("confirms which payment was approved", async () => {
     mockApprovals((_id, options) => options.onSuccess?.());
     const user = userEvent.setup();
@@ -66,7 +74,7 @@ describe("AttestGrid", () => {
     await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
 
     expect(
-      screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00\s*kr är godkänd\./),
+      screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00 SEK är godkänd\./),
     ).toBeInTheDocument();
   });
 
