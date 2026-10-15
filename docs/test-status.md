@@ -2,15 +2,15 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-13
+**Senast uppdaterad:** 2026-10-15
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 24 klasser, 166 tester | Alla gröna vid lokal körning 2026-10-13 |
-| Frontend · Vitest | 16 filer, 120 tester | Alla gröna vid lokal körning 2026-10-14 |
+| Backend · JUnit | 188 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Frontend · Vitest | 16 filer, 137 tester | Alla gröna vid lokal körning 2026-10-15 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | `mvp-flow.spec.ts` och `smoke.spec.ts` gröna mot Docker 2026-10-12. `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |

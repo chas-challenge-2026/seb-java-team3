@@ -246,6 +246,56 @@ describe("api", () => {
       expect(refreshCalls).toBe(1);
     });
 
+    it("retries without a new refresh when another request already renewed the token", async () => {
+      setToken("expired-token");
+      vi.mocked(fetch).mockImplementation(async (_url, init) => {
+        const authorization = (init?.headers as Record<string, string>).Authorization;
+        if (authorization === "Bearer expired-token") {
+          // Ett annat anrop hinner förnya sessionen medan det här är på väg
+          setToken("token-from-other-request", 1);
+          return jsonResponse(401, {});
+        }
+        return jsonResponse(200, { ok: true });
+      });
+
+      await expect(api("/api/ping")).resolves.toEqual({ ok: true });
+
+      expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toEqual(["/api/ping", "/api/ping"]);
+      expect(authorizationOfCall(1)).toBe("Bearer token-from-other-request");
+    });
+
+    it("reports the server as unreachable, not as logged out, when the refresh gets a 503", async () => {
+      setToken("expired-token");
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse(401, {}))
+        .mockResolvedValueOnce(new Response("Service Unavailable", { status: 503 }));
+
+      await expect(api("/api/ping")).rejects.toMatchObject({
+        name: "ApiError",
+        status: NETWORK_ERROR_STATUS,
+        message: "Kunde inte nå servern. Kontrollera din anslutning och försök igen om en stund.",
+      });
+
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not retry as another user when someone logged in as someone else in another tab", async () => {
+      setToken("lisas-expired-token", 2);
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(jsonResponse(401, {}))
+        .mockResolvedValueOnce(jsonResponse(200, sessionBody));
+
+      await expect(
+        api("/api/payments", { method: "POST", body: "{}" }),
+      ).rejects.toMatchObject({ name: "ApiError", status: 401 });
+
+      // Bara det ursprungliga anropet och förnyelsen: betalningen skickas aldrig om som Ida
+      expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toEqual([
+        "/api/payments",
+        "/api/auth/refresh",
+      ]);
+    });
+
     it("sends cookies only to the session endpoints", async () => {
       vi.mocked(fetch).mockResolvedValue(jsonResponse(200, {}));
 

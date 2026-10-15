@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { logoutSession, refreshSession } from "./authSession";
-import { clearToken, getToken, setToken } from "./authToken";
+import { logoutSession, onUserChanged, refreshSession } from "./authSession";
+import { clearToken, getToken, getTokenUserId, setToken } from "./authToken";
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -32,10 +32,14 @@ describe("authSession", () => {
     it("calls /api/auth/refresh with the cookie and the required header, and stores the new token", async () => {
       vi.mocked(fetch).mockResolvedValue(jsonResponse(200, sessionBody));
 
-      const user = await refreshSession();
+      const result = await refreshSession();
 
-      expect(user).toEqual({ id: 1, name: "Ida Initiator", email: "ida@example.com", role: "INITIATOR" });
+      expect(result).toEqual({
+        status: "renewed",
+        user: { id: 1, name: "Ida Initiator", email: "ida@example.com", role: "INITIATOR" },
+      });
       expect(getToken()).toBe("new-access-token");
+      expect(getTokenUserId()).toBe(1);
 
       const [url, init] = vi.mocked(fetch).mock.calls[0];
       expect(url).toBe("/api/auth/refresh");
@@ -47,16 +51,17 @@ describe("authSession", () => {
     it("never puts the token in the returned user", async () => {
       vi.mocked(fetch).mockResolvedValue(jsonResponse(200, sessionBody));
 
-      const user = await refreshSession();
+      const result = await refreshSession();
 
-      expect(user).not.toHaveProperty("token");
+      expect(result.status).toBe("renewed");
+      expect(result.status === "renewed" && result.user).not.toHaveProperty("token");
     });
 
     it("returns null and clears the token when the server has no valid session", async () => {
       setToken("old-token");
       vi.mocked(fetch).mockResolvedValue(jsonResponse(401, { error: "Session expired" }));
 
-      await expect(refreshSession()).resolves.toBeNull();
+      await expect(refreshSession()).resolves.toEqual({ status: "no-session" });
 
       expect(getToken()).toBeNull();
     });
@@ -65,18 +70,78 @@ describe("authSession", () => {
       setToken("old-token");
       vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { unexpected: true }));
 
-      await expect(refreshSession()).resolves.toBeNull();
+      await expect(refreshSession()).resolves.toEqual({ status: "no-session" });
 
       expect(getToken()).toBeNull();
     });
 
-    it("returns null but keeps an existing token when the server cannot be reached", async () => {
+    it("reports unreachable but keeps an existing token when the server cannot be reached", async () => {
       setToken("still-maybe-valid");
       vi.mocked(fetch).mockRejectedValue(new TypeError("Failed to fetch"));
 
-      await expect(refreshSession()).resolves.toBeNull();
+      await expect(refreshSession()).resolves.toEqual({ status: "unreachable" });
 
       expect(getToken()).toBe("still-maybe-valid");
+    });
+
+    it.each([500, 502, 503, 504])(
+      "reports unreachable and keeps the token when the server answers %i (restart or proxy error)",
+      async (status) => {
+        setToken("still-maybe-valid");
+        vi.mocked(fetch).mockResolvedValue(new Response("Bad Gateway", { status }));
+
+        await expect(refreshSession()).resolves.toEqual({ status: "unreachable" });
+
+        expect(getToken()).toBe("still-maybe-valid");
+      },
+    );
+
+    it("gives up after a time limit, so a hanging server cannot hold the cross-tab lock", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse(200, sessionBody));
+
+      await refreshSession();
+
+      const [, init] = vi.mocked(fetch).mock.calls[0];
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    // Cookien delas mellan flikarna: har någon loggat in som en annan användare i en annan flik, svarar
+    // förnyelsen med den användaren. Fliken får då inte fortsätta som den nya användaren.
+    describe("when the session now belongs to another user", () => {
+      it("reports user-changed, keeps the old token and does not store the new one", async () => {
+        setToken("lisas-expired-token", 2);
+        vi.mocked(fetch).mockResolvedValue(jsonResponse(200, sessionBody));
+
+        await expect(refreshSession()).resolves.toEqual({ status: "user-changed" });
+
+        expect(getToken()).toBe("lisas-expired-token");
+        expect(getTokenUserId()).toBe(2);
+      });
+
+      it("tells the listeners, so that the app can reload", async () => {
+        const listener = vi.fn();
+        const unsubscribe = onUserChanged(listener);
+        setToken("lisas-expired-token", 2);
+        vi.mocked(fetch).mockResolvedValue(jsonResponse(200, sessionBody));
+
+        await refreshSession();
+        unsubscribe();
+
+        expect(listener).toHaveBeenCalledTimes(1);
+      });
+
+      it("renews as usual when the session still belongs to the same user", async () => {
+        const listener = vi.fn();
+        const unsubscribe = onUserChanged(listener);
+        setToken("idas-expired-token", 1);
+        vi.mocked(fetch).mockResolvedValue(jsonResponse(200, sessionBody));
+
+        await expect(refreshSession()).resolves.toMatchObject({ status: "renewed" });
+        unsubscribe();
+
+        expect(listener).not.toHaveBeenCalled();
+        expect(getToken()).toBe("new-access-token");
+      });
     });
 
     it("shares one request between simultaneous refreshes", async () => {
@@ -123,7 +188,7 @@ describe("authSession", () => {
       expect(navigator.locks).toBeUndefined();
       vi.mocked(fetch).mockResolvedValue(jsonResponse(200, sessionBody));
 
-      await expect(refreshSession()).resolves.toMatchObject({ id: 1 });
+      await expect(refreshSession()).resolves.toMatchObject({ status: "renewed", user: { id: 1 } });
     });
   });
 
@@ -145,6 +210,24 @@ describe("authSession", () => {
     it("clears the token and does not throw when the server cannot be reached", async () => {
       setToken("access-token");
       vi.mocked(fetch).mockRejectedValue(new TypeError("Failed to fetch"));
+
+      await expect(logoutSession()).resolves.toBeUndefined();
+
+      expect(getToken()).toBeNull();
+    });
+
+    it("gives up after a time limit, so a hanging server cannot block logging out", async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }));
+
+      await logoutSession();
+
+      const [, init] = vi.mocked(fetch).mock.calls[0];
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("logs out locally when the server does not answer in time", async () => {
+      setToken("access-token");
+      vi.mocked(fetch).mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError"));
 
       await expect(logoutSession()).resolves.toBeUndefined();
 

@@ -6,7 +6,7 @@ import { clearToken, getToken, setToken } from "./authToken";
 import { refreshSession } from "./authSession";
 import { userQueryOptions } from "./userQueryOptions";
 import { fetchCurrentUser } from "../features/auth/api";
-import { ApiError } from "../error/api.error";
+import { ApiError, NETWORK_ERROR_STATUS } from "../error/api.error";
 import type { UserResponse } from "../features/auth/types";
 
 vi.mock("../features/auth/api", () => ({
@@ -44,7 +44,7 @@ describe("requireAuth", () => {
   // ADR 0012: efter en omladdning finns ingen access-token i minnet, men refresh-cookien kan ge en ny.
   describe("without an access token in memory (for example after a reload)", () => {
     it("redirects to /login without asking /me when the session cannot be renewed", async () => {
-      mockedRefreshSession.mockResolvedValue(null);
+      mockedRefreshSession.mockResolvedValue({ status: "no-session" });
 
       await expectRedirectTo(requireAuth(queryClient), "/login");
 
@@ -53,13 +53,13 @@ describe("requireAuth", () => {
     });
 
     it("renews the session silently and lets the user through", async () => {
-      mockedRefreshSession.mockResolvedValue(user);
+      mockedRefreshSession.mockResolvedValue({ status: "renewed", user });
 
       await expect(requireAuth(queryClient)).resolves.toEqual(user);
     });
 
     it("seeds the user in the query cache, so /me is not requested again", async () => {
-      mockedRefreshSession.mockResolvedValue(user);
+      mockedRefreshSession.mockResolvedValue({ status: "renewed", user });
 
       await requireAuth(queryClient);
 
@@ -69,11 +69,36 @@ describe("requireAuth", () => {
 
     it("clears the cached user when the session cannot be renewed", async () => {
       queryClient.setQueryData(userQueryOptions.queryKey, user);
-      mockedRefreshSession.mockResolvedValue(null);
+      mockedRefreshSession.mockResolvedValue({ status: "no-session" });
 
       await expectRedirectTo(requireAuth(queryClient), "/login");
 
       expect(queryClient.getQueryData(userQueryOptions.queryKey)).toBeUndefined();
+    });
+  });
+
+  describe("when the server cannot be reached", () => {
+    it("does not send the user to /login when the session could not be checked", async () => {
+      queryClient.setQueryData(userQueryOptions.queryKey, user);
+      mockedRefreshSession.mockResolvedValue({ status: "unreachable" });
+
+      const thrown = await requireAuth(queryClient).then(
+        () => expect.fail("expected an error"),
+        (error: unknown) => error,
+      );
+
+      expect(isRedirect(thrown)).toBe(false);
+      expect(thrown).toMatchObject({ name: "ApiError", status: NETWORK_ERROR_STATUS });
+      expect(queryClient.getQueryData(userQueryOptions.queryKey)).toEqual(user);
+    });
+
+    it("keeps the token when /me fails because the server is down", async () => {
+      setToken("valid-token");
+      mockedFetchCurrentUser.mockRejectedValue(new ApiError(503, "Service Unavailable"));
+
+      await expect(requireAuth(queryClient)).rejects.toMatchObject({ status: NETWORK_ERROR_STATUS });
+
+      expect(getToken()).toBe("valid-token");
     });
   });
 

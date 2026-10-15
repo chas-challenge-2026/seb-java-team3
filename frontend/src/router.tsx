@@ -5,6 +5,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import AppLayout from "./components/ui/layout/AppLayout";
+import { AuthErrorView } from "./features/auth/AuthErrorView";
 
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { Login } from "./pages/Login";
@@ -40,6 +41,7 @@ const authRoute = createRoute({
   id: "auth",
   beforeLoad: ({ context }) => requireAuth(context.queryClient),
   component: AppLayout,
+  errorComponent: AuthErrorView,
 });
 
 const uiTestRoute = createRoute({

@@ -42,6 +42,21 @@ describe("useLogout", () => {
     expect(navigate).toHaveBeenCalledWith({ to: "/login" });
   });
 
+  it("navigates away before it clears the cache, so pages still shown do not refetch without a token", async () => {
+    mockedLogoutSession.mockResolvedValue();
+    queryClient.setQueryData(["auth", "me"], { id: 1 });
+    let cachedUserWhenNavigating: unknown;
+    navigate.mockImplementation(async () => {
+      cachedUserWhenNavigating = queryClient.getQueryData(["auth", "me"]);
+    });
+    const { result } = renderHook(() => useLogout(), { wrapper });
+
+    await result.current();
+
+    expect(cachedUserWhenNavigating).toEqual({ id: 1 });
+    expect(queryClient.getQueryData(["auth", "me"])).toBeUndefined();
+  });
+
   it("waits for the server before it clears the cache and navigates", async () => {
     let finishLogout: () => void = () => {};
     mockedLogoutSession.mockReturnValue(

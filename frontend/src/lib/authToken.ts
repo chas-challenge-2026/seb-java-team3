@@ -3,16 +3,26 @@
 // appen förnyar den tyst med refresh-cookien, som är HttpOnly och oläsbar för JavaScript. Se authSession.ts.
 let accessToken: string | null = null;
 
+// Vilken användare token tillhör. Refresh-cookien delas mellan flikarna, så en förnyelse kan svara med en
+// annan användare om någon loggat in i en annan flik. authSession.ts jämför mot det här värdet.
+let tokenUserId: number | null = null;
+
 export function getToken(): string | null {
   return accessToken;
 }
 
-export function setToken(token: string): void {
+export function getTokenUserId(): number | null {
+  return tokenUserId;
+}
+
+export function setToken(token: string, userId: number | null = null): void {
   accessToken = token;
+  tokenUserId = userId;
 }
 
 export function clearToken(): void {
   accessToken = null;
+  tokenUserId = null;
 }
 
 // Tidigare versioner sparade token i localStorage. Ta bort den så att en kvarglömd, fortfarande
