@@ -40,6 +40,8 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     await menu(initiator).getByRole("link", { name: "Mina betalningar" }).click();
 
     await expect(rowWith(initiator, reference)).toContainText("Väntar attest");
+    // Initiatören ser vem betalningen väntar på, och vet vem som ska kontaktas om den fastnar
+    await expect(rowWith(initiator, reference)).toContainText(USERS.attestant.name);
   });
 
   const attestant = await loginAs(browser, USERS.attestant);

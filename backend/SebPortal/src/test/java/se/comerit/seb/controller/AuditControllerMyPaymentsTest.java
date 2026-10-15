@@ -31,7 +31,8 @@ class AuditControllerMyPaymentsTest {
         AuthenticatedUserContext initiator = new AuthenticatedUserContext(1L, 1L, Role.INITIATOR);
         MyPaymentStatusResponse ownPayment = new MyPaymentStatusResponse(
                 100L, "Testbetalning", new BigDecimal("500.00"), "SEK",
-                "SE1234567890123456789012", "PENDING_APPROVAL", null, null);
+                "SE1234567890123456789012", "PENDING_APPROVAL", null, null,
+                List.of(new MyPaymentStatusResponse.ApprovalStepSummary(1, "Johan Berg", "PENDING", null)));
 
         when(jwtUserContext.requireAuthenticated()).thenReturn(initiator);
         when(auditService.getMyPaymentStatuses(initiator)).thenReturn(List.of(ownPayment));
@@ -39,6 +40,9 @@ class AuditControllerMyPaymentsTest {
         mockMvc.perform(get("/api/my-payments"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].paymentId").value(100))
-                .andExpect(jsonPath("$[0].status").value("PENDING_APPROVAL"));
+                .andExpect(jsonPath("$[0].status").value("PENDING_APPROVAL"))
+                .andExpect(jsonPath("$[0].approvalSteps[0].stepNumber").value(1))
+                .andExpect(jsonPath("$[0].approvalSteps[0].attestantName").value("Johan Berg"))
+                .andExpect(jsonPath("$[0].approvalSteps[0].status").value("PENDING"));
     }
 }

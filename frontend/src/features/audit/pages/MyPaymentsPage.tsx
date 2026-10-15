@@ -6,7 +6,7 @@ import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
-import { formatAmount, formatAuditStatus, formatDateTime } from "../utils/formatters";
+import { formatAmount, formatAttestant, formatAuditStatus, formatDateTime } from "../utils/formatters";
 import styles from "../components/AuditGrid.module.css";
 
 export default function MyPaymentsPage() {
@@ -40,7 +40,7 @@ export default function MyPaymentsPage() {
             <div>
               <h2>Mina betalningar</h2>
               <p className={styles.description}>
-                Följ status och detaljer för betalningar du har skapat.
+                Följ status och se vem som ska attestera betalningar du har skapat.
               </p>
             </div>
             <div className={styles.count} aria-label={`${data.length} betalningar`}>
@@ -58,6 +58,7 @@ export default function MyPaymentsPage() {
                   <th>Belopp</th>
                   <th>Mottagare</th>
                   <th>Status</th>
+                  <th>Attestant</th>
                   <th>Utförd</th>
                 </tr>
               </thead>
@@ -79,6 +80,7 @@ export default function MyPaymentsPage() {
                     <td data-label="Status">
                       <span className={styles.status}>{formatAuditStatus(payment.status)}</span>
                     </td>
+                    <td data-label="Attestant">{formatAttestant(payment)}</td>
                     <td data-label="Utförd" className={styles.date}>
                       {formatDateTime(payment.executedAt)}
                     </td>

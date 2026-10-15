@@ -203,10 +203,23 @@ public class AuditService {
     @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @Transactional(readOnly = true)
     public List<MyPaymentStatusResponse> getMyPaymentStatuses(AuthenticatedUserContext user) {
-        return paymentRepository
-                .findByTenantIdAndCreatedByOrderByCreatedAtDesc(user.tenantId(), user.userId())
-                .stream()
-                .map(MyPaymentStatusResponse::from)
+        List<Payment> payments = paymentRepository
+                .findByTenantIdAndCreatedByWithApprovalSteps(user.tenantId(), user.userId());
+
+        List<Long> attestantIds = payments.stream()
+                .flatMap(payment -> payment.getApprovalSteps().stream())
+                .map(ApprovalStep::getAttestantId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Attestanterna tillhör samma företag som betalningen; namnen slås upp en gång för hela listan
+        Map<Long, String> attestantNamesById = userRepository.findAllById(attestantIds).stream()
+                .filter(attestant -> user.tenantId().equals(attestant.getTenantId()))
+                .collect(Collectors.toMap(User::getId, User::getName));
+
+        return payments.stream()
+                .map(payment -> MyPaymentStatusResponse.from(payment, attestantNamesById))
                 .collect(Collectors.toList());
     }
 

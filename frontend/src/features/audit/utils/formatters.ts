@@ -1,4 +1,25 @@
+import type { MyPaymentStatus } from "../schema";
+
 export { formatDateTime, getDateTimeSortValue } from "../../../lib/dateTime";
+
+// Vem betalningen hänger på, bredvid statusen: den som ska attestera nu, den som avvisade, eller de som
+// godkände. Om en betalning fastnar ser initiatören vem som ska kontaktas (UX-feedback).
+export function formatAttestant(payment: MyPaymentStatus): string {
+  const steps = [...payment.approvalSteps].sort((a, b) => a.stepNumber - b.stepNumber);
+
+  const rejected = steps.find((step) => step.status === "REJECTED");
+  if (rejected) {
+    return rejected.attestantName;
+  }
+
+  const pending = steps.find((step) => step.status === "PENDING");
+  if (pending && payment.status === "PENDING_APPROVAL") {
+    return pending.attestantName;
+  }
+
+  const approvers = steps.filter((step) => step.status === "APPROVED").map((step) => step.attestantName);
+  return approvers.length > 0 ? approvers.join(", ") : "-";
+}
 
 export function formatAuditStatus(status: string | null): string {
   switch (status) {

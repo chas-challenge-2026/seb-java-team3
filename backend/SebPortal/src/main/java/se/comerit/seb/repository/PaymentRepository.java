@@ -15,7 +15,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByTenantId(Long tenantId);
 
-    List<Payment> findByTenantIdAndCreatedByOrderByCreatedAtDesc(Long tenantId, Long createdBy);
+    // Mina betalningar: atteststegen hämtas i samma fråga, så att listan inte ger en extra fråga per betalning.
+    @Query("""
+            SELECT DISTINCT p
+            FROM Payment p
+            LEFT JOIN FETCH p.approvalSteps
+            WHERE p.tenantId = :tenantId
+              AND p.createdBy = :createdBy
+            ORDER BY p.createdAt DESC
+            """)
+    List<Payment> findByTenantIdAndCreatedByWithApprovalSteps(
+            @Param("tenantId") Long tenantId,
+            @Param("createdBy") Long createdBy);
 
     @Query("""
             SELECT payment
