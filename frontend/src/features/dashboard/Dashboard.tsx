@@ -1,7 +1,7 @@
 import { Wrench } from "lucide-react";
 import Container from "../../components/ui/layout/Container";
 import { useUser } from "../auth/useUser";
-import DashboardAccountsAndPayments, { DashboardAccounts } from "./DashboardAccountsAndPayments";
+import DashboardAccountsAndPayments from "./DashboardAccountsAndPayments";
 import DashboardApprovals from "./DashboardApprovals";
 import UserAvatarDashboard from "./UserAvatarDashboard";
 import styles from "./Dashboard.module.css";
@@ -33,10 +33,7 @@ export function Dashboard() {
               <DashboardApprovals />
             </>
           ) : user?.role === "ATTESTANT" ? (
-            <>
-              <DashboardApprovals />
-              <DashboardAccounts standalone showNewPayment={false} />
-            </>
+            <DashboardApprovals />
           ) : (
             <DashboardAccountsAndPayments />
           )}

@@ -9,11 +9,12 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
+
 | Backend · JUnit | 24 klasser, 166 tester | Alla gröna vid lokal körning 2026-10-13 |
+| Frontend · Vitest | 12 filer, 88 tester | Alla gröna vid lokal körning 2026-10-12 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 2 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts` | Gröna vid lokal körning ____ (fyll i datum) |
+| E2E · Playwright | 2 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts` | Gröna mot Docker 2026-10-12 |
 
 Alla 166 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-13. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
@@ -26,10 +27,10 @@ Backendens unit-tester använder mockade repositories. De verifierar servicelogi
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Delvis | `frontend/e2e/mvp-flow.spec.ts` (#164) |
+| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Grön | `frontend/e2e/mvp-flow.spec.ts` (#164) |
 | Sista godkännandet slutför betalningen, drar saldo och skriver audit | Unit | Grön | `ApprovalServiceTest.finalApproval_shouldCompletePaymentDeductBalanceAndRecordAudit` |
 
-E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Statusen är Delvis eftersom saldot inte syns i UI eller API än. Testet kontrollerar därför att betalningen är Genomförd, vilket bara indirekt visar att saldot dragits. Byt till en riktig saldokontroll när saldovyn finns. E2E körs manuellt mot en app som är igång och ingår inte i CI.
+E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Saldot läses från `GET /api/accounts` med initiatörens token före och efter, och testet kräver att Driftkonto minskat med exakt beloppet. Kontrollen görs mot API:t eftersom dashboarden ännu visar mockade konton; lägg till en kontroll i UI:t när saldovyn hämtar från backend. E2E körs manuellt mot en app som är igång och ingår inte i CI.
 
 ## 3. Teststatus per område
 
@@ -38,7 +39,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
 | Login skyddas mot SQL-injektion (BUG-001, R-06) | Int | Grön | `AuthServiceInjectionTest` · 12 tester med H2 |
-| Lösenord hanteras med BCrypt (BUG-002, R-06) | Int | Delvis | `AuthServiceInjectionTest.controlCase_validCredentialsAuthenticate` |
+| Lösenord hanteras med BCrypt (BUG-002, R-06) | Int | Grön | `AuthServiceInjectionTest.controlCase_validCredentialsAuthenticate`; `AuthServiceMd5Test` · 3 (H2); `AuthControllerMd5LoginTest` · 3 (401 för MD5-hash); `V7PasswordMigrationTest` · 5 (Flyway V1–V7) |
 | Attestant får bara hantera egna steg (BUG-011, R-03) | Int | Grön | `ApprovalApiControllerOwnershipTest` · 3; `ApprovalServiceTest.approve/reject_shouldThrowAccessDenied_*` |
 | Roller och åtkomst via `@PreAuthorize` (#79) | Int | Delvis | `RoleAuthorizationTest` · 16 |
 | JWT-signering, utgång och ogiltiga token | Unit | Grön | `JwtServiceTest` · 11; `JwtAuthenticationFilterTest` · 3; `JwtUserContextTest` · 5 |
@@ -56,7 +57,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 **Avgränsningar och kvar att testa**
 
 - SQL-injektionstesterna gäller login: sex payloads i e-post, tre i lösenord och ett försök med `DROP TABLE` som lämnar data orörd. Den äldre `DashboardController`, som byggde SQL genom att lägga ihop strängar, togs bort i #153.
-- BCrypt verifieras indirekt. Test saknas för att neka en MD5-hash och för V7-migreringen.
+- En kvarvarande MD5-hash nekas vid inloggning, även med rätt lösenord eller med hashen som lösenord, och ger 401 utan token. Efter V7 finns inga MD5-hashar kvar i seeden, alla hashar är BCrypt och matchar `password123`, och kolumnen `password_md5` är borta. V7 byter bara ut seedens hash: en användare med annat lösenord behåller sin MD5-hash men nekas vid inloggning. Den lokala Docker-databasen kontrollerades 2026-10-12 (0 MD5-hashar); stage är inte kontrollerad.
 - Ägarskapstestet går genom JWT, controller och riktig service. Fel attestant får 403 utan att steg, saldo eller audit ändras. `RoleAuthorizationTest` täcker de tre rollerna, lista, godkänn, avvisa, audit, tidslinje, betalningsskapande och 401. `/api/my-payments` och `/api/approvals/count` återstår.
 - JWT-testerna täcker fel nyckel och trasig token; ogiltig eller saknad token ger ingen autentisering. Nyckelhanteringen (ADR 0011) testas på enhetsnivå: slumpad nyckel per instans, förfalskning med den gamla hemligheten, avvisad läckt hemlighet och minsta längd. En helt startad applikationskontext (utan `jwt.secret`, och med `JWT_SECRET` satt) kontrollerades manuellt 2026-10-06 men finns inte som incheckat test. Formulärtesterna täcker ogiltig e-post, tomt lösenord, trimning och låst knapp under inloggning. API-klienttesterna täcker token med och utan värde, `ApiError` och validering av svar.
 - `ProtectedRoute.test.tsx` finns inte. Test behövs för omdirigering till login och spärr vid fel roll.
@@ -66,7 +67,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 7; `payment/schema.test.ts` |
+| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 13; `payment/schema.test.ts` |
 | Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup`, `missingTenant_shouldBeRejectedWithoutDatabaseLookup` |
 | Godkännande belastar bara kontot om det tillhör betalningens företag, och låser kontot (#191, R-04) | Unit + Int | Grön | `ApprovalServiceTest.approve_shouldRefuseToDebitAccountOfAnotherTenant`, `approve_shouldRefuseInvalidFromAccountIdWithoutLookup` · 5; `ApprovalApiControllerOwnershipTest.approve_whenTheAccountBelongsToAnotherTenant_*`; `AccountRepositoryTenantTest` · 6 (H2) |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
@@ -164,7 +165,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Prioritet | Att göra | Varför |
 | --- | --- | --- |
-| 1 | Lägg till en riktig saldokontroll i E2E-testet när saldovyn finns, och kör E2E i CI. | E2E-testet verifierar saldot bara indirekt och körs manuellt. |
+| 1 | Kör E2E i CI. | E2E-testet körs bara manuellt mot en app som är igång. |
 | 2 | Checka in och kör samtidighetstestet; testa rollback för saldo och audit mot databas. | Låsning och transaktionsutfall är inte verifierade i repot. |
 | 3 | Testa tenant-gränser för audit, tidslinje, betalningar och attester (konton är klara) samt de två saknade behörighetsvägarna. | Filtrering och åtkomst till `/api/my-payments` och `/api/approvals/count` behöver verifieras. |
 | 4 | Testa skyddade routes och badge; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |

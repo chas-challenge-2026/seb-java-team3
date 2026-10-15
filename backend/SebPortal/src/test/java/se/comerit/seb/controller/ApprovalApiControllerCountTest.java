@@ -98,6 +98,23 @@ class ApprovalApiControllerCountTest {
                 .andExpect(jsonPath("$.count").value(0));
     }
 
+    @Test
+    void admin_seesAndCountsOtherAttestantsPendingStepsWithinTheirTenant() throws Exception {
+        when(paymentRepository.findPendingApprovalsForTenant(TENANT_ID))
+                .thenReturn(List.of(paymentWithStepsFor(ATTESTANT_A_ID, ATTESTANT_B_ID)));
+        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
+        mockMvc.perform(get("/api/approvals").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+        mockMvc.perform(get("/api/approvals/count").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(2));
+        org.mockito.Mockito.verify(paymentRepository, org.mockito.Mockito.times(2))
+                .findPendingApprovalsForTenant(TENANT_ID);
+        org.mockito.Mockito.verify(paymentRepository, org.mockito.Mockito.never())
+                .findPendingApprovalsForAttestant(TENANT_ID, 99L);
+    }
+
     private Payment paymentWithStepsFor(Long... attestantIds) {
         Payment payment = new Payment(TENANT_ID, 10L, "SE8550000000054910000003",
                 new BigDecimal("200.00"), "Testfaktura", 1L);

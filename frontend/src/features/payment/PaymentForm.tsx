@@ -1,3 +1,5 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { accountsQueryOptions } from "../accounts/api";
 import React, {
   useEffect,
   useLayoutEffect,
@@ -5,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Clock3, Info } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
@@ -20,7 +23,7 @@ import type {
   PaymentResponse,
 } from "./types";
 
-import { paymentFormSchema } from "./schema";
+import { paymentFormSchema, paymentAmountSchema } from "./schema";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import { createPayment, getPaymentConfig } from "./api";
 import {
@@ -34,6 +37,9 @@ const FIELD_ORDER = ["account", "recipientIban", "amount", "reference"] as const
 
 function PaymentForm() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+  const { data: accounts = [], isPending: accountsPending, isError: accountsError, refetch: refetchAccounts } = useQuery(accountsQueryOptions);
 
   const [formData, setFormData] = useState<PaymentFormData>({
     account: "",
@@ -41,6 +47,12 @@ function PaymentForm() {
     amount: "",
     reference: "",
   });
+
+  const selectedAccount = accounts.find((account) => String(account.id) === formData.account);
+  const parsedAmount = paymentAmountSchema.safeParse(formData.amount);
+  const exceedsBalance = selectedAccount !== undefined && parsedAmount.success &&
+    Number(parsedAmount.data) > selectedAccount.balance;
+  const balanceError = exceedsBalance ? "Beloppet överstiger tillgängligt saldo." : undefined;
 
   const [errors, setErrors] = useState<PaymentFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -244,12 +256,27 @@ function PaymentForm() {
       return;
     }
 
+    if (!accounts.some((account) => String(account.id) === result.data.account)) {
+      setErrors({ account: "Välj ett tillgängligt konto." });
+      focusFirstErrorRef.current = true;
+      return;
+    }
+    if (exceedsBalance) {
+      setErrors({ amount: balanceError });
+      focusFirstErrorRef.current = true;
+      return;
+    }
     setErrors({});
     setIsSubmitting(true);
 
     try {
       const payment = await createPayment(result.data);
+      // Dashboarden har redan cachat Mina betalningar, och en ADMIN ser även attestkön
+      qc.invalidateQueries({ queryKey: ["audit"] });
+      qc.invalidateQueries({ queryKey: ["approvals"] });
       setPendingConfirmation(payment);
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["audit"] });
     } catch (error) {
       console.error("Failed to create payment:", error);
       setSubmitError(getSubmitErrorMessage(error));
@@ -320,7 +347,7 @@ function PaymentForm() {
               </div>
               <div>
                 <dt>Från konto</dt>
-                <dd>{getAccountLabel(formData.account)}</dd>
+                <dd>{accounts.find((account) => String(account.id) === formData.account)?.name ?? "Konto"}</dd>
               </div>
               <div>
                 <dt>Till IBAN</dt>
@@ -406,25 +433,16 @@ function PaymentForm() {
                 account: undefined,
               }));
             }}
-            options={[
-              {
-                value: "driftkonto",
-                label:
-                  "Driftkonto - SE4550000000058398257466 (2425000.00 SEK)",
-              },
-              {
-                value: "lönekonto",
-                label:
-                  "Lönekonto - SE4550000000058398257466 (2425000.00 SEK)",
-              },
-              {
-                value: "projektkonto",
-                label:
-                  "Projektkonto - SE4550000000058398257466 (2425000.00 SEK)",
-              },
-            ]}
+            disabled={accountsPending || accountsError || accounts.length === 0}
+            options={accounts.map((account) => ({
+              value: String(account.id),
+              label: account.name + " - " + account.iban + " (" + account.balance.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + account.currency + ")",
+            }))}
           />
 
+          {accountsPending && <p role="status">Laddar konton…</p>}
+          {accountsError && <p role="alert">Kontona kunde inte hämtas. <button type="button" onClick={() => void refetchAccounts()}>Försök igen</button></p>}
+          {!accountsPending && !accountsError && accounts.length === 0 && <p role="status">Företaget har inga konton att betala från.</p>}
           {errors.account && (
             <p className={styles.fieldError}>
               {errors.account}
@@ -461,7 +479,7 @@ function PaymentForm() {
                 setFormData((prev) => ({ ...prev, amount: event.target.value }));
                 setErrors((prev) => ({ ...prev, amount: undefined }));
               }}
-              error={errors.amount}
+              error={balanceError ?? errors.amount}
               inputMode="decimal"
               />
 
@@ -501,7 +519,7 @@ function PaymentForm() {
             <Button
               type="submit"
               variant="primary"
-              disabled={Boolean(pendingConfirmation) || isSubmitting}
+              disabled={Boolean(pendingConfirmation) || isSubmitting || accountsPending || accountsError || accounts.length === 0 || exceedsBalance}
               aria-busy={isSubmitting}
             >
               {isSubmitting ? "Skickar…" : "Skicka betalning"}
@@ -554,16 +572,6 @@ function formatSek(amount: number): string {
     currency: "SEK",
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function getAccountLabel(account: string) {
-  const accounts: Record<string, string> = {
-    driftkonto: "Driftkonto",
-    lönekonto: "Lönekonto",
-    projektkonto: "Projektkonto",
-  };
-
-  return accounts[account] ?? account;
 }
 
 export default PaymentForm;

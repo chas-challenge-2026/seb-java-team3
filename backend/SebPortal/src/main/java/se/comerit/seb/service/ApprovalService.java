@@ -39,7 +39,17 @@ public class ApprovalService {
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
+    public void approveForUser(Long approvalStepId, AuthenticatedUserContext user) {
+        approveInternal(approvalStepId, user.userId(), user);
+    }
+
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @Transactional
     public void approve(Long approvalStepId, Long actorId) {
+        approveInternal(approvalStepId, actorId, null);
+    }
+
+    private void approveInternal(Long approvalStepId, Long actorId, AuthenticatedUserContext user) {
         if (approvalStepId == null) {
             throw new IllegalArgumentException("Approval step id is required");
         }
@@ -64,7 +74,10 @@ public class ApprovalService {
             throw new IllegalStateException("Approval step is not pending: " + approvalStepId);
         }
 
-        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
+            throw new ApprovalStepAccessDeniedException("Payment is not available for this company");
+        }
+        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
@@ -95,6 +108,9 @@ public class ApprovalService {
                 throw new IllegalStateException("Payment amount is missing: " + payment.getId());
             }
 
+            if (payment.getAmount().compareTo(account.getBalance()) > 0) {
+                throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
+            }
             account.setBalance(account.getBalance().subtract(payment.getAmount()));
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
@@ -117,7 +133,17 @@ public class ApprovalService {
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
+    public void rejectForUser(Long approvalStepId, AuthenticatedUserContext user, String comment) {
+        rejectInternal(approvalStepId, user.userId(), comment, user);
+    }
+
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @Transactional
     public void reject(Long approvalStepId, Long actorId, String comment) {
+        rejectInternal(approvalStepId, actorId, comment, null);
+    }
+
+    private void rejectInternal(Long approvalStepId, Long actorId, String comment, AuthenticatedUserContext user) {
         if (approvalStepId == null) {
             throw new IllegalArgumentException("Approval step id is required");
         }
@@ -142,7 +168,10 @@ public class ApprovalService {
             throw new IllegalStateException("Approval step is not pending: " + approvalStepId);
         }
 
-        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
+            throw new ApprovalStepAccessDeniedException("Payment is not available for this company");
+        }
+        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
@@ -177,12 +206,14 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public int countPendingByAttestant(AuthenticatedUserContext user) {
-        return (int) paymentRepository
-                .findPendingApprovalsForAttestant(user.tenantId(), user.userId())
+        var payments = user.isAdmin()
+                ? paymentRepository.findPendingApprovalsForTenant(user.tenantId())
+                : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
+        return (int) payments
                 .stream()
                 .flatMap(payment -> payment.getApprovalSteps().stream())
                 .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                .filter(step -> user.userId().equals(step.getAttestantId()))
+                .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
                 .count();
     }
 

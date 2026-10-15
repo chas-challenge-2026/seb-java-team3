@@ -119,6 +119,16 @@ public class PaymentService {
         validateAmount(request.amount());
         validateFromAccountBelongsToTenant(request.fromAccountId(), request.tenantId());
 
+        Account account = accountRepository
+                .findByIdAndTenantIdForUpdate(request.fromAccountId().intValue(), request.tenantId())
+                .orElseThrow(() -> new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE));
+        if (account.getBalance() == null) {
+            throw new IllegalStateException("Account balance is missing: " + request.fromAccountId());
+        }
+        if (request.amount().compareTo(account.getBalance()) > 0) {
+            throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
+        }
+
         Payment payment = new Payment(
                 request.tenantId(),
                 request.fromAccountId(),
@@ -131,6 +141,7 @@ public class PaymentService {
         if (request.amount().compareTo(thresholds.getNoAttestantThreshold()) <= 0) {
             // Upp till och med tröskeln (strikt > krävs för attest): ingen attestant
             // behövs, betalningen är klar direkt
+            account.setBalance(account.getBalance().subtract(request.amount()));
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 
