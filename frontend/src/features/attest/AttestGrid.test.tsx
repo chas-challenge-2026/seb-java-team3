@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import AttestGrid from "./AttestGrid";
@@ -27,6 +27,8 @@ const step: AttestSteg = {
   reference: "Faktura 1042",
   createdAt: "2026-09-28T13:52:00",
   status: "Väntar",
+  fromAccountName: "Driftkonto",
+  initiatorName: "Lisa Persson",
 };
 
 type MutateOptions = { onSuccess?: () => void; onError?: (error: unknown) => void };
@@ -45,6 +47,15 @@ function mockApprovals(mutate: (id: number, options: MutateOptions) => void) {
 describe("AttestGrid", () => {
   beforeEach(() => {
     mockedUseApprovals.mockReset();
+  });
+
+  it("shows which account is drawn from and who created the payment", () => {
+    mockApprovals(vi.fn());
+    render(<AttestGrid />);
+
+    const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+    expect(within(row).getByText("Driftkonto")).toBeInTheDocument();
+    expect(within(row).getByText("Lisa Persson")).toBeInTheDocument();
   });
 
   it("confirms which payment was approved", async () => {

@@ -8,13 +8,19 @@ import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
+import se.comerit.seb.domain.User;
+import se.comerit.seb.dto.PendingApprovalResponse;
 import se.comerit.seb.exception.ApprovalStepAccessDeniedException;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class ApprovalService {
@@ -28,13 +34,50 @@ public class ApprovalService {
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final AuditService auditService;
+    private final UserRepository userRepository;
 
     public ApprovalService(PaymentRepository paymentRepository,
                            AccountRepository accountRepository,
-                           AuditService auditService) {
+                           AuditService auditService,
+                           UserRepository userRepository) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
         this.auditService = auditService;
+        this.userRepository = userRepository;
+    }
+
+    // Attestkorgen: väntande steg för den inloggade attestanten (en ADMIN ser hela företagets).
+    // Kontonamn och initiatörens namn slås upp en gång för hela listan, och bara inom företaget,
+    // så att ett annat företags konton eller användare aldrig namnges (R-04).
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @Transactional(readOnly = true)
+    public List<PendingApprovalResponse> getPendingApprovals(AuthenticatedUserContext user) {
+        List<Payment> payments = user.isAdmin()
+                ? paymentRepository.findPendingApprovalsForTenant(user.tenantId())
+                : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
+
+        Map<Long, String> accountNamesById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
+                .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+
+        List<Long> initiatorIds = payments.stream()
+                .map(Payment::getCreatedBy)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> initiatorNamesById = userRepository.findAllById(initiatorIds).stream()
+                .filter(initiator -> user.tenantId().equals(initiator.getTenantId()))
+                .collect(Collectors.toMap(User::getId, User::getName));
+
+        return payments.stream()
+                .flatMap(payment -> payment.getApprovalSteps().stream()
+                        .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
+                        .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                        .map(step -> PendingApprovalResponse.from(
+                                payment,
+                                step,
+                                accountNamesById.get(payment.getFromAccountId()),
+                                initiatorNamesById.get(payment.getCreatedBy()))))
+                .toList();
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")

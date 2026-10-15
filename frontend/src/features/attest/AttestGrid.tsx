@@ -77,7 +77,7 @@ export default function AttestGrid() {
     );
   } else {
     content = (
-    <Container maxWidth="lg">
+    <Container maxWidth="xxl">
       <section className={styles.card} aria-label="Väntande attesteringar">
         <header className={styles.header}>
           <div>
@@ -91,13 +91,15 @@ export default function AttestGrid() {
         </header>
 
         <div className={styles.tableWrap}>
-          <table className={styles.grid}>
+          <table className={`${styles.grid} ${styles.contentSized}`}>
             <thead>
               <tr>
                 <th>Mottagarkonto</th>
+                <th>Från konto</th>
                 <th>Typ</th>
                 <th>Belopp</th>
                 <th>Datum</th>
+                <th>Skapad av</th>
                 <th>Referens</th>
                 <th><span className={styles.srOnly}>Åtgärd</span></th>
               </tr>
@@ -107,14 +109,23 @@ export default function AttestGrid() {
                 const pending = approve.isPending && approve.variables === m.id;
                 return (
                   <tr key={m.id}>
-                    <td data-label="Mottagarkonto">
+                    <td data-label="Mottagarkonto" className={styles.noWrap}>
                       <div className={styles.recipient}>
                         <strong>{m.mottagare}</strong>
                       </div>
                     </td>
-                    <td data-label="Typ"><span className={styles.type}>{m.typ}</span></td>
-                    <td data-label="Belopp" className={styles.amount}>{m.belopp} <span>{m.currency}</span></td>
-                    <td data-label="Datum" className={styles.date}>{formatDateTime(m.createdAt)}</td>
+                    <td data-label="Från konto" className={`${styles.date} ${styles.noWrap}`}>
+                      {m.fromAccountName ?? "-"}
+                    </td>
+                    <td data-label="Typ" className={styles.noWrap}><span className={styles.type}>{m.typ}</span></td>
+                    <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
+                      {/* Ett element, så att belopp och valuta hamnar i samma ruta i mobilens kortvy */}
+                      <span>{m.belopp} <span>{m.currency}</span></span>
+                    </td>
+                    <td data-label="Datum" className={`${styles.date} ${styles.noWrap}`}>
+                      {formatDateTime(m.createdAt)}
+                    </td>
+                    <td data-label="Skapad av" className={`${styles.date} ${styles.noWrap}`}>{m.initiatorName ?? "-"}</td>
                     <td data-label="Referens" className={styles.reference}>{m.reference}</td>
                     <td data-label="Åtgärd">
                       <div className={styles.actions}>

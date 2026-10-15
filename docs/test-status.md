@@ -9,13 +9,13 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 30 klasser, 195 tester | Alla gröna vid lokal körning 2026-10-15 |
-| Frontend · Vitest | 17 filer, 143 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Backend · JUnit | 31 klasser, 199 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Frontend · Vitest | 17 filer, 144 tester | Alla gröna vid lokal körning 2026-10-15 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | `mvp-flow.spec.ts` och `smoke.spec.ts` gröna mot Docker 2026-10-12. Kontrollen av konto och attestantens namn i Mina betalningar lades till i `mvp-flow.spec.ts` 2026-10-15 och är inte körd än. `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |
 
-Alla 195 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Alla 199 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -78,6 +78,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
 | Stegen godkänns i ordning och betalningen slutförs först vid sista steget | Unit | Grön | `ApprovalServiceTest.approve_shouldNotCompletePaymentWhileAnotherStepIsStillPending`, `approve_concurrentApproval_shouldThrowAndRollback` |
 | Saldo dras vid slutligt godkännande (BUG-009, R-02) | Unit | Delvis | `ApprovalServiceTest.finalApproval_*` |
+| Attestkorgen visar vilket konto som belastas och vem som skapade betalningen, bara inom attestantens företag (UX-feedback) | Unit + Komp | Grön | `ApprovalServicePendingApprovalsTest` · 4; `AttestGrid.test.tsx` (`shows which account is drawn from and who created the payment`) |
 | Samtidiga godkännanden ger inte dubbel debitering (R-01) | – | Ej testad | Inget incheckat test |
 | `GET /api/accounts` visar bara det egna företagets konton, sorterade på id (#184, #185, #186, R-04) | Int | Grön | `AccountServiceTest` · 5 (H2); `AccountControllerSecurityTest` · 5 (401 utan/ogiltig token, 403 ATTESTANT, 200 INITIATOR och ADMIN) |
 | Saldot i `/api/accounts` stämmer efter en attesterad betalning (#186) | Int | Grön | `AccountBalanceAfterApprovalTest` · 2 (H2) |
