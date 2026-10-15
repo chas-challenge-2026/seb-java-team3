@@ -10,12 +10,12 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
 | Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
-| Backend · JUnit | 13 klasser, 79 tester | Alla gröna vid lokal körning 2026-10-06 |
-| Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
+| Backend · JUnit | 18 klasser, 116 tester | Alla gröna vid lokal körning 2026-10-14 |
+| Native C · Check | 112 tester (36 IBAN, 37 CSV, 39 audit) | Alla gröna vid lokal körning 2026-10-14. Sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
 | E2E · hela användarflödet | 0 tester | Ingen E2E-svit finns |
 
-Alla 79 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-06. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Alla 116 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-14. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -111,6 +111,10 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 | Beslutshändelser skrivs atomärt (BUG-008, R-02) | Int | Delvis | Testerna ovan |
 | Tenant-filtrering hindrar läckage (R-04) | Int | Ej testad | Inget test av faktisk filtrering |
 | Ordningen är stabil vid samma tidsstämpel | Int | Ej testad | Inget sorteringstest |
+| Signerad granskningslogg: kedjan upptäcker ändrad, borttagen, ombytt eller förfalskad rad | Unit | Grön | `native/audit/audit_signer_test.c` · 39 Check-tester; `AuditSignerNativeIntegrationTest` · 5 mot det riktiga biblioteket (hoppas över om `libauditsigner.so` inte är byggd) |
+| Signerad rad skrivs först efter commit och aldrig vid rollback | Unit | Grön | `AuditServiceSigningTest` · 6 |
+| Signeringsfel stoppar inte flödet, gränser och konfiguration | Unit | Grön | `AuditSignerServiceTest` · 18 |
+| Hälsokontroll visar trasig kedja eller saknade rader; `/actuator/health` är öppen utan detaljer | Unit + Int | Grön | `AuditSignerHealthIndicatorTest` · 5; `AuditSignerWiringTest` · 3 (hela appen på H2) |
 
 **Avgränsningar och kvar att testa**
 
