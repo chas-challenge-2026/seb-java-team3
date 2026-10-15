@@ -3,7 +3,7 @@ import Styles from "./Container.module.css"
 
 interface ContainerProps extends React.HTMLAttributes<HTMLElement>{
     children?: React.ReactNode;
-    maxWidth?: "xs" | "sm" | "md" | "lg" | "xl";
+    maxWidth?: "xs" | "sm" | "md" | "lg" | "xl" | "xxl";
     variant?: "default" | "surface" | "surface-nav" | "white"
 }
 

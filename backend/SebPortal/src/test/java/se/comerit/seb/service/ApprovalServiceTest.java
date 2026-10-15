@@ -12,6 +12,7 @@ import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.math.BigDecimal;
@@ -40,7 +41,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long tenantId = 1L;
         Long actorId = 2L;
@@ -95,7 +96,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long tenantId = 1L;
         Long actorId = 2L;
@@ -137,7 +138,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long tenantId = 1L;
         Long rightfulAttestantId = 2L;   // steget tillhör denna attestant (A)
@@ -183,7 +184,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long tenantId = 1L;
         Long rightfulAttestantId = 2L;   // steget tillhör denna attestant (A)
@@ -228,7 +229,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long actorId = 2L;
         Long approvalStep1Id = 200L;
@@ -270,7 +271,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long tenantId = 1L;
         Long attestantId = 2L;
@@ -313,7 +314,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long tenantId = 1L;
         Long actorId = 2L;
@@ -368,7 +369,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long tenantId = 1L;
         Long actorId = 2L;
@@ -409,7 +410,7 @@ class ApprovalServiceTest {
         AuditService auditService = mock(AuditService.class);
 
         ApprovalService approvalService =
-                new ApprovalService(paymentRepository, accountRepository, auditService);
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
 
         Long actorId = 2L;
         Payment payment = paymentWithPendingStep(actorId, 1L, invalidAccountId);

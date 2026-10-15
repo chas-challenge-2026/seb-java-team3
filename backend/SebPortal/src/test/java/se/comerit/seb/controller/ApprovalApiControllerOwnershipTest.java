@@ -17,6 +17,7 @@ import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
 import se.comerit.seb.security.JwtUserContext;
@@ -66,6 +67,10 @@ class ApprovalApiControllerOwnershipTest {
 
     @MockBean
     private AuditService auditService;
+
+    // ApprovalService slår upp initiatörens namn för attestkorgen
+    @MockBean
+    private UserRepository userRepository;
 
     private Payment payment;
     private ApprovalStep step;
