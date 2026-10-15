@@ -13,7 +13,7 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Frontend · Vitest | 17 filer, 145 tester | Alla gröna vid lokal körning 2026-10-15 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | `mvp-flow.spec.ts` och `smoke.spec.ts` gröna mot Docker 2026-10-12. Kontrollen av konto och attestantens namn i Mina betalningar lades till i `mvp-flow.spec.ts` 2026-10-15 och är inte körd än. `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-15, inklusive kontrollerna av konto och attestant i Mina betalningar |
 
 Alla 199 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
