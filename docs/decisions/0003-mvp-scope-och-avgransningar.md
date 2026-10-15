@@ -2,6 +2,7 @@
 
 - **Status:** Accepterad
 - **Datum:** 2026-08-26
+- **Uppdaterad** 2026-10-15
 - **Deltagare:** Hela teamet · drivande: Team
 - **Berör:** Hela leveransen / prioritering
 - **Relaterade issues:** #
@@ -17,13 +18,12 @@ Vi bygger kärnflödet end-to-end först (MVP, mål slutet av v5) och breddar f�
 > Logga in -> skapa betalning över tröskeln -> approval-kedjan triggas -> attestant får badge -> godkänner -> betalning utförd + saldo dras atomärt -> varje steg loggas och hela kedjan kan följas per betalning vem, vad, när.
 
 Följande skjuts medvetet till efter MVP och dokumenteras som avgränsning: 
-- batch-CSV-upload 
 - dubbel attest / attestant 2 
 - admin-vyer 
 - multi-account-dashboard i full bredd 
 - compliance-export 
 - native audit-signering och native CSV (byggs fristående parallellt, integreras när kärnan står)
-- refresh-token-rotation, 2FA, valutaomvandling.
+- valutaomvandling.
 
 ## Alternativ vi övervägde
 
@@ -43,3 +43,10 @@ Många features parallellt: valdes bort pga hög risk för många halvfärdiga f
 ## Uppföljning
 
 - Checkpoint slutet av v5: går hela MVP-flödet att demonstrera stabilt? Om nej — skär mer, bredda inte.
+
+## Uppdatering v.5 
+- MVP flödet är stabilt. Breddning kan påbörjas, vi börjar med reject knapp i frontend.
+- refresh-token-rotation, 2FA
+- CSV-batch-uploader
+
+Varför dessa? De här kraven väger tyngst för kund. Säkerthet, stabilt etc. 

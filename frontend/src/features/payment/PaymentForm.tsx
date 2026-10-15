@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { accountsQueryOptions } from "../accounts/api";
+import { accountsQueryOptions, availableBalanceOf } from "../accounts/api";
 import React, {
   useEffect,
   useLayoutEffect,
@@ -49,7 +49,7 @@ function PaymentForm() {
   const selectedAccount = accounts.find((account) => String(account.id) === formData.account);
   const parsedAmount = paymentAmountSchema.safeParse(formData.amount);
   const exceedsBalance = selectedAccount !== undefined && parsedAmount.success &&
-    Number(parsedAmount.data) > selectedAccount.balance;
+    Number(parsedAmount.data) > availableBalanceOf(selectedAccount);
   const balanceError = exceedsBalance ? "Beloppet överstiger tillgängligt saldo." : undefined;
 
   const [errors, setErrors] = useState<PaymentFormErrors>({});
@@ -433,7 +433,8 @@ function PaymentForm() {
             disabled={accountsPending || accountsError || accounts.length === 0}
             options={accounts.map((account) => ({
               value: String(account.id),
-              label: account.name + " - " + account.iban + " (" + account.balance.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + account.currency + ")",
+              // Tillgängligt, inte saldot: betalningar som väntar på attest har redan reserverat sin del
+              label: account.name + " - " + account.iban + " (tillgängligt " + availableBalanceOf(account).toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + account.currency + ")",
             }))}
           />
 

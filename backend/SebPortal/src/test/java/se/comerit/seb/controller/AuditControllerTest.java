@@ -35,10 +35,12 @@ class AuditControllerTest {
                 LocalDateTime now = LocalDateTime.now();
                 AuditEntryResponse createEvent = new AuditEntryResponse(
                                 1L, "CREATE_PAYMENT", "PAYMENT", 100L,
-                                "Betalning skapad", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
+                                "Betalning skapad", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin",
+                                "Driftkonto", false);
                 AuditEntryResponse approveEvent = new AuditEntryResponse(
                                 2L, "APPROVE_PAYMENT", "PAYMENT", 100L,
-                                "Betalning godkänd", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin");
+                                "Betalning godkänd", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin",
+                                "Driftkonto", false);
 
                 when(jwtUserContext.requireAuthenticated()).thenReturn(admin);
                 when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, approveEvent));

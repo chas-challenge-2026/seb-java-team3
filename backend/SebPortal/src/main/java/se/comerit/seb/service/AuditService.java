@@ -8,6 +8,7 @@ import se.comerit.seb.domain.Account;
 import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.AuditEntry;
 import se.comerit.seb.domain.Payment;
+import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.AuditEntryResponse;
 import se.comerit.seb.dto.MyPaymentStatusResponse;
@@ -92,8 +93,13 @@ public class AuditService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        Map<Long, Payment> paymentsById = paymentRepository.findAllById(paymentIds).stream()
-                .collect(Collectors.toMap(Payment::getId, payment -> payment));
+        // Ingen fråga med en tom IN-lista
+        Map<Long, Payment> paymentsById = paymentIds.isEmpty()
+                ? Map.of()
+                : paymentRepository.findByTenantIdAndIdInWithApprovalSteps(user.tenantId(), paymentIds).stream()
+                        .collect(Collectors.toMap(Payment::getId, payment -> payment));
+
+        Map<Long, String> accountNamesById = accountNamesForTenant(user.tenantId());
 
         return entries.stream()
                 .map(entry -> {
@@ -105,7 +111,9 @@ public class AuditService {
                             payment.map(p -> p.getStatus().name()).orElse(null),
                             payment.map(Payment::getReference).orElse(null),
                             payment.map(Payment::getAmount).orElse(null),
-                            payment.map(Payment::getCurrency).orElse(null));
+                            payment.map(Payment::getCurrency).orElse(null),
+                            payment.map(p -> accountNamesById.get(p.getFromAccountId())).orElse(null),
+                            payment.map(AuditService::isAutoApproved).orElse(false));
                 })
                 .collect(Collectors.toList());
     }
@@ -223,13 +231,23 @@ public class AuditService {
                 .filter(attestant -> user.tenantId().equals(attestant.getTenantId()))
                 .collect(Collectors.toMap(User::getId, User::getName));
 
-        // Bara det egna företagets konton slås upp, så ett annat företags konto kan aldrig namnges (R-04)
-        Map<Long, String> accountNamesById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
-                .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+        Map<Long, String> accountNamesById = accountNamesForTenant(user.tenantId());
 
         return payments.stream()
                 .map(payment -> MyPaymentStatusResponse.from(payment, accountNamesById, attestantNamesById))
                 .collect(Collectors.toList());
+    }
+
+    // Bara det egna företagets konton slås upp, så ett annat företags konto kan aldrig namnges (R-04)
+    private Map<Long, String> accountNamesForTenant(Long tenantId) {
+        return accountRepository.findByTenantIdOrderByIdAsc(tenantId).stream()
+                .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+    }
+
+    // Genomförd utan atteststeg: beloppet låg under tröskeln, så betalningen godkändes automatiskt
+    // när den skapades (PaymentService).
+    private static boolean isAutoApproved(Payment payment) {
+        return payment.getStatus() == PaymentStatus.COMPLETED && payment.getApprovalSteps().isEmpty();
     }
 
     private record TimelineEvent(

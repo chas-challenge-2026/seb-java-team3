@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAttestant } from "./formatters";
+import { formatAttestant, formatRejectionReason } from "./formatters";
 import type { MyPaymentApprovalStep, MyPaymentStatus } from "../schema";
 
 function payment(status: string, approvalSteps: MyPaymentApprovalStep[]): MyPaymentStatus {
@@ -18,7 +18,7 @@ function payment(status: string, approvalSteps: MyPaymentApprovalStep[]): MyPaym
 }
 
 function step(stepNumber: number, attestantName: string, status: string): MyPaymentApprovalStep {
-  return { stepNumber, attestantName, status, decidedAt: null };
+  return { stepNumber, attestantName, status, decidedAt: null, comment: null };
 }
 
 describe("formatAttestant", () => {
@@ -54,5 +54,18 @@ describe("formatAttestant", () => {
 
   it("shows a dash for a payment without approval steps", () => {
     expect(formatAttestant(payment("COMPLETED", []))).toBe("-");
+  });
+});
+
+describe("formatRejectionReason", () => {
+  it("shows why the attestant rejected the payment", () => {
+    const rejected = payment("REJECTED", [{ ...step(1, "Johan Berg", "REJECTED"), comment: "Otillräckligt saldo" }]);
+
+    expect(formatRejectionReason(rejected)).toBe("Otillräckligt saldo");
+  });
+
+  it("has no reason when the payment was not rejected or no reason was given", () => {
+    expect(formatRejectionReason(payment("PENDING_APPROVAL", [step(1, "Johan Berg", "PENDING")]))).toBeNull();
+    expect(formatRejectionReason(payment("REJECTED", [step(1, "Johan Berg", "REJECTED")]))).toBeNull();
   });
 });

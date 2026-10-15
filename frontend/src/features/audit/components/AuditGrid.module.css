@@ -46,6 +46,60 @@
     font-weight: 800;
 }
 
+/* Anledningen när en betalning avvisats (Mina betalningar) */
+.rejectionReason {
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    font-style: italic;
+    white-space: normal;
+}
+
+/* Statusfiltret i auditloggen */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.filterButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.filterButton span {
+    color: var(--text-muted);
+    font-weight: 800;
+}
+
+.filterButton:hover {
+    background: var(--bg-subtle);
+}
+
+.filterButton:focus-visible {
+    outline: 3px solid var(--focus-attention);
+    outline-offset: 2px;
+}
+
+.filterButton[aria-pressed="true"] {
+    border-color: var(--btn-primary);
+    background: var(--btn-primary);
+    color: var(--text-on-primary);
+}
+
+.filterButton[aria-pressed="true"] span {
+    color: var(--text-on-primary);
+}
+
 .tableWrap {
     overflow-x: auto;
 }
@@ -56,32 +110,21 @@
     table-layout: fixed;
 }
 
-.auditGrid {
-    min-width: 66rem;
-}
-
-.auditGrid th:nth-child(1) { width: 14%; }
-.auditGrid th:nth-child(2) { width: 18%; }
-.auditGrid th:nth-child(3) { width: 17%; }
-.auditGrid th:nth-child(4) { width: 12%; }
-.auditGrid th:nth-child(5) { width: 13%; }
-.auditGrid th:nth-child(6) { width: 12%; }
-.auditGrid th:nth-child(7) { width: 14%; }
-
-/* Mina betalningar: kolumnerna får den bredd innehållet behöver i stället för lika delar, och datum,
-   belopp, konton och status bryts aldrig. Får tabellen inte plats scrollar den i sidled (.tableWrap). */
-.myPaymentsGrid {
+/* Auditloggen och Mina betalningar: kolumnerna får den bredd innehållet behöver i stället för lika delar,
+   och celler med .noWrap (datum, belopp, konton, status) bryts aldrig. Får tabellen inte plats scrollar
+   den i sidled (.tableWrap). */
+.contentSizedGrid {
     table-layout: auto;
 }
 
-/* .grid.myPaymentsGrid väger tyngre än .grid td längre ned, som annars skriver över marginalerna */
-.grid.myPaymentsGrid th,
-.grid.myPaymentsGrid td {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+/* .grid.contentSizedGrid väger tyngre än .grid td längre ned, som annars skriver över marginalerna */
+.grid.contentSizedGrid th,
+.grid.contentSizedGrid td {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
 }
 
-.myPaymentsGrid th,
+.contentSizedGrid th,
 .noWrap {
     white-space: nowrap;
 }
@@ -365,10 +408,6 @@
         width: 100%;
     }
 
-    .auditGrid {
-        min-width: 0;
-    }
-
     .grid thead {
         position: absolute;
         width: 1px;
@@ -445,7 +484,9 @@
     .date,
     .reference,
     .amount,
-    .paymentLabel {
+    .paymentLabel,
+    .eventCell,
+    .noWrap {
         white-space: normal;
     }
 }

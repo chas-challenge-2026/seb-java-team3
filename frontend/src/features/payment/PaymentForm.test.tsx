@@ -16,7 +16,9 @@ vi.mock("./api", () => ({
   getPaymentConfig: vi.fn(),
 }));
 
-vi.mock("../accounts/api", () => ({
+vi.mock("../accounts/api", async (importOriginal) => ({
+  // availableBalanceOf är ren logik och används på riktigt; bara hämtningen mockas
+  ...(await importOriginal<typeof import("../accounts/api")>()),
   getAccounts: vi.fn(),
   accountsQueryOptions: { queryKey: ["accounts"], queryFn: () => getAccounts() },
 }));
@@ -68,6 +70,23 @@ describe("PaymentForm", () => {
     expect(screen.queryByText("Beloppet överstiger tillgängligt saldo.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeEnabled();
   });
+  it("only lets the payment use what is left after reservations for payments awaiting approval", async () => {
+    vi.mocked(getAccounts).mockResolvedValue([{
+      id: 42, name: "Driftkonto", iban: "SE4550000000058398257466",
+      balance: 1000, reserved: 700, availableBalance: 300, currency: "SEK",
+    }]);
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+    await fillValidForm(user);
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "300,01");
+    expect(screen.getByText("Beloppet överstiger tillgängligt saldo.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeDisabled();
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "300");
+    expect(screen.queryByText("Beloppet överstiger tillgängligt saldo.")).not.toBeInTheDocument();
+  });
+
   it("blocks submission when accounts cannot be loaded", async () => {
     vi.mocked(getAccounts).mockRejectedValue(new Error("offline"));
     render(<PaymentForm />);

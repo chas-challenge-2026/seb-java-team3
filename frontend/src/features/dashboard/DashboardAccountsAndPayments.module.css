@@ -103,6 +103,14 @@
   font-weight: 400;
 }
 
+/* Visas när betalningar som väntar på attest har reserverat en del av saldot */
+.available {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
 .total {
   display: flex;
   align-items: baseline;

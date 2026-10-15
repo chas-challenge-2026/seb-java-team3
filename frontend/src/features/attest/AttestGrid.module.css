@@ -99,6 +99,16 @@
 .approve:hover { background: var(--btn-primary-strong); box-shadow: 0 0.4rem 0.75rem rgba(0, 56, 36, 0.2); }
 .approve:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
 .approve:disabled { cursor: wait; opacity: 0.65; transform: none; }
+.reject { cursor: pointer; border: 1px solid var(--border-default); }
+.reject:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
+.reject:disabled { cursor: wait; opacity: 0.65; }
+
+/* Anledning när en betalning avvisas, i en egen rad under betalningen */
+.grid tbody tr.rejectRow,
+.grid tbody tr.rejectRow:hover { background: var(--bg-muted); box-shadow: none; }
+.rejectForm { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
+.rejectForm > :first-child { flex: 1 1 18rem; }
+.rejectActions { display: flex; gap: 0.5rem; }
 
 .footer { display: flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.25rem; background: var(--bg-muted); border-top: 1px solid var(--border-soft); color: var(--text-secondary); font-size: 0.8rem; }
 .footer svg { color: var(--accent-muted); }

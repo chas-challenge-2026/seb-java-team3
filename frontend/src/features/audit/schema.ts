@@ -12,6 +12,10 @@ export const auditApiEntrySchema = z.object({
   currency: z.string().nullable(),
   createdAt: z.string(),
   userName: z.string(),
+  // Kontot betalningen dras från. Null om det inte går att slå upp.
+  fromAccountName: z.string().nullable().default(null),
+  // Genomförd utan atteststeg, eftersom beloppet låg under tröskeln
+  autoApproved: z.boolean().default(false),
 });
 
 export const auditApiEntryListSchema = z.array(auditApiEntrySchema);
@@ -23,6 +27,8 @@ export const myPaymentApprovalStepSchema = z.object({
   attestantName: z.string(),
   status: z.string(),
   decidedAt: z.string().nullable(),
+  // Attestantens motivering när steget avvisats
+  comment: z.string().nullable().default(null),
 });
 
 export type MyPaymentApprovalStep = z.infer<typeof myPaymentApprovalStepSchema>;

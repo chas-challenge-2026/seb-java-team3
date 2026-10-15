@@ -125,7 +125,12 @@ public class PaymentService {
         if (account.getBalance() == null) {
             throw new IllegalStateException("Account balance is missing: " + request.fromAccountId());
         }
-        if (request.amount().compareTo(account.getBalance()) > 0) {
+        // Tillgängligt = saldo minus det som är reserverat för betalningar som väntar på attest. Kontoraden
+        // är låst ovan, så två samtidiga betalningar kan inte reservera samma pengar.
+        BigDecimal reserved = paymentRepository.sumPendingAmountForAccount(
+                request.tenantId(), request.fromAccountId());
+        BigDecimal available = account.getBalance().subtract(reserved == null ? BigDecimal.ZERO : reserved);
+        if (request.amount().compareTo(available) > 0) {
             throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
         }
 

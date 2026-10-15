@@ -12,7 +12,7 @@ export default function AuditPage() {
     const { data, isPending, isError, isFetching, refetch } = useQuery(auditQueryOptions);
 
     return (
-        <Container maxWidth="xl">
+        <Container maxWidth="xxl">
             {isPending ? (
                 <LoadingMessage message="Laddar händelser…" />
             ) : isError ? (

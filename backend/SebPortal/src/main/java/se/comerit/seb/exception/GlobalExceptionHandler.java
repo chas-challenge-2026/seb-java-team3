@@ -40,6 +40,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    // Betalningen hann behandlas av någon annan (eller ett tidigare steg väntar): 409 och ett begripligt
+    // meddelande i stället för 500. Andra IllegalStateException är riktiga internfel och hanteras inte här.
+    @ExceptionHandler(ApprovalNotPendingException.class)
+    public ResponseEntity<ErrorResponse> handleApprovalNotPending(ApprovalNotPendingException ex) {
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(se.comerit.seb.exception.ApprovalStepAccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleApprovalStepAccessDenied(
             se.comerit.seb.exception.ApprovalStepAccessDeniedException ex) {

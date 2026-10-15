@@ -69,7 +69,7 @@ class AccountControllerSecurityTest {
     void getAccounts_asInitiator_returns200WithAccounts() throws Exception {
         when(accountService.getAccounts(any())).thenReturn(List.of(
                 new AccountResponse(1, "Driftkonto", "SE0000000000000000000010",
-                        new BigDecimal("1000.00"), "SEK")));
+                        new BigDecimal("1000.00"), new BigDecimal("400.00"), new BigDecimal("600.00"), "SEK")));
 
         mockMvc.perform(get("/api/accounts").header("Authorization", bearer(Role.INITIATOR)))
                 .andExpect(status().isOk())
@@ -77,6 +77,8 @@ class AccountControllerSecurityTest {
                 .andExpect(jsonPath("$[0].name").value("Driftkonto"))
                 .andExpect(jsonPath("$[0].iban").value("SE0000000000000000000010"))
                 .andExpect(jsonPath("$[0].balance").value(1000.00))
+                .andExpect(jsonPath("$[0].reserved").value(400.00))
+                .andExpect(jsonPath("$[0].availableBalance").value(600.00))
                 .andExpect(jsonPath("$[0].currency").value("SEK"));
     }
 

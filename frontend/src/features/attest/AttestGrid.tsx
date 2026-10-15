@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import styles from "./AttestGrid.module.css";
 import Button from "../../components/ui/buttons/Button";
+import Input from "../../components/ui/forms/Input";
 import ButtonLink from "../../components/ui/buttons/ButtonLink";
 import { useApprovals } from "./useApprovals";
 import IconMessage from "../../components/ui/feedback/IconMessage";
@@ -13,14 +14,52 @@ import { formatAmount } from "../audit/utils/formatters";
 import { isApiError } from "../../error/api.error";
 import type { AttestSteg } from "./schema";
 
+// Samma gräns som backend (ApprovalService.MAX_COMMENT_LENGTH) och kolumnen approval_steps.comment
+const MAX_COMMENT_LENGTH = 255;
+
 type ApprovalFeedback = {
   type: "success" | "error";
   text: string;
 };
 
 export default function AttestGrid() {
-  const { data, isLoading, isError, isFetching, refetch, approve } = useApprovals();
+  const { data, isLoading, isError, isFetching, refetch, approve, reject } = useApprovals();
   const [feedback, setFeedback] = useState<ApprovalFeedback | null>(null);
+  // Steget vars avvisning håller på att fyllas i, och anledningen som skrivits
+  const [rejectingStepId, setRejectingStepId] = useState<number | null>(null);
+  const [rejectComment, setRejectComment] = useState("");
+
+  function startReject(step: AttestSteg) {
+    setFeedback(null);
+    setRejectComment("");
+    setRejectingStepId(step.id);
+  }
+
+  function cancelReject() {
+    setRejectingStepId(null);
+    setRejectComment("");
+  }
+
+  function handleReject(step: AttestSteg) {
+    setFeedback(null);
+    reject.mutate({ stepId: step.id, comment: rejectComment }, {
+      onSuccess: () => {
+        cancelReject();
+        setFeedback({
+          type: "success",
+          text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är avvisad.`,
+        });
+      },
+      onError: (error) => {
+        setFeedback({
+          type: "error",
+          text: `Kunde inte avvisa betalningen till ${step.mottagare}. ${
+            isApiError(error) ? error.message : "Försök igen."
+          }`,
+        });
+      },
+    });
+  }
 
   function handleApprove(step: AttestSteg) {
     setFeedback(null);
@@ -108,8 +147,12 @@ export default function AttestGrid() {
             <tbody>
               {data.map((m) => {
                 const pending = approve.isPending && approve.variables === m.id;
+                const rejecting = rejectingStepId === m.id;
+                const rejectPending = reject.isPending && reject.variables?.stepId === m.id;
+                const reasonId = `reject-reason-${m.id}`;
                 return (
-                  <tr key={m.id}>
+                  <Fragment key={m.id}>
+                  <tr>
                     <td data-label="Mottagarkonto" className={styles.noWrap}>
                       <div className={styles.recipient}>
                         <strong>{m.mottagare}</strong>
@@ -139,9 +182,53 @@ export default function AttestGrid() {
                           aria-label={`Godkänn betalning till ${m.mottagare}`}
                           title={pending ? "Godkänner…" : "Godkänn"}
                         />
+                        <Button
+                          onClick={() => (rejecting ? cancelReject() : startReject(m))}
+                          disabled={pending || rejectPending}
+                          className={styles.reject}
+                          buttonStyle="icon-only"
+                          icon="x"
+                          variant="secondary"
+                          aria-label={`Avvisa betalning till ${m.mottagare}`}
+                          aria-expanded={rejecting}
+                          aria-controls={reasonId}
+                          title="Avvisa"
+                        />
                       </div>
                     </td>
                   </tr>
+                  {rejecting && (
+                    <tr className={styles.rejectRow}>
+                      <td colSpan={8}>
+                        <form
+                          id={reasonId}
+                          className={styles.rejectForm}
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            handleReject(m);
+                          }}
+                        >
+                          <Input
+                            label="Anledning (valfritt)"
+                            placeholder="Till exempel: otillräckligt saldo"
+                            value={rejectComment}
+                            maxLength={MAX_COMMENT_LENGTH}
+                            onChange={(event) => setRejectComment(event.target.value)}
+                            autoFocus
+                          />
+                          <div className={styles.rejectActions}>
+                            <Button type="button" variant="secondary" onClick={cancelReject} disabled={rejectPending}>
+                              Avbryt
+                            </Button>
+                            <Button type="submit" variant="dark" disabled={rejectPending}>
+                              {rejectPending ? "Avvisar…" : "Avvisa betalningen"}
+                            </Button>
+                          </div>
+                        </form>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

@@ -21,6 +21,11 @@ export function formatAttestant(payment: MyPaymentStatus): string {
   return approvers.length > 0 ? approvers.join(", ") : "-";
 }
 
+// Attestantens motivering för en avvisad betalning, så att initiatören vet varför
+export function formatRejectionReason(payment: MyPaymentStatus): string | null {
+  return payment.approvalSteps.find((step) => step.status === "REJECTED")?.comment ?? null;
+}
+
 export function formatAuditStatus(status: string | null): string {
   switch (status) {
     case "PENDING_APPROVAL":

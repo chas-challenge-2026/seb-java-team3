@@ -8,7 +8,7 @@ import {
   formatDateTime,
 } from "../audit/utils/formatters";
 import { getDateTimeSortValue } from "../../lib/dateTime";
-import { accountsQueryOptions } from "../accounts/api";
+import { accountsQueryOptions, availableBalanceOf } from "../accounts/api";
 import { useUser } from "../auth/useUser";
 import styles from "./DashboardAccountsAndPayments.module.css";
 
@@ -128,9 +128,16 @@ export function DashboardAccounts({
                 <p>{account.iban}</p>
               </div>
             </div>
-            <p className={styles.balance}>
-              {sekFormatter.format(account.balance)} <span>{account.currency}</span>
-            </p>
+            <div>
+              <p className={styles.balance}>
+                {sekFormatter.format(account.balance)} <span>{account.currency}</span>
+              </p>
+              {(account.reserved ?? 0) > 0 && (
+                <p className={styles.available}>
+                  Tillgängligt {sekFormatter.format(availableBalanceOf(account))} {account.currency}
+                </p>
+              )}
+            </div>
           </article>
         ))}
       </div>

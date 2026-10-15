@@ -6,7 +6,13 @@ import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
-import { formatAmount, formatAttestant, formatAuditStatus, formatDateTime } from "../utils/formatters";
+import {
+  formatAmount,
+  formatAttestant,
+  formatAuditStatus,
+  formatDateTime,
+  formatRejectionReason,
+} from "../utils/formatters";
 import styles from "../components/AuditGrid.module.css";
 
 export default function MyPaymentsPage() {
@@ -50,7 +56,7 @@ export default function MyPaymentsPage() {
           </header>
 
           <div className={styles.tableWrap}>
-            <table className={`${styles.grid} ${styles.myPaymentsGrid}`}>
+            <table className={`${styles.grid} ${styles.contentSizedGrid}`}>
               <thead>
                 <tr>
                   <th>Skapad</th>
@@ -82,7 +88,12 @@ export default function MyPaymentsPage() {
                     <td data-label="Status" className={styles.noWrap}>
                       <span className={styles.status}>{formatAuditStatus(payment.status)}</span>
                     </td>
-                    <td data-label="Attestant" className={styles.date}>{formatAttestant(payment)}</td>
+                    <td data-label="Attestant" className={styles.date}>
+                      {formatAttestant(payment)}
+                      {formatRejectionReason(payment) && (
+                        <div className={styles.rejectionReason}>”{formatRejectionReason(payment)}”</div>
+                      )}
+                    </td>
                     <td data-label="Utförd" className={`${styles.date} ${styles.noWrap}`}>
                       {formatDateTime(payment.executedAt)}
                     </td>

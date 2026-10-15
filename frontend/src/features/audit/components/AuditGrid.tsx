@@ -8,10 +8,27 @@ type AuditGridProps = {
   entries: AuditEntry[];
 };
 
+// Statusfiltret. Värdena är betalningens status från backend; null betyder alla.
+const STATUS_FILTERS: { key: string | null; label: string }[] = [
+  { key: null, label: "Alla" },
+  { key: "PENDING_APPROVAL", label: "Väntar attest" },
+  { key: "COMPLETED", label: "Genomförda" },
+  { key: "REJECTED", label: "Avvisade" },
+];
+
 export default function AuditGrid({ entries }: AuditGridProps) {
   const [expandedPayments, setExpandedPayments] = useState<Set<string>>(
     () => new Set(),
   );
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
+  const visibleEntries = statusFilter
+    ? entries.filter((entry) => entry.statusKey === statusFilter)
+    : entries;
+
+  function countFor(key: string | null): number {
+    return key ? entries.filter((entry) => entry.statusKey === key).length : entries.length;
+  }
 
   function togglePayment(paymentId: string) {
     setExpandedPayments((current) => {
@@ -35,15 +52,28 @@ export default function AuditGrid({ entries }: AuditGridProps) {
           <p className={styles.description}>
             Senaste händelsen per betalning med full historik vid behov.
           </p>
+          <div className={styles.filters} role="group" aria-label="Filtrera på status">
+            {STATUS_FILTERS.map((filter) => (
+              <button
+                key={filter.label}
+                type="button"
+                className={styles.filterButton}
+                aria-pressed={statusFilter === filter.key}
+                onClick={() => setStatusFilter(filter.key)}
+              >
+                {filter.label} <span>{countFor(filter.key)}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className={styles.count} aria-label={`${entries.length} händelser`}>
+        <div className={styles.count} aria-label={`${visibleEntries.length} händelser`}>
           <Clock3 size={18} aria-hidden="true" />
-          <span>{entries.length}</span> händelser
+          <span>{visibleEntries.length}</span> händelser
         </div>
       </header>
 
       <div className={styles.tableWrap}>
-        <table className={`${styles.grid} ${styles.auditGrid}`}>
+        <table className={`${styles.grid} ${styles.contentSizedGrid}`}>
           <thead>
             <tr>
               <th>Tid</th>
@@ -52,24 +82,33 @@ export default function AuditGrid({ entries }: AuditGridProps) {
               <th>Status</th>
               <th>Referens</th>
               <th>Belopp</th>
+              <th>Från konto</th>
               <th>Betalning</th>
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry) => {
-              const isExpanded = expandedPayments.has(entry.paymentId);
-              const detailsId = `payment-audit-${entry.paymentId}`;
+            {visibleEntries.length === 0 ? (
+              <tr>
+                <td colSpan={8} className={styles.stateText}>
+                  Inga betalningar med den statusen.
+                </td>
+              </tr>
+            ) : (
+              visibleEntries.map((entry) => {
+                const isExpanded = expandedPayments.has(entry.paymentId);
+                const detailsId = `payment-audit-${entry.paymentId}`;
 
-              return (
-                <AuditGridRow
-                  key={entry.id}
-                  entry={entry}
-                  detailsId={detailsId}
-                  isExpanded={isExpanded}
-                  onToggle={() => togglePayment(entry.paymentId)}
-                />
-              );
-            })}
+                return (
+                  <AuditGridRow
+                    key={entry.id}
+                    entry={entry}
+                    detailsId={detailsId}
+                    isExpanded={isExpanded}
+                    onToggle={() => togglePayment(entry.paymentId)}
+                  />
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
