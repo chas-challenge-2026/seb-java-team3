@@ -2,34 +2,34 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-08
+**Senast uppdaterad:** 2026-10-13
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
+| Backend · JUnit | 24 klasser, 166 tester | Alla gröna vid lokal körning 2026-10-13 |
 | Frontend · Vitest | 16 filer, 120 tester | Alla gröna vid lokal körning 2026-10-14 |
-| Backend · JUnit | 21 klasser, 132 tester | Alla gröna vid lokal körning 2026-10-12 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Gröna vid lokal körning ____ (fyll i datum). `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | `mvp-flow.spec.ts` och `smoke.spec.ts` gröna mot Docker 2026-10-12. `session.spec.ts` är inte körd med Playwright än, bara för hand 2026-10-14 |
 
-Alla 121 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-08. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Alla 166 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-13. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
 
-Backendens unit-tester använder mockade repositories. De verifierar servicelogik men inte transaktioner eller rollback mot en riktig databas. `AuthServiceInjectionTest`, `AuthServiceMd5Test`, `AccountRepositoryTenantTest`, `AccountServiceTest` och `AccountBalanceAfterApprovalTest` är undantagen: de kör mot H2 i minnet, så där körs SQL-frågorna på riktigt. `V7PasswordMigrationTest` kör dessutom de riktiga Flyway-migreringarna V1–V7 mot H2 i PostgreSQL-läge.
+Backendens unit-tester använder mockade repositories. De verifierar servicelogik men inte transaktioner eller rollback mot en riktig databas. `AuthServiceInjectionTest`, `AccountRepositoryTenantTest`, `AccountServiceTest`, `AccountBalanceAfterApprovalTest`, `RefreshTokenRepositoryTest`, `RefreshTokenServiceTest` och `UserRepositoryLockTest` är undantagen: de kör mot H2 i minnet, så där körs SQL-frågorna på riktigt.
 
 ## 2. MVP-flödet
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Delvis | `frontend/e2e/mvp-flow.spec.ts` (#164) |
+| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Grön | `frontend/e2e/mvp-flow.spec.ts` (#164) |
 | Sista godkännandet slutför betalningen, drar saldo och skriver audit | Unit | Grön | `ApprovalServiceTest.finalApproval_shouldCompletePaymentDeductBalanceAndRecordAudit` |
 
-E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Statusen är Delvis eftersom saldot inte syns i UI eller API än. Testet kontrollerar därför att betalningen är Genomförd, vilket bara indirekt visar att saldot dragits. Byt till en riktig saldokontroll när saldovyn finns. E2E körs manuellt mot en app som är igång och ingår inte i CI.
+E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Saldot läses från `GET /api/accounts` med initiatörens token före och efter, och testet kräver att Driftkonto minskat med exakt beloppet. Kontrollen görs mot API:t eftersom dashboarden ännu visar mockade konton; lägg till en kontroll i UI:t när saldovyn hämtar från backend. E2E körs manuellt mot en app som är igång och ingår inte i CI.
 
 ## 3. Teststatus per område
 
@@ -43,6 +43,11 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Roller och åtkomst via `@PreAuthorize` (#79) | Int | Delvis | `RoleAuthorizationTest` · 16 |
 | JWT-signering, utgång och ogiltiga token | Unit | Grön | `JwtServiceTest` · 11; `JwtAuthenticationFilterTest` · 3; `JwtUserContextTest` · 5 |
 | Token förfalskad med den gamla, publika hemligheten nekas; nyckeln slumpas vid start (ADR 0011) | Unit | Grön | `JwtServiceTest.tokenForgedWithAKnownSecret_isOnlyAcceptedByAServerUsingThatSecret`, `blankSecret_*`, `compromisedDevSecret_shouldBeRejectedAtStartup`, `explicitSecret_mustBeAtLeast32Bytes` |
+| Refresh token: utfärda, rotera, återanvändning spärrar hela familjen, utloggning, utgång och borttagen användare (ADR 0012) | Int | Grön | `RefreshTokenServiceTest` · 15 (H2); `RefreshTokenRepositoryTest` · 9 (H2); `RefreshTokenTest` · 2 |
+| Refresh-token: en aktiv token i en familj med spärrad token nekas, och städningen vid inloggning tar inte bort den spärrade raden (granskningen av ADR 0012) | Int | Grön | `RefreshTokenServiceTest.rotate_withAnActiveTokenInAFamilyThatAlreadyHasARevokedToken_*`, `issueForLogin_doesNotWipeTheRevokedMarker*`; `RefreshTokenRepositoryTest.deleteExpiredOrRevokedForUser_keepsARevokedRow*` |
+| Refresh-token: lås per användare tas före token läses (inloggning, förnyelse, utloggning) | Unit | Grön | `RefreshTokenServiceLockingTest` · 4; `UserRepositoryLockTest` · 2 (H2) |
+| Refresh-cookie och endpoints: HttpOnly, SameSite=Strict, Path, header-krav, 401, 403 och 204 (ADR 0012) | Int | Grön | `AuthControllerRefreshTest` · 13 |
+| Inloggning spärrar webbläsarens gamla session, men inte vid fel lösenord | Int | Grön | `AuthControllerRefreshTest.login_revokesThePreviousSessionOfThisBrowser_*`, `login_withWrongCredentials_doesNotRevokeThePreviousSession` |
 | Saknad eller ogiltig token mot API ger 401 | Int | Grön | `ApprovalApiControllerSecurityTest.approve_withoutToken/withGarbageToken_returns401` |
 | Loginformulärets validering och fel | Komp | Grön | `LoginForm.test.tsx` · 4; `auth/schema.test.ts` · 7 |
 | Skyddade routes och fel roll (#198) | Unit | Grön | `lib/requireAuth.test.ts` · 7; `lib/requireRole.test.ts` · 6 |
@@ -61,12 +66,13 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 - JWT-testerna täcker fel nyckel och trasig token; ogiltig eller saknad token ger ingen autentisering. Nyckelhanteringen (ADR 0011) testas på enhetsnivå: slumpad nyckel per instans, förfalskning med den gamla hemligheten, avvisad läckt hemlighet och minsta längd. En helt startad applikationskontext (utan `jwt.secret`, och med `JWT_SECRET` satt) kontrollerades manuellt 2026-10-06 men finns inte som incheckat test. Formulärtesterna täcker ogiltig e-post, tomt lösenord, trimning och låst knapp under inloggning. API-klienttesterna täcker token med och utan värde, `ApiError` och validering av svar.
 - Frontenddelen av refresh token (ADR 0012) är enhetstestad, och kördes för hand 2026-10-14 mot en riktig stack (Postgres 12, backend med refresh, Vite, webbläsare): inloggning lämnar `localStorage` tomt, en omladdning förblir inloggad och roterar token i databasen, utloggning spärrar hela familjen, och en omstart av servern (ny signeringsnyckel) följs av 401, förnyelse och nytt försök utan ny inloggning. Det är inte incheckade tester. `session.spec.ts` är skriven men inte körd med Playwright, och två flikar som förnyar samtidigt (Web Locks) är bara enhetstestat. `jwt.expiration-ms` är 15 minuter, så frontend måste ha refresh-token för att inte logga ut användaren var 15:e minut.
 - `ProtectedRoute.test.tsx` finns inte. Test behövs för omdirigering till login och spärr vid fel roll.
+- Refresh token (ADR 0012) är bara backend än: frontend använder den inte, och `jwt.expiration-ms` är fortfarande 1 timme. Hela flödet över riktig HTTP mot Postgres 12 (Flyway V1–V8, cookie-attribut, rotation, återanvändning som spärrar familjen, utloggning och två samtidiga förnyelser som ger exakt en lyckad) kördes manuellt 2026-10-12. Racet från granskningen (en gammal token och den aktuella används samtidigt) reproducerades mot Postgres 12 2026-10-13: före fixen blev en aktiv token kvar i en spärrad familj, efter låset per användare blev ingen kvar, i båda ordningarna. Enhetstesterna låser fast att låset tas först, men själva samtidigheten bevisas bara av de manuella körningarna, eftersom H2 inte har samma radlåssemantik. De finns inte som incheckade tester och kräver en riktig databas i sviten (Testcontainers, #193). Frontendtester och E2E-scenariot "ladda om sidan och förbli inloggad" kommer med frontenddelen.
 
 ### Betalning och godkännande
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 7; `payment/schema.test.ts` |
+| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 13; `payment/schema.test.ts` |
 | Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup`, `missingTenant_shouldBeRejectedWithoutDatabaseLookup` |
 | Godkännande belastar bara kontot om det tillhör betalningens företag, och låser kontot (#191, R-04) | Unit + Int | Grön | `ApprovalServiceTest.approve_shouldRefuseToDebitAccountOfAnotherTenant`, `approve_shouldRefuseInvalidFromAccountIdWithoutLookup` · 5; `ApprovalApiControllerOwnershipTest.approve_whenTheAccountBelongsToAnotherTenant_*`; `AccountRepositoryTenantTest` · 6 (H2) |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
@@ -164,7 +170,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Prioritet | Att göra | Varför |
 | --- | --- | --- |
-| 1 | Lägg till en riktig saldokontroll i E2E-testet när saldovyn finns, och kör E2E i CI. | E2E-testet verifierar saldot bara indirekt och körs manuellt. |
+| 1 | Kör E2E i CI. | E2E-testet körs bara manuellt mot en app som är igång. |
 | 2 | Checka in och kör samtidighetstestet; testa rollback för saldo och audit mot databas. | Låsning och transaktionsutfall är inte verifierade i repot. |
 | 3 | Testa tenant-gränser för audit, tidslinje, betalningar och attester (konton är klara) samt de två saknade behörighetsvägarna. | Filtrering och åtkomst till `/api/my-payments` och `/api/approvals/count` behöver verifieras. |
 | 4 | Testa skyddade routes och badge; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |

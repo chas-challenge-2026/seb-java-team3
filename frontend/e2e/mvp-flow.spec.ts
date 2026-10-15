@@ -4,6 +4,8 @@ import { loginAs, USERS } from "./helpers.ts";
 // Över tröskeln för attest (payment.approval.no-attestant-threshold=5000)
 const AMOUNT_INPUT = "5 500,50";
 const AMOUNT_SHOWN = /5\s500,50/;
+const AMOUNT_ORE = 550050;
+const ACCOUNT_NAME = "Driftkonto";
 const RECIPIENT_IBAN = "DE89370400440532013000";
 
 // MVP-tråden: logga in -> skapa betalning -> attest-badge -> godkänn -> saldo dras -> audit
@@ -15,11 +17,14 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
 
   const initiator = await loginAs(browser, USERS.initiator);
 
+  // Före och efter i stället för ett fast saldo: varje körning drar pengar i dev-databasen
+  const balanceBefore = await accountBalanceInOre(initiator, ACCOUNT_NAME);
+
   await test.step("initiatören skapar en betalning som kräver attest", async () => {
     await menu(initiator).getByRole("link", { name: "Ny Betalning" }).click();
 
     await initiator.getByRole("combobox", { name: /Konto/ }).click();
-    await initiator.getByRole("option", { name: /Driftkonto/ }).click();
+    await initiator.getByRole("option", { name: new RegExp(ACCOUNT_NAME) }).click();
     await initiator.getByLabel("Mottagar-IBAN").fill(RECIPIENT_IBAN);
     await initiator.getByLabel("Belopp (SEK)").fill(AMOUNT_INPUT);
     await initiator.getByLabel("Referens").fill(reference);
@@ -86,17 +91,38 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     ).toContainText(USERS.attestant.name);
   });
 
-  // Saldot exponeras varken i UI eller API än. Det dras i samma transaktion som sätter
-  // betalningen till genomförd (ApprovalService.approve), så statusen är en indirekt kontroll.
-  // Byt till en riktig saldokontroll när konton finns i frontend.
-  await test.step("betalningen är genomförd för initiatören (saldo dras i samma transaktion)", async () => {
+  await test.step("betalningen är genomförd för initiatören", async () => {
     await initiator.reload();
 
     const row = rowWith(initiator, reference);
     await expect(row).toContainText("Genomförd");
     await expect(row).not.toContainText("Ej utförd");
   });
+
+  // Saldot läses från GET /api/accounts, eftersom dashboarden fortfarande visar mockade konton.
+  // Lägg till en kontroll i UI:t när saldovyn hämtar från backend.
+  await test.step("saldot på kontot har dragits med exakt beloppet", async () => {
+    const balanceAfter = await accountBalanceInOre(initiator, ACCOUNT_NAME);
+
+    expect(balanceBefore - balanceAfter).toBe(AMOUNT_ORE);
+  });
 });
+
+// Hämtar saldot med initiatörens egen token, så tenant-filtret i backend gäller som i appen.
+// Räknar i öre för att slippa avrundningsfel med flyttal.
+async function accountBalanceInOre(page: Page, accountName: string): Promise<number> {
+  const token = await page.evaluate(() => localStorage.getItem("authToken"));
+  const response = await page.request.get("/api/accounts", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(response.ok()).toBe(true);
+
+  const accounts: { name: string; balance: number }[] = await response.json();
+  const account = accounts.find((candidate) => candidate.name === accountName);
+  expect(account, `kontot ${accountName} finns i /api/accounts`).toBeDefined();
+
+  return Math.round(account!.balance * 100);
+}
 
 function menu(page: Page) {
   return page.getByRole("navigation", { name: "Huvudmeny" });

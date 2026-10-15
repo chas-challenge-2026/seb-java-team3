@@ -269,9 +269,11 @@ function PaymentForm() {
 
     try {
       const payment = await createPayment(result.data);
-      setPendingConfirmation(payment);
-      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      // Dashboarden har redan cachat Mina betalningar och saldot, och en ADMIN ser även attestkön
       void queryClient.invalidateQueries({ queryKey: ["audit"] });
+      void queryClient.invalidateQueries({ queryKey: ["approvals"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setPendingConfirmation(payment);
     } catch (error) {
       console.error("Failed to create payment:", error);
       setSubmitError(getSubmitErrorMessage(error));
