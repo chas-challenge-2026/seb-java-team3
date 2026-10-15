@@ -8,6 +8,7 @@ function payment(status: string, approvalSteps: MyPaymentApprovalStep[]): MyPaym
     reference: "Demo",
     amount: 7500,
     currency: "SEK",
+    fromAccountName: "Driftkonto",
     toIban: "SE4550000000058398257466",
     status,
     createdAt: "2026-10-15T08:00:00",

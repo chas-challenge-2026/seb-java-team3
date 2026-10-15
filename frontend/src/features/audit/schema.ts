@@ -32,6 +32,8 @@ export const myPaymentStatusSchema = z.object({
   reference: z.string().nullable(),
   amount: z.number().nullable(),
   currency: z.string().nullable(),
+  // Kontot betalningen dras från. Null om kontot inte går att slå upp.
+  fromAccountName: z.string().nullable().default(null),
   toIban: z.string().nullable(),
   status: z.string(),
   createdAt: z.string().nullable(),
