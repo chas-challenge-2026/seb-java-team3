@@ -4,6 +4,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.AuditEntry;
 import se.comerit.seb.domain.Payment;
@@ -11,6 +13,7 @@ import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.AuditEntryResponse;
 import se.comerit.seb.dto.MyPaymentStatusResponse;
 import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
+import se.comerit.seb.infrastructure.audit.AuditSignerService;
 import se.comerit.seb.repository.AuditRepository;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
@@ -38,13 +41,16 @@ public class AuditService {
     private final AuditRepository auditRepository;
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
+    private final AuditSignerService auditSigner;
 
     public AuditService(AuditRepository auditRepository,
                         UserRepository userRepository,
-                        PaymentRepository paymentRepository) {
+                        PaymentRepository paymentRepository,
+                        AuditSignerService auditSigner) {
         this.auditRepository = auditRepository;
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
+        this.auditSigner = auditSigner;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -59,7 +65,24 @@ public class AuditService {
                 description
         );
 
-        return auditRepository.save(entry);
+        AuditEntry saved = auditRepository.save(entry);
+        signAfterCommit(userId, action, entityId, description);
+        return saved;
+    }
+
+    // Skriv den signerade raden först när databastransaktionen har committats, annars hamnar en
+    // händelse som rullades tillbaka i den signerade loggen. Signeringsfel stoppar aldrig affärsflödet.
+    private void signAfterCommit(Long userId, String action, Long entityId, String description) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            auditSigner.append(userId, action, entityId, description);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                auditSigner.append(userId, action, entityId, description);
+            }
+        });
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
