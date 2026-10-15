@@ -42,6 +42,7 @@ services:
       # Skickas vidare från värdens/driftmiljöns env om satt, annars används dev-defaulten
       # i application.properties. Sätt alltid en riktig nyckel i produktion.
       - AUDIT_SIGNING_KEY
+      - AUDIT_SIGNING_REQUIRED
       - AUDIT_LOG_PATH=/app/audit/audit.log
     volumes:
       - auditlog:/app/audit
