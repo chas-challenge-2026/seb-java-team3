@@ -84,7 +84,6 @@
 .recipient strong { display: block; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86rem; font-weight: 650; letter-spacing: 0.01em; }
 .type { display: inline-block; padding: 0.28rem 0.55rem; border-radius: 0.4rem; background: var(--bg-subtle); color: var(--text-navigation); font-size: 0.78rem; font-weight: 600; }
 .amount { color: var(--text-primary); font-weight: 750; }
-.amount span span { color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; }
 .date, .reference { color: var(--text-muted); font-size: 0.9rem; }
 
 /* Kolumnerna får den bredd innehållet behöver i stället för lika delar, och IBAN, konto, belopp och datum

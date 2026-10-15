@@ -9,6 +9,7 @@ import LoadingMessage from "../../components/ui/feedback/LoadingMessage";
 import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
 import { formatDateTime } from "../../lib/dateTime";
+import { formatAmount } from "../audit/utils/formatters";
 import { isApiError } from "../../error/api.error";
 import type { AttestSteg } from "./schema";
 
@@ -119,8 +120,7 @@ export default function AttestGrid() {
                     </td>
                     <td data-label="Typ" className={styles.noWrap}><span className={styles.type}>{m.typ}</span></td>
                     <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
-                      {/* Ett element, så att belopp och valuta hamnar i samma ruta i mobilens kortvy */}
-                      <span>{m.belopp} <span>{m.currency}</span></span>
+                      {formatAmount(m.belopp, m.currency)}
                     </td>
                     <td data-label="Datum" className={`${styles.date} ${styles.noWrap}`}>
                       {formatDateTime(m.createdAt)}
