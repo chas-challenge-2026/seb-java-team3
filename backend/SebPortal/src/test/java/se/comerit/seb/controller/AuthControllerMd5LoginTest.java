@@ -1,5 +1,6 @@
 package se.comerit.seb.controller;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -15,11 +16,15 @@ import se.comerit.seb.domain.User;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.JwtService;
 import se.comerit.seb.security.JwtUserContext;
+import se.comerit.seb.security.RefreshCookies;
 import se.comerit.seb.security.RoleAccessDeniedHandler;
 import se.comerit.seb.service.AuthService;
+import se.comerit.seb.service.RefreshTokenService;
 
+import java.time.Duration;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,9 +33,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // BUG-002: hela vägen genom /api/auth/login med den riktiga AuthService. Bara repositoryt är
 // mockat, så det är BCrypt-jämförelsen i AuthService som avgör svaret. En kvarvarande MD5-hash
 // ska ge 401 utan token; kontrolltestet visar att samma lösenord ger 200 med en BCrypt-hash.
+// RefreshTokenService är mockad: refresh-token prövas för sig i AuthControllerRefreshTest.
 @WebMvcTest(AuthController.class)
 @Import({JwtSecurityConfig.class, JwtService.class, JwtUserContext.class, RoleAccessDeniedHandler.class,
-        AuthService.class})
+        AuthService.class, RefreshCookies.class})
 class AuthControllerMd5LoginTest {
 
     private static final String EMAIL = "lisa@malmobygg.se";
@@ -43,6 +49,15 @@ class AuthControllerMd5LoginTest {
 
     @MockBean
     private UserRepository userRepository;
+
+    @MockBean
+    private RefreshTokenService refreshTokenService;
+
+    @BeforeEach
+    void givenRefreshTokens() {
+        when(refreshTokenService.issueForLogin(anyLong())).thenReturn("refresh-token");
+        when(refreshTokenService.sessionLifetime()).thenReturn(Duration.ofDays(7));
+    }
 
     @Test
     void login_withBcryptHash_returns200WithToken() throws Exception {
