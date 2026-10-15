@@ -88,6 +88,48 @@ class ApprovalServiceTest {
     }
 
     @Test
+    void finalApproval_shouldRejectInsufficientBalance() {
+        // ARRANGE
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService);
+
+        Long tenantId = 1L;
+        Long actorId = 2L;
+        Long paymentId = 100L;
+        Long approvalStepId = 200L;
+        Long accountId = 10L;
+        BigDecimal paymentAmount = new BigDecimal("200.00");
+        BigDecimal startingBalance = new BigDecimal("100.00");
+        BigDecimal expectedFinalBalance = new BigDecimal("800.00");
+        String toIban = "SE8550000000054910000003";
+
+        Payment payment = new Payment(
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", actorId);
+        ApprovalStep approvalStep = new ApprovalStep(actorId, 1);
+        payment.addApprovalStep(approvalStep);
+
+        ReflectionTestUtils.setField(payment, "id", paymentId);
+        ReflectionTestUtils.setField(approvalStep, "id", approvalStepId);
+
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(startingBalance);
+        when(paymentRepository.findByApprovalStepIdForUpdate(approvalStepId))
+                .thenReturn(Optional.of(payment));
+        // Kontot hämtas med betalningens företag (tenant) och låses; se findByIdAndTenantIdForUpdate
+        when(accountRepository.findByIdAndTenantIdForUpdate(10, tenantId)).thenReturn(Optional.of(account));
+
+        assertThrows(IllegalArgumentException.class, () -> approvalService.approve(approvalStepId, actorId));
+        verify(account, never()).setBalance(org.mockito.ArgumentMatchers.any());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(payment.getExecutedAt());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
     void approve_shouldThrowAccessDenied_whenActorIsNotTheAssignedAttestant() {
         // ARRANGE
         PaymentRepository paymentRepository = mock(PaymentRepository.class);
