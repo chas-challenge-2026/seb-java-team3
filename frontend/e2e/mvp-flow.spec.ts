@@ -40,6 +40,9 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     await menu(initiator).getByRole("link", { name: "Mina betalningar" }).click();
 
     await expect(rowWith(initiator, reference)).toContainText("Väntar attest");
+    // Initiatören ser vem betalningen väntar på, och vet vem som ska kontaktas om den fastnar
+    await expect(rowWith(initiator, reference)).toContainText(USERS.attestant.name);
+    await expect(rowWith(initiator, reference)).toContainText(ACCOUNT_NAME);
   });
 
   const attestant = await loginAs(browser, USERS.attestant);
@@ -111,7 +114,7 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
 // Hämtar saldot med initiatörens egen token, så tenant-filtret i backend gäller som i appen.
 // Räknar i öre för att slippa avrundningsfel med flyttal.
 async function accountBalanceInOre(page: Page, accountName: string): Promise<number> {
-  const token = await page.evaluate(() => localStorage.getItem("authToken"));
+  const token = await accessTokenFor(page);
   const response = await page.request.get("/api/accounts", {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -122,6 +125,18 @@ async function accountBalanceInOre(page: Page, accountName: string): Promise<num
   expect(account, `kontot ${accountName} finns i /api/accounts`).toBeDefined();
 
   return Math.round(account!.balance * 100);
+}
+
+// Access-token finns bara i appens minne (ADR 0012), så testet hämtar en egen med refresh-cookien.
+// page.request delar cookies med sidan: cookien roteras, men sidan ser den nya och märker inget.
+async function accessTokenFor(page: Page): Promise<string> {
+  const response = await page.request.post("/api/auth/refresh", {
+    headers: { "X-Requested-With": "fetch" },
+  });
+  expect(response.ok(), "förnyelsen med refresh-cookien lyckas").toBe(true);
+
+  const { token } = (await response.json()) as { token: string };
+  return token;
 }
 
 function menu(page: Page) {
