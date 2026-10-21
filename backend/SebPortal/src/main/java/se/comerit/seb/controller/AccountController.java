@@ -22,7 +22,7 @@ public class AccountController {
         this.jwtUserContext = jwtUserContext;
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ATTESTANT', 'ADMIN')")
     @GetMapping("/api/accounts")
     public List<AccountResponse> getAccounts() {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
