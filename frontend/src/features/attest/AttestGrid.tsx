@@ -139,6 +139,15 @@ export default function AttestGrid() {
                           aria-label={`Godkänn betalning till ${m.mottagare}`}
                           title={pending ? "Godkänner…" : "Godkänn"}
                         />
+                        <Button
+                          type="button"
+                          disabled={pending}
+                          className={styles.reject}
+                          buttonStyle="icon-only"
+                          icon="x"
+                          aria-label={`Neka betalning till ${m.mottagare}`}
+                          title="Neka"
+                        />
                       </div>
                     </td>
                   </tr>
