@@ -15,6 +15,7 @@ export const attestStegSchema = z.object({
   // Kontot som belastas och vem som skapade betalningen (och kan svara på frågor om den).
   // Null om de inte går att slå upp.
   fromAccountName: z.string().nullable().default(null),
+  balanceAfterPayment: z.number().nullable().default(null),
   initiatorName: z.string().nullable().default(null),
 });
 

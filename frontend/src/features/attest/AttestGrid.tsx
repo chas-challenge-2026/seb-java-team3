@@ -117,6 +117,11 @@ export default function AttestGrid() {
                     </td>
                     <td data-label="Från konto" className={`${styles.date} ${styles.noWrap}`}>
                       {m.fromAccountName ?? "-"}
+                      <span className={styles.balanceAfterPayment}>
+                        Saldo efter betalning: {m.balanceAfterPayment == null
+                          ? "Kan inte beräknas"
+                          : formatAmount(m.balanceAfterPayment, m.currency)}
+                      </span>
                     </td>
                     <td data-label="Typ" className={styles.noWrap}><span className={styles.type}>{m.typ}</span></td>
                     <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
@@ -159,6 +164,7 @@ export default function AttestGrid() {
         <footer className={styles.footer}>
           <CircleCheck size={17} aria-hidden="true" />
           Kontrollera alltid mottagare och belopp innan du godkänner.
+          Beräknat saldo gäller efter denna betalning och kan ändras av andra transaktioner.
         </footer>
       </section>
     </Container>

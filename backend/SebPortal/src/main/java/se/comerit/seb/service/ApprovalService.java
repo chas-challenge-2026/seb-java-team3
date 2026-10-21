@@ -56,8 +56,8 @@ public class ApprovalService {
                 ? paymentRepository.findPendingApprovalsForTenant(user.tenantId())
                 : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
 
-        Map<Long, String> accountNamesById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
-                .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+        Map<Long, Account> accountsById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
+                .collect(Collectors.toMap(account -> account.getId().longValue(), account -> account));
 
         List<Long> initiatorIds = payments.stream()
                 .map(Payment::getCreatedBy)
@@ -75,7 +75,7 @@ public class ApprovalService {
                         .map(step -> PendingApprovalResponse.from(
                                 payment,
                                 step,
-                                accountNamesById.get(payment.getFromAccountId()),
+                                accountsById.get(payment.getFromAccountId()),
                                 initiatorNamesById.get(payment.getCreatedBy()))))
                 .toList();
     }

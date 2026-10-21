@@ -1,6 +1,7 @@
 package se.comerit.seb.dto;
 
 import se.comerit.seb.domain.ApprovalStep;
+import se.comerit.seb.domain.Account;
 import se.comerit.seb.domain.Payment;
 
 import java.math.BigDecimal;
@@ -20,10 +21,15 @@ public record PendingApprovalResponse(
         LocalDateTime createdAt,
         String status,
         String fromAccountName,
-        String initiatorName
+        String initiatorName,
+        BigDecimal balanceAfterPayment
 ) {
     public static PendingApprovalResponse from(Payment payment, ApprovalStep step,
-                                               String fromAccountName, String initiatorName) {
+                                               Account fromAccount, String initiatorName) {
+        BigDecimal balanceAfterPayment = fromAccount != null
+                && fromAccount.getBalance() != null
+                && payment.getCurrency().equals(fromAccount.getCurrency())
+                ? fromAccount.getBalance().subtract(payment.getAmount()) : null;
         return new PendingApprovalResponse(
                 step.getId(),
                 payment.getId(),
@@ -34,8 +40,9 @@ public record PendingApprovalResponse(
                 payment.getReference(),
                 payment.getCreatedAt(),
                 "Väntar",
-                fromAccountName,
-                initiatorName
+                fromAccount == null ? null : fromAccount.getAccountName(),
+                initiatorName,
+                balanceAfterPayment
         );
     }
 }

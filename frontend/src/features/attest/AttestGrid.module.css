@@ -85,6 +85,7 @@
 .type { display: inline-block; padding: 0.28rem 0.55rem; border-radius: 0.4rem; background: var(--bg-subtle); color: var(--text-navigation); font-size: 0.78rem; font-weight: 600; }
 .amount { color: var(--text-primary); font-weight: 750; }
 .date, .reference { color: var(--text-muted); font-size: 0.9rem; }
+.balanceAfterPayment { display: block; margin-top: 0.35rem; font-size: 0.78rem; white-space: normal; }
 
 /* Kolumnerna får den bredd innehållet behöver i stället för lika delar, och IBAN, konto, belopp och datum
    bryts inte. Får tabellen inte plats scrollar den i sidled (.tableWrap). */
