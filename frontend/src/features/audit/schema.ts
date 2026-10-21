@@ -12,6 +12,8 @@ export const auditApiEntrySchema = z.object({
   currency: z.string().nullable(),
   createdAt: z.string(),
   userName: z.string(),
+  balanceBeforePayment: z.number().nullable().default(null),
+  balanceAfterPayment: z.number().nullable().default(null),
 });
 
 export const auditApiEntryListSchema = z.array(auditApiEntrySchema);

@@ -154,7 +154,8 @@ public class ApprovalService {
             if (payment.getAmount().compareTo(account.getBalance()) > 0) {
                 throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
             }
-            account.setBalance(account.getBalance().subtract(payment.getAmount()));
+            payment.recordAccountDebit(account.getBalance());
+            account.setBalance(payment.getBalanceAfterPayment());
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 

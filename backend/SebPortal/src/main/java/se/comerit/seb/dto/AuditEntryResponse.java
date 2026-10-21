@@ -16,7 +16,9 @@ public record AuditEntryResponse(
         BigDecimal amount,
         String currency,
         LocalDateTime createdAt,
-        String userName
+        String userName,
+        BigDecimal balanceBeforePayment,
+        BigDecimal balanceAfterPayment
 ) {
     public static AuditEntryResponse from(
             AuditEntry entry,
@@ -24,7 +26,9 @@ public record AuditEntryResponse(
             String status,
             String reference,
             BigDecimal amount,
-            String currency
+            String currency,
+            BigDecimal balanceBeforePayment,
+            BigDecimal balanceAfterPayment
     ) {
         return new AuditEntryResponse(
                 entry.getId(),
@@ -37,7 +41,9 @@ public record AuditEntryResponse(
                 amount,
                 currency,
                 entry.getCreatedAt(),
-                userName
+                userName,
+                balanceBeforePayment,
+                balanceAfterPayment
         );
     }
 }

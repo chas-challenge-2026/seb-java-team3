@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 // #186: saldot som /api/accounts visar ska stämma efter en attesterad betalning. Hela kedjan
 // körs mot H2: ApprovalService drar saldot, AccountService läser det.
@@ -37,6 +39,12 @@ class AccountBalanceAfterApprovalTest {
 
     @Autowired
     private AccountService accountService;
+
+    @Autowired
+    private AuditService auditService;
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Autowired
     private PaymentRepository paymentRepository;
@@ -64,6 +72,9 @@ class AccountBalanceAfterApprovalTest {
     void balanceIsUnchangedBeforeApproval() {
         // Kontrollfall: en väntande betalning drar inget saldo
         assertEquals(0, new BigDecimal("1000.00").compareTo(balanceOfOnlyAccount()));
+        Payment payment = paymentRepository.findAll().get(0);
+        assertNull(payment.getBalanceBeforePayment());
+        assertNull(payment.getBalanceAfterPayment());
     }
 
     @Test
@@ -71,6 +82,23 @@ class AccountBalanceAfterApprovalTest {
         approvalService.approve(approvalStepId, ATTESTANT_ID);
 
         assertEquals(0, new BigDecimal("750.00").compareTo(balanceOfOnlyAccount()));
+    }
+
+    @Test
+    void auditKeepsHistoricalBalancesAfterTheAccountBalanceChanges() {
+        approvalService.approve(approvalStepId, ATTESTANT_ID);
+        entityManager.flush();
+        entityManager.clear();
+        jdbc.update("update accounts set balance = 500.00 where id = ?", accountId);
+
+        var entries = auditService.getAuditEntries(
+                new AuthenticatedUserContext(ATTESTANT_ID, TENANT, Role.ATTESTANT));
+
+        assertEquals(1, entries.size());
+        assertEquals(0, new BigDecimal("1000.00").compareTo(entries.get(0).balanceBeforePayment()));
+        assertEquals(0, new BigDecimal("750.00").compareTo(entries.get(0).balanceAfterPayment()));
+        assertEquals(0, new BigDecimal("250.00").compareTo(entries.get(0).amount()));
+        assertEquals(0, new BigDecimal("500.00").compareTo(balanceOfOnlyAccount()));
     }
 
     private BigDecimal balanceOfOnlyAccount() {
