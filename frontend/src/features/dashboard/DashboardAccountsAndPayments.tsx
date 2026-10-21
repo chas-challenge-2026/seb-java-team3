@@ -88,7 +88,7 @@ export function DashboardAccounts({
   showNewPayment?: boolean;
 }) {
   const { data: user } = useUser();
-  const canReadAccounts = user?.role === "INITIATOR" || user?.role === "ADMIN";
+  const canReadAccounts = user?.role === "INITIATOR" || user?.role === "ATTESTANT" || user?.role === "ADMIN";
   const { data: accounts = [], isPending, isError, refetch } = useQuery({ ...accountsQueryOptions, enabled: canReadAccounts });
   const totals = accounts.reduce<Record<string, number>>((result, account) => {
     result[account.currency] = (result[account.currency] ?? 0) + account.balance;

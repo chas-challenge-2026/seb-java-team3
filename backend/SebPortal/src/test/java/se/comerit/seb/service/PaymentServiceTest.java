@@ -58,6 +58,9 @@ class PaymentServiceTest {
         // ASSERT: verifiera att resultatet är rätt
         assertEquals(PaymentStatus.COMPLETED, response.status());
         verify(account).setBalance(new BigDecimal("17000.00"));
+        verify(paymentRepo).save(argThat(payment ->
+                new BigDecimal("20000.00").equals(payment.getBalanceBeforePayment())
+                        && new BigDecimal("17000.00").equals(payment.getBalanceAfterPayment())));
         verify(userRepo, never()).findByTenantIdAndRole(any(), any());
         // ^ vi ska ALDRIG slå upp en attestant för ett belopp under tröskeln
     }

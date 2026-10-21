@@ -56,8 +56,8 @@ public class ApprovalService {
                 ? paymentRepository.findPendingApprovalsForTenant(user.tenantId())
                 : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
 
-        Map<Long, String> accountNamesById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
-                .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+        Map<Long, Account> accountsById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
+                .collect(Collectors.toMap(account -> account.getId().longValue(), account -> account));
 
         List<Long> initiatorIds = payments.stream()
                 .map(Payment::getCreatedBy)
@@ -75,7 +75,7 @@ public class ApprovalService {
                         .map(step -> PendingApprovalResponse.from(
                                 payment,
                                 step,
-                                accountNamesById.get(payment.getFromAccountId()),
+                                accountsById.get(payment.getFromAccountId()),
                                 initiatorNamesById.get(payment.getCreatedBy()))))
                 .toList();
     }
@@ -154,7 +154,8 @@ public class ApprovalService {
             if (payment.getAmount().compareTo(account.getBalance()) > 0) {
                 throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
             }
-            account.setBalance(account.getBalance().subtract(payment.getAmount()));
+            payment.recordAccountDebit(account.getBalance());
+            account.setBalance(payment.getBalanceAfterPayment());
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 

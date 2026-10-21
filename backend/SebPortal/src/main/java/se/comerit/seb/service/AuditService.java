@@ -105,7 +105,9 @@ public class AuditService {
                             payment.map(p -> p.getStatus().name()).orElse(null),
                             payment.map(Payment::getReference).orElse(null),
                             payment.map(Payment::getAmount).orElse(null),
-                            payment.map(Payment::getCurrency).orElse(null));
+                            payment.map(Payment::getCurrency).orElse(null),
+                            payment.map(Payment::getBalanceBeforePayment).orElse(null),
+                            payment.map(Payment::getBalanceAfterPayment).orElse(null));
                 })
                 .collect(Collectors.toList());
     }
