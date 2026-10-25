@@ -10,7 +10,7 @@
 #   make clean        - Remove build artifacts
 #   make iban         - Build a single module (also: make test-iban)
 
-MODULES = iban csv
+MODULES = iban csv audit
 BUILD_DIR := $(CURDIR)/build
 
 .PHONY: all lib test check-deps clean help $(MODULES) $(addprefix test-,$(MODULES))

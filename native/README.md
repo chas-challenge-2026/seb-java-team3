@@ -196,22 +196,32 @@ public boolean validateIban(String iban) {
 
 ## Modul 3: Audit-signering (append-only, tamper-evident)
 
-**Fil:** `audit/audit_signer.c` / `audit/audit_signer.h`  
-**Kompilering:** `gcc -O2 -shared -fPIC -o libauditsigner.so audit_signer.c -lssl -lcrypto`
+**Filer:** `audit/audit_signer.h`, `audit/audit_signer.c`, `audit/audit_signer_test.c` (39 Check-tester), `audit/Makefile`  
+**Bibliotek:** `libauditsigner.so` (länkar mot OpenSSL: `libssl-dev` vid bygge, `libssl3` i runtime)
+
+### Status
+- ✅ **IMPLEMENTERAD** — C-biblioteket med enhetstester
+- ⏳ JNA-wrapper och koppling mot `AuditService` återstår
 
 ### Format
 
-Varje loggrad: `TIMESTAMP|USER_ID|ACTION|ENTITY_ID|DESCRIPTION|PREV_HASH|HMAC`
+Varje loggrad slutar med `\n`: `TIMESTAMP|USER_ID|ACTION|ENTITY_ID|DESCRIPTION|PREV_HASH|HMAC`
 
-- `PREV_HASH`: SHA256 av föregående rads hela innehåll (hex)
-- `HMAC`: HMAC-SHA256(rad_utan_hmac, secret_key) (hex)
-- Första radens `PREV_HASH` = `0000...0000` (64 nollor)
+- `TIMESTAMP`: sätts av biblioteket, UTC, `YYYY-MM-DDTHH:MM:SSZ`
+- `PREV_HASH`: SHA-256 (gemena hex) av hela föregående rad, inklusive dess HMAC och utan radbrytningen. Första radens `PREV_HASH` = 64 nollor
+- `HMAC`: HMAC-SHA256 (gemena hex) med `secret_key` över raden fram till, men utan, `|` framför HMAC-fältet
+- `ACTION` och `DESCRIPTION` escapas: `|` blir `\|` och `\` blir `\\`. CR och LF är inte tillåtna (anropet misslyckas)
+- Gränser: `ACTION` högst 64 tecken, `DESCRIPTION` högst 1024 tecken (före escapning). För långa värden avvisas, de kapas inte
+- Filen skapas med rättigheterna 0600 och öppnas med `O_APPEND | O_SYNC`
+- Samtidiga anrop (trådar och processer) serialiseras med `flock`, så kedjan kan inte grenas
 
 ### API
 
 ```c
-// Lägg till en loggrad. Hämtar föregående hash från log_path automatiskt.
-// Returnerar 0 vid lyckat skrivande, -1 vid fel.
+// Lägg till en signerad loggrad. Hämtar föregående hash från log_path automatiskt.
+// Returnerar 0 (AUDIT_OK) vid lyckat skrivande, -1 (AUDIT_ERROR) vid fel. Vid fel skrivs ingenting.
+// Fel: NULL-argument, tom nyckel eller tom action, för långa fält, CR/LF i fält,
+// filen kan inte öppnas, eller sista raden i filen saknar radbrytning (avbruten skrivning).
 int audit_append(
     const char* log_path,
     const char* secret_key,
@@ -221,10 +231,17 @@ int audit_append(
     const char* description
 );
 
-// Verifiera hela loggfilen. Returnerar -1 om ok, annars radnummer för
-// första trasiga posten (1-indexerat).
+// Verifiera hela loggfilen. Returnerar:
+//   -1 (AUDIT_VERIFY_OK)       hela kedjan stämmer. Saknad eller tom fil räknas som en intakt, tom logg
+//   n >= 1                     radnummer (1-indexerat) för första trasiga posten: fel hash/HMAC,
+//                              felformaterad rad, blank rad eller sista raden utan radbrytning
+//   0 (AUDIT_VERIFY_IO_ERROR)  NULL-argument eller filen kan inte läsas (t.ex. en katalog)
 int audit_verify(const char* log_path, const char* secret_key);
 ```
+
+### Begränsningar
+- Rader som tas bort **i slutet** av loggen upptäcks inte av en hashkedja ensam (inget senare finns som märker det). Skydda genom att spara senaste hashen på annat ställe, t.ex. i databasen
+- Den som känner till `secret_key` kan skapa en giltig kedja
 
 ### Java JNA-wrapper (ska implementeras)
 
