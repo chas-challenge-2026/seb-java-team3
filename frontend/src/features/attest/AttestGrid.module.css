@@ -84,11 +84,23 @@
 .recipient strong { display: block; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86rem; font-weight: 650; letter-spacing: 0.01em; }
 .type { display: inline-block; padding: 0.28rem 0.55rem; border-radius: 0.4rem; background: var(--bg-subtle); color: var(--text-navigation); font-size: 0.78rem; font-weight: 600; }
 .amount { color: var(--text-primary); font-weight: 750; }
-.amount span { color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; }
 .date, .reference { color: var(--text-muted); font-size: 0.9rem; }
+.balanceAfterPayment { display: block; margin-top: 0.35rem; font-size: 0.78rem; white-space: normal; }
+
+/* Kolumnerna får den bredd innehållet behöver i stället för lika delar, och IBAN, konto, belopp och datum
+   bryts inte. Får tabellen inte plats scrollar den i sidled (.tableWrap). */
+.grid.contentSized { table-layout: auto; }
+.grid.contentSized th { white-space: nowrap; }
+.grid.contentSized th, .grid.contentSized td { padding-left: 0.9rem; padding-right: 0.9rem; }
+.noWrap { white-space: nowrap; }
 .reference { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; }
 
 .actions { display: flex; justify-content: flex-end; gap: 0.45rem; }
+.actions > button { flex-shrink: 0; }
+.actions .reject { background: #b42318; color: #fff; cursor: pointer; }
+.actions .reject:hover { background: #912018; }
+.reject:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
+.reject:disabled { cursor: wait; opacity: 0.65; }
 .approve { cursor: pointer; box-shadow: none; transition: box-shadow 160ms ease, background-color 160ms ease; }
 .approve:hover { background: var(--btn-primary-strong); box-shadow: 0 0.4rem 0.75rem rgba(0, 56, 36, 0.2); }
 .approve:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
@@ -125,7 +137,7 @@
     .grid td:last-child { grid-template-columns: 1fr; border-bottom: 0; }
     .grid td:last-child::before { display: none; }
     .actions { justify-content: flex-start; }
-    .date, .reference, .amount { white-space: normal; }
+    .date, .reference, .amount, .noWrap { white-space: normal; }
 }
 
 .feedbackRegion {

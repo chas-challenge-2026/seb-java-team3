@@ -49,6 +49,20 @@ public class Payment {
     @Column(name = "executed_at")
     private LocalDateTime executedAt;
 
+    @Column(name = "balance_before_payment", precision = 15, scale = 2)
+    private BigDecimal balanceBeforePayment;
+
+    @Column(name = "balance_after_payment", precision = 15, scale = 2)
+    private BigDecimal balanceAfterPayment;
+
+    public BigDecimal getBalanceBeforePayment() { return balanceBeforePayment; }
+    public BigDecimal getBalanceAfterPayment() { return balanceAfterPayment; }
+
+    public void recordAccountDebit(BigDecimal balanceBeforePayment) {
+        this.balanceBeforePayment = balanceBeforePayment;
+        this.balanceAfterPayment = balanceBeforePayment.subtract(amount);
+    }
+
     @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stepNumber ASC")
     private List<ApprovalStep> approvalSteps = new ArrayList<>();

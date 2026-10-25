@@ -8,10 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import se.comerit.seb.domain.ApprovalStepStatus;
-import se.comerit.seb.domain.Payment;
 import se.comerit.seb.dto.PendingApprovalResponse;
-import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.ApprovalService;
@@ -23,14 +20,11 @@ import java.util.Map;
 @RequestMapping("/api/approvals")
 public class ApprovalApiController {
 
-    private final PaymentRepository paymentRepository;
     private final ApprovalService approvalService;
     private final JwtUserContext jwtUserContext;
 
-    public ApprovalApiController(PaymentRepository paymentRepository,
-                                 ApprovalService approvalService,
+    public ApprovalApiController(ApprovalService approvalService,
                                  JwtUserContext jwtUserContext) {
-        this.paymentRepository = paymentRepository;
         this.approvalService = approvalService;
         this.jwtUserContext = jwtUserContext;
     }
@@ -40,12 +34,7 @@ public class ApprovalApiController {
     public ResponseEntity<?> pendingApprovals() {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
-        List<PendingApprovalResponse> approvals = paymentRepository
-                .findPendingApprovalsForAttestant(user.tenantId(), user.userId())
-                .stream()
-                .flatMap(payment -> pendingStepsForUser(payment, user.userId()).stream())
-                .toList();
-
+        List<PendingApprovalResponse> approvals = approvalService.getPendingApprovals(user);
         return ResponseEntity.ok(approvals);
     }
 
@@ -62,7 +51,7 @@ public class ApprovalApiController {
     public ResponseEntity<?> approve(@PathVariable Long stepId) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
-        approvalService.approve(stepId, user.userId());
+        approvalService.approveForUser(stepId, user);
         return ResponseEntity.noContent().build();
     }
 
@@ -73,16 +62,8 @@ public class ApprovalApiController {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
         String comment = request == null ? null : request.comment();
-        approvalService.reject(stepId, user.userId(), comment);
+        approvalService.rejectForUser(stepId, user, comment);
         return ResponseEntity.noContent().build();
-    }
-
-    private List<PendingApprovalResponse> pendingStepsForUser(Payment payment, Long userId) {
-        return payment.getApprovalSteps().stream()
-                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                .filter(step -> userId.equals(step.getAttestantId()))
-                .map(step -> PendingApprovalResponse.from(payment, step))
-                .toList();
     }
 
     public record RejectApprovalRequest(String comment) {}

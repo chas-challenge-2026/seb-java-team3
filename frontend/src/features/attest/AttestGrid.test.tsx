@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import AttestGrid from "./AttestGrid";
@@ -27,13 +27,16 @@ const step: AttestSteg = {
   reference: "Faktura 1042",
   createdAt: "2026-09-28T13:52:00",
   status: "Väntar",
+  fromAccountName: "Driftkonto",
+  balanceAfterPayment: 87500,
+  initiatorName: "Lisa Persson",
 };
 
 type MutateOptions = { onSuccess?: () => void; onError?: (error: unknown) => void };
 
-function mockApprovals(mutate: (id: number, options: MutateOptions) => void) {
+function mockApprovals(mutate: (id: number, options: MutateOptions) => void, data = [step]) {
   mockedUseApprovals.mockReturnValue({
-    data: [step],
+    data,
     isLoading: false,
     isError: false,
     isFetching: false,
@@ -47,6 +50,35 @@ describe("AttestGrid", () => {
     mockedUseApprovals.mockReset();
   });
 
+  it("shows which account is drawn from and who created the payment", () => {
+    mockApprovals(vi.fn());
+    render(<AttestGrid />);
+
+    const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+    expect(within(row).getByText("Driftkonto")).toBeInTheDocument();
+    expect(within(row).getByText("Lisa Persson")).toBeInTheDocument();
+  });
+
+  it("shows the amount the same way as Mina betalningar", () => {
+    mockApprovals(vi.fn());
+    render(<AttestGrid />);
+
+    const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+    expect(within(row).getByText(/^12\s500,00 SEK$/)).toBeInTheDocument();
+  });
+
+  it("shows the remaining balance for the payment account", () => {
+    mockApprovals(vi.fn());
+    render(<AttestGrid />);
+    expect(screen.getByText(/^Saldo efter betalning: 87\s500,00 SEK$/)).toBeInTheDocument();
+  });
+
+  it("does not show a made-up balance when the account balance is unavailable", () => {
+    mockApprovals(vi.fn(), [{ ...step, balanceAfterPayment: null }]);
+    render(<AttestGrid />);
+    expect(screen.getByText("Saldo efter betalning: Kan inte beräknas")).toBeInTheDocument();
+  });
+
   it("confirms which payment was approved", async () => {
     mockApprovals((_id, options) => options.onSuccess?.());
     const user = userEvent.setup();
@@ -55,7 +87,7 @@ describe("AttestGrid", () => {
     await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
 
     expect(
-      screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00\s*kr är godkänd\./),
+      screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00 SEK är godkänd\./),
     ).toBeInTheDocument();
   });
 

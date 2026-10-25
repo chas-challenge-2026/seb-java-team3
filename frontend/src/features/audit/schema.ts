@@ -12,21 +12,36 @@ export const auditApiEntrySchema = z.object({
   currency: z.string().nullable(),
   createdAt: z.string(),
   userName: z.string(),
+  balanceBeforePayment: z.number().nullable().default(null),
+  balanceAfterPayment: z.number().nullable().default(null),
 });
 
 export const auditApiEntryListSchema = z.array(auditApiEntrySchema);
 
 export type AuditApiEntry = z.infer<typeof auditApiEntrySchema>;
 
+export const myPaymentApprovalStepSchema = z.object({
+  stepNumber: z.number(),
+  attestantName: z.string(),
+  status: z.string(),
+  decidedAt: z.string().nullable(),
+});
+
+export type MyPaymentApprovalStep = z.infer<typeof myPaymentApprovalStepSchema>;
+
 export const myPaymentStatusSchema = z.object({
   paymentId: z.number(),
   reference: z.string().nullable(),
   amount: z.number().nullable(),
   currency: z.string().nullable(),
+  // Kontot betalningen dras från. Null om kontot inte går att slå upp.
+  fromAccountName: z.string().nullable().default(null),
   toIban: z.string().nullable(),
   status: z.string(),
   createdAt: z.string().nullable(),
   executedAt: z.string().nullable(),
+  // Vem som ska attestera, i stegordning. Tom när betalningen låg under tröskeln.
+  approvalSteps: z.array(myPaymentApprovalStepSchema).default([]),
 });
 
 export const myPaymentStatusListSchema = z.array(myPaymentStatusSchema);
