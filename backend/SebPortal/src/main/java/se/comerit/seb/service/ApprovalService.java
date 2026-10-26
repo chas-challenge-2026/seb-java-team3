@@ -8,32 +8,91 @@ import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
+import se.comerit.seb.domain.User;
+import se.comerit.seb.dto.PendingApprovalResponse;
 import se.comerit.seb.exception.ApprovalStepAccessDeniedException;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class ApprovalService {
 
+    // Samma text som PaymentService använder vid skapande: saknat konto, ogiltigt id och ett annat
+    // företags konto ska vara omöjliga att skilja åt, så att konto-id hos andra kunder inte
+    // går att kartlägga.
+    private static final String FROM_ACCOUNT_NOT_AVAILABLE =
+            "Från-kontot finns inte eller tillhör inte ditt företag";
+
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final AuditService auditService;
+    private final UserRepository userRepository;
 
     public ApprovalService(PaymentRepository paymentRepository,
                            AccountRepository accountRepository,
-                           AuditService auditService) {
+                           AuditService auditService,
+                           UserRepository userRepository) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
         this.auditService = auditService;
+        this.userRepository = userRepository;
+    }
+
+    // Attestkorgen: väntande steg för den inloggade attestanten (en ADMIN ser hela företagets).
+    // Kontonamn och initiatörens namn slås upp en gång för hela listan, och bara inom företaget,
+    // så att ett annat företags konton eller användare aldrig namnges (R-04).
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @Transactional(readOnly = true)
+    public List<PendingApprovalResponse> getPendingApprovals(AuthenticatedUserContext user) {
+        List<Payment> payments = user.isAdmin()
+                ? paymentRepository.findPendingApprovalsForTenant(user.tenantId())
+                : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
+
+        Map<Long, Account> accountsById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
+                .collect(Collectors.toMap(account -> account.getId().longValue(), account -> account));
+
+        List<Long> initiatorIds = payments.stream()
+                .map(Payment::getCreatedBy)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> initiatorNamesById = userRepository.findAllById(initiatorIds).stream()
+                .filter(initiator -> user.tenantId().equals(initiator.getTenantId()))
+                .collect(Collectors.toMap(User::getId, User::getName));
+
+        return payments.stream()
+                .flatMap(payment -> payment.getApprovalSteps().stream()
+                        .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
+                        .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                        .map(step -> PendingApprovalResponse.from(
+                                payment,
+                                step,
+                                accountsById.get(payment.getFromAccountId()),
+                                initiatorNamesById.get(payment.getCreatedBy()))))
+                .toList();
+    }
+
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @Transactional
+    public void approveForUser(Long approvalStepId, AuthenticatedUserContext user) {
+        approveInternal(approvalStepId, user.userId(), user);
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
     public void approve(Long approvalStepId, Long actorId) {
+        approveInternal(approvalStepId, actorId, null);
+    }
+
+    private void approveInternal(Long approvalStepId, Long actorId, AuthenticatedUserContext user) {
         if (approvalStepId == null) {
             throw new IllegalArgumentException("Approval step id is required");
         }
@@ -58,7 +117,10 @@ public class ApprovalService {
             throw new IllegalStateException("Approval step is not pending: " + approvalStepId);
         }
 
-        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
+            throw new ApprovalStepAccessDeniedException("Payment is not available for this company");
+        }
+        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
@@ -79,19 +141,21 @@ public class ApprovalService {
                 .allMatch(step -> step.getStatus() == ApprovalStepStatus.APPROVED);
 
         if (allApproved) {
-            Integer accountId = Math.toIntExact(payment.getFromAccountId());
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+            Account account = findAndLockAccountOfPaymentTenant(payment);
 
             if (account.getBalance() == null) {
-                throw new IllegalStateException("Account balance is missing: " + accountId);
+                throw new IllegalStateException("Account balance is missing: " + payment.getFromAccountId());
             }
 
             if (payment.getAmount() == null) {
                 throw new IllegalStateException("Payment amount is missing: " + payment.getId());
             }
 
-            account.setBalance(account.getBalance().subtract(payment.getAmount()));
+            if (payment.getAmount().compareTo(account.getBalance()) > 0) {
+                throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
+            }
+            payment.recordAccountDebit(account.getBalance());
+            account.setBalance(payment.getBalanceAfterPayment());
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 
@@ -113,7 +177,17 @@ public class ApprovalService {
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
+    public void rejectForUser(Long approvalStepId, AuthenticatedUserContext user, String comment) {
+        rejectInternal(approvalStepId, user.userId(), comment, user);
+    }
+
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @Transactional
     public void reject(Long approvalStepId, Long actorId, String comment) {
+        rejectInternal(approvalStepId, actorId, comment, null);
+    }
+
+    private void rejectInternal(Long approvalStepId, Long actorId, String comment, AuthenticatedUserContext user) {
         if (approvalStepId == null) {
             throw new IllegalArgumentException("Approval step id is required");
         }
@@ -138,7 +212,10 @@ public class ApprovalService {
             throw new IllegalStateException("Approval step is not pending: " + approvalStepId);
         }
 
-        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
+            throw new ApprovalStepAccessDeniedException("Payment is not available for this company");
+        }
+        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
@@ -173,12 +250,37 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public int countPendingByAttestant(AuthenticatedUserContext user) {
-        return (int) paymentRepository
-                .findPendingApprovalsForAttestant(user.tenantId(), user.userId())
+        var payments = user.isAdmin()
+                ? paymentRepository.findPendingApprovalsForTenant(user.tenantId())
+                : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
+        return (int) payments
                 .stream()
                 .flatMap(payment -> payment.getApprovalSteps().stream())
                 .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                .filter(step -> user.userId().equals(step.getAttestantId()))
+                .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
                 .count();
+    }
+
+    // Hämtar kontot som ska belastas och låser raden tills transaktionen är klar, men bara om
+    // kontot tillhör betalningens företag (R-04).
+    //  - PaymentService kontrollerar redan detta när betalningen skapas. Här kontrolleras det en
+    //    gång till, där pengarna faktiskt flyttas, eftersom betalningar som skapades innan den
+    //    kontrollen fanns (t.ex. väntande betalningar i stage) kan peka på ett annat företags konto.
+    //  - Låset gör att två godkännanden mot samma konto går efter varandra i stället för att båda
+    //    läsa samma saldo och skriva över varandras avdrag. Betalningsraden är redan låst av
+    //    findByApprovalStepIdForUpdate; låsordningen är alltid betalning före konto.
+    private Account findAndLockAccountOfPaymentTenant(Payment payment) {
+        Long fromAccountId = payment.getFromAccountId();
+
+        // accounts.id är INT i databasen. Ett Long utanför intervallet får inte "slå runt" till
+        // ett annat konto-id (4 294 967 297 blir 1 vid omvandling till int).
+        boolean validId = fromAccountId != null && fromAccountId > 0 && fromAccountId <= Integer.MAX_VALUE;
+        if (!validId) {
+            throw new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE);
+        }
+
+        return accountRepository
+                .findByIdAndTenantIdForUpdate(fromAccountId.intValue(), payment.getTenantId())
+                .orElseThrow(() -> new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE));
     }
 }

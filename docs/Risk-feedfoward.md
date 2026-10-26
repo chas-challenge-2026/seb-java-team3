@@ -16,5 +16,6 @@
        
     8.  Titta över symmetriska versus asymmetrisk  JWT-nyckel, då kan ni isolera vilken del av systemet som får lov att signera nya JWT. Tänk på hur de kanske behöver roteras över tid. Eh, hur hur kommer det gå till om man byter ut om den blir läckt liksom? Hur kan man rotera den JWT nyckel. - Hög. Prio. / Jonathan. 
     httpOnly i backend. Jwt i variabl 15 min i frontend. Refresh med httpOnly
+    Status 2026-10-14: nyckeln slumpas vid start (ADR 0011, mergad). Refresh token med rotation är byggd: backend i PR #214 och frontend med 15 minuters access-token i minnet i frontend-PR:en (ADR 0012). Återstår: merge, verifiering på stage och att teamet godkänner ADR 0012.
        
     9. Kolla igenom databastransaktion om ni inte har det redan så att ni har atomic commits genom systemet så att den inte bryter halvvägs. Kolla igenom eh vilken data som spottas tillbaka till klienten. Man vill inte ha fulla stack traces på serverside hos klienten till exempel. - läs på om atomic commits, fulla stack tracers. @transactional. -- LÖST. 

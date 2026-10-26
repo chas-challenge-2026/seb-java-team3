@@ -2,7 +2,7 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-06  
+**Senast uppdaterad:** 2026-10-15
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
@@ -12,24 +12,28 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
 | Backend · JUnit | 18 klasser, 116 tester | Alla gröna vid lokal körning 2026-10-14 |
 | Native C · Check | 112 tester (36 IBAN, 37 CSV, 39 audit) | Alla gröna vid lokal körning 2026-10-14. Sviten körs inte i CI |
+| Backend · JUnit | 31 klasser, 199 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Frontend · Vitest | 17 filer, 145 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · hela användarflödet | 0 tester | Ingen E2E-svit finns |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-15, inklusive kontrollerna av konto och attestant i Mina betalningar |
 
 Alla 116 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-14. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Alla 199 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
 
-Backendens unit-tester använder mockade repositories. De verifierar servicelogik men inte transaktioner eller rollback mot en riktig databas.
+Backendens unit-tester använder mockade repositories. De verifierar servicelogik men inte transaktioner eller rollback mot en riktig databas. `AuthServiceInjectionTest`, `AccountRepositoryTenantTest`, `AccountServiceTest`, `AccountBalanceAfterApprovalTest`, `RefreshTokenRepositoryTest`, `RefreshTokenServiceTest` och `UserRepositoryLockTest` är undantagen: de kör mot H2 i minnet, så där körs SQL-frågorna på riktigt.
 
 ## 2. MVP-flödet
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Ej testad | Ingen E2E-svit |
+| Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Grön | `frontend/e2e/mvp-flow.spec.ts` (#164) |
 | Sista godkännandet slutför betalningen, drar saldo och skriver audit | Unit | Grön | `ApprovalServiceTest.finalApproval_shouldCompletePaymentDeductBalanceAndRecordAudit` |
 
-Delarna i användarflödet är testade var för sig. Det gröna servicetestet använder mockade repositories och verifierar inte att hela flödet fungerar ihop.
+E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Saldot läses från `GET /api/accounts` med initiatörens token före och efter, och testet kräver att Driftkonto minskat med exakt beloppet. Kontrollen görs mot API:t eftersom dashboarden ännu visar mockade konton; lägg till en kontroll i UI:t när saldovyn hämtar från backend. E2E körs manuellt mot en app som är igång och ingår inte i CI.
 
 ## 3. Teststatus per område
 
@@ -38,41 +42,58 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
 | Login skyddas mot SQL-injektion (BUG-001, R-06) | Int | Grön | `AuthServiceInjectionTest` · 12 tester med H2 |
-| Lösenord hanteras med BCrypt (BUG-002, R-06) | Int | Delvis | `AuthServiceInjectionTest.controlCase_validCredentialsAuthenticate` |
+| Lösenord hanteras med BCrypt (BUG-002, R-06) | Int | Grön | `AuthServiceInjectionTest.controlCase_validCredentialsAuthenticate`; `AuthServiceMd5Test` · 3 (H2); `AuthControllerMd5LoginTest` · 3 (401 för MD5-hash); `V7PasswordMigrationTest` · 5 (Flyway V1–V7) |
 | Attestant får bara hantera egna steg (BUG-011, R-03) | Int | Grön | `ApprovalApiControllerOwnershipTest` · 3; `ApprovalServiceTest.approve/reject_shouldThrowAccessDenied_*` |
 | Roller och åtkomst via `@PreAuthorize` (#79) | Int | Delvis | `RoleAuthorizationTest` · 16 |
-| JWT-signering, utgång och ogiltiga token | Unit | Grön | `JwtServiceTest` · 4; `JwtAuthenticationFilterTest` · 3; `JwtUserContextTest` · 5 |
+| JWT-signering, utgång och ogiltiga token | Unit | Grön | `JwtServiceTest` · 11; `JwtAuthenticationFilterTest` · 3; `JwtUserContextTest` · 5 |
+| Token förfalskad med den gamla, publika hemligheten nekas; nyckeln slumpas vid start (ADR 0011) | Unit | Grön | `JwtServiceTest.tokenForgedWithAKnownSecret_isOnlyAcceptedByAServerUsingThatSecret`, `blankSecret_*`, `compromisedDevSecret_shouldBeRejectedAtStartup`, `explicitSecret_mustBeAtLeast32Bytes` |
+| Refresh token: utfärda, rotera, återanvändning spärrar hela familjen, utloggning, utgång och borttagen användare (ADR 0012) | Int | Grön | `RefreshTokenServiceTest` · 15 (H2); `RefreshTokenRepositoryTest` · 9 (H2); `RefreshTokenTest` · 2 |
+| Refresh-token: en aktiv token i en familj med spärrad token nekas, och städningen vid inloggning tar inte bort den spärrade raden (granskningen av ADR 0012) | Int | Grön | `RefreshTokenServiceTest.rotate_withAnActiveTokenInAFamilyThatAlreadyHasARevokedToken_*`, `issueForLogin_doesNotWipeTheRevokedMarker*`; `RefreshTokenRepositoryTest.deleteExpiredOrRevokedForUser_keepsARevokedRow*` |
+| Refresh-token: lås per användare tas före token läses (inloggning, förnyelse, utloggning) | Unit | Grön | `RefreshTokenServiceLockingTest` · 4; `UserRepositoryLockTest` · 2 (H2) |
+| Refresh-cookie och endpoints: HttpOnly, SameSite=Strict, Path, header-krav, 401, 403 och 204 (ADR 0012) | Int | Grön | `AuthControllerRefreshTest` · 13 |
+| Inloggning spärrar webbläsarens gamla session, men inte vid fel lösenord | Int | Grön | `AuthControllerRefreshTest.login_revokesThePreviousSessionOfThisBrowser_*`, `login_withWrongCredentials_doesNotRevokeThePreviousSession` |
 | Saknad eller ogiltig token mot API ger 401 | Int | Grön | `ApprovalApiControllerSecurityTest.approve_withoutToken/withGarbageToken_returns401` |
 | Loginformulärets validering och fel | Komp | Grön | `LoginForm.test.tsx` · 4; `auth/schema.test.ts` · 7 |
-| Skyddade routes och fel roll | Komp | Ej testad | Test för `requireAuth` och `requireRole` saknas |
-| API-klientens Bearer-token och felhantering | Unit | Grön | `lib/api.test.ts` · 8 |
+| Skyddade routes och fel roll (#198) | Unit | Grön | `lib/requireAuth.test.ts` · 7; `lib/requireRole.test.ts` · 6 |
+| Omladdning förnyar sessionen tyst och sparar användaren; utloggning går via servern (ADR 0012) | Unit | Grön | `lib/requireAuth.test.ts` (utan token i minnet) · 4; `features/auth/useLogout.test.tsx` · 2 |
+| Access-token hålls bara i minnet, och en gammal token i `localStorage` tas bort (ADR 0012) | Unit | Grön | `lib/authToken.test.ts` · 5 |
+| Tyst förnyelse: en förnyelse åt gången, Web Locks mellan flikar, nytt försök en gång efter 401, ingen loop, cookies bara till session-endpoints (ADR 0012) | Unit | Grön | `lib/authSession.test.ts` · 11; `lib/api.test.ts` (blocket "session refresh on 401") · 7 |
+| Sessionen finns kvar efter omladdning, cookien är HttpOnly, utloggning håller (ADR 0012) | E2E | Ej körd | `frontend/e2e/session.spec.ts` · 3 (skriven, körd för hand mot en riktig stack 2026-10-14) |
+| API-klientens Bearer-token och felhantering | Unit | Grön | `lib/api.test.ts` · 19 |
+| Access-token gäller 15 minuter med standardkonfigurationen (ADR 0012) | Int | Grön | `JwtLifetimeConfigTest` · 1 (läser `application.properties`) |
 
 **Avgränsningar och kvar att testa**
 
 - SQL-injektionstesterna gäller login: sex payloads i e-post, tre i lösenord och ett försök med `DROP TABLE` som lämnar data orörd. Den äldre `DashboardController`, som byggde SQL genom att lägga ihop strängar, togs bort i #153.
-- BCrypt verifieras indirekt. Test saknas för att neka en MD5-hash och för V7-migreringen.
+- En kvarvarande MD5-hash nekas vid inloggning, även med rätt lösenord eller med hashen som lösenord, och ger 401 utan token. Efter V7 finns inga MD5-hashar kvar i seeden, alla hashar är BCrypt och matchar `password123`, och kolumnen `password_md5` är borta. V7 byter bara ut seedens hash: en användare med annat lösenord behåller sin MD5-hash men nekas vid inloggning. Den lokala Docker-databasen kontrollerades 2026-10-12 (0 MD5-hashar); stage är inte kontrollerad.
 - Ägarskapstestet går genom JWT, controller och riktig service. Fel attestant får 403 utan att steg, saldo eller audit ändras. `RoleAuthorizationTest` täcker de tre rollerna, lista, godkänn, avvisa, audit, tidslinje, betalningsskapande och 401. `/api/my-payments` och `/api/approvals/count` återstår.
-- JWT-testerna täcker fel nyckel och trasig token; ogiltig eller saknad token ger ingen autentisering. Formulärtesterna täcker ogiltig e-post, tomt lösenord, trimning och låst knapp under inloggning. API-klienttesterna täcker token med och utan värde, `ApiError` och validering av svar.
+- JWT-testerna täcker fel nyckel och trasig token; ogiltig eller saknad token ger ingen autentisering. Nyckelhanteringen (ADR 0011) testas på enhetsnivå: slumpad nyckel per instans, förfalskning med den gamla hemligheten, avvisad läckt hemlighet och minsta längd. En helt startad applikationskontext (utan `jwt.secret`, och med `JWT_SECRET` satt) kontrollerades manuellt 2026-10-06 men finns inte som incheckat test. Formulärtesterna täcker ogiltig e-post, tomt lösenord, trimning och låst knapp under inloggning. API-klienttesterna täcker token med och utan värde, `ApiError` och validering av svar.
+- Frontenddelen av refresh token (ADR 0012) är enhetstestad, och kördes för hand 2026-10-14 mot en riktig stack (Postgres 12, backend med refresh, Vite, webbläsare): inloggning lämnar `localStorage` tomt, en omladdning förblir inloggad och roterar token i databasen, utloggning spärrar hela familjen, och en omstart av servern (ny signeringsnyckel) följs av 401, förnyelse och nytt försök utan ny inloggning. Det är inte incheckade tester. `session.spec.ts` är skriven men inte körd med Playwright, och två flikar som förnyar samtidigt (Web Locks) är bara enhetstestat. `jwt.expiration-ms` är 15 minuter, så frontend måste ha refresh-token för att inte logga ut användaren var 15:e minut.
 - `ProtectedRoute.test.tsx` finns inte. Test behövs för omdirigering till login och spärr vid fel roll.
+- Refresh token (ADR 0012) är bara backend än: frontend använder den inte, och `jwt.expiration-ms` är fortfarande 1 timme. Hela flödet över riktig HTTP mot Postgres 12 (Flyway V1–V8, cookie-attribut, rotation, återanvändning som spärrar familjen, utloggning och två samtidiga förnyelser som ger exakt en lyckad) kördes manuellt 2026-10-12. Racet från granskningen (en gammal token och den aktuella används samtidigt) reproducerades mot Postgres 12 2026-10-13: före fixen blev en aktiv token kvar i en spärrad familj, efter låset per användare blev ingen kvar, i båda ordningarna. Enhetstesterna låser fast att låset tas först, men själva samtidigheten bevisas bara av de manuella körningarna, eftersom H2 inte har samma radlåssemantik. De finns inte som incheckade tester och kräver en riktig databas i sviten (Testcontainers, #193). Frontendtester och E2E-scenariot "ladda om sidan och förbli inloggad" kommer med frontenddelen.
 
 ### Betalning och godkännande
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 9; `PaymentForm.test.tsx` · 7; `payment/schema.test.ts` |
-| Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup` |
+| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 13; `payment/schema.test.ts` |
+| Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup`, `missingTenant_shouldBeRejectedWithoutDatabaseLookup` |
+| Godkännande belastar bara kontot om det tillhör betalningens företag, och låser kontot (#191, R-04) | Unit + Int | Grön | `ApprovalServiceTest.approve_shouldRefuseToDebitAccountOfAnotherTenant`, `approve_shouldRefuseInvalidFromAccountIdWithoutLookup` · 5; `ApprovalApiControllerOwnershipTest.approve_whenTheAccountBelongsToAnotherTenant_*`; `AccountRepositoryTenantTest` · 6 (H2) |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
 | Stegen godkänns i ordning och betalningen slutförs först vid sista steget | Unit | Grön | `ApprovalServiceTest.approve_shouldNotCompletePaymentWhileAnotherStepIsStillPending`, `approve_concurrentApproval_shouldThrowAndRollback` |
 | Saldo dras vid slutligt godkännande (BUG-009, R-02) | Unit | Delvis | `ApprovalServiceTest.finalApproval_*` |
+| Attestkorgen visar vilket konto som belastas och vem som skapade betalningen, bara inom attestantens företag (UX-feedback) | Unit + Komp | Grön | `ApprovalServicePendingApprovalsTest` · 4; `AttestGrid.test.tsx` (`shows which account is drawn from and who created the payment`) |
 | Samtidiga godkännanden ger inte dubbel debitering (R-01) | – | Ej testad | Inget incheckat test |
+| `GET /api/accounts` visar bara det egna företagets konton, sorterade på id (#184, #185, #186, R-04) | Int | Grön | `AccountServiceTest` · 5 (H2); `AccountControllerSecurityTest` · 5 (401 utan/ogiltig token, 403 ATTESTANT, 200 INITIATOR och ADMIN) |
+| Saldot i `/api/accounts` stämmer efter en attesterad betalning (#186) | Int | Grön | `AccountBalanceAfterApprovalTest` · 2 (H2) |
 
 **Avgränsningar och kvar att testa**
 
 - Backend nekar belopp 0. Frontend nekar tomma och negativa belopp samt fler än två decimaler; referens får vara högst 140 tecken. Gränsfallen vid exakt tröskel är testade och frontend hämtar tröskeln från backend.
 - `approve_concurrentApproval_shouldThrowAndRollback` testar att ett tidigare steg fortfarande väntar. Namnet antyder samtidighet, men det är inte vad testet verifierar.
 - Saldo, status och audit sätts i samma `@Transactional`-metod. Rollback mot riktig databas är inte testad.
-- Koden använder `PESSIMISTIC_WRITE` via `PaymentRepository.findByApprovalStepIdForUpdate`. `ApprovalConcurrencyTest` med 20 tester kördes lokalt 2026-09-21 men är inte incheckad. Dubbelgodkännande saknar därför ett test i repot.
-- Ägarkontrollen av från-kontot (#187) görs i `PaymentService` via `AccountRepository.existsByIdAndTenantId`. Testerna mockar repositoryt, så själva SQL-frågan mot databasen verifieras inte här. Okänt konto och annat företags konto ger samma 400-svar, så att konto-id hos andra kunder inte kan kartläggas.
+- Koden använder `PESSIMISTIC_WRITE` via `PaymentRepository.findByApprovalStepIdForUpdate`. `ApprovalConcurrencyTest` med 20 tester kördes lokalt 2026-09-21 men är inte incheckad. Dubbelgodkännande saknar därför ett test i repot. Kontoraden låses också vid saldoavdraget (`AccountRepository.findByIdAndTenantIdForUpdate`, #191). `AccountRepositoryTenantTest.findByIdAndTenantIdForUpdate_locksTheRow` verifierar att låset begärs, men att två samtidiga godkännanden mot samma konto faktiskt går efter varandra är inte testat mot en riktig databas.
+- Ägarkontrollen av från-kontot görs på två ställen: vid skapande i `PaymentService` via `AccountRepository.existsByIdAndTenantId` (#187) och vid godkännande, där pengarna flyttas, i `ApprovalService` via `findByIdAndTenantIdForUpdate` (#191). Servicetesterna mockar repositoryt; `AccountRepositoryTenantTest` kör båda frågorna mot H2 med konton för två företag och misslyckas om tenant-villkoret eller låset tas bort. Frågorna är inte körda mot Postgres i testerna. Okänt konto, ogiltigt id och annat företags konto ger samma 400-svar, så att konto-id hos andra kunder inte kan kartläggas.
 
 ### IBAN och BIC
 
@@ -109,18 +130,20 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 | Tidslinje visar aktör, händelse och tid i ordning | Int | Delvis | `AuditControllerTest`; `RoleAuthorizationTest` |
 | Skapande och godkännande skriver audit; nekad åtgärd gör det inte | Unit | Grön | `PaymentServiceTest.createPayment_shouldRecordAuditEntry`; `ApprovalServiceTest.finalApproval_*`; `ApprovalApiControllerOwnershipTest` |
 | Beslutshändelser skrivs atomärt (BUG-008, R-02) | Int | Delvis | Testerna ovan |
-| Tenant-filtrering hindrar läckage (R-04) | Int | Ej testad | Inget test av faktisk filtrering |
+| Tenant-filtrering hindrar läckage (R-04) | Int | Delvis | `AccountRepositoryTenantTest` · 6 och `AccountServiceTest` · 5 (konton, H2). Audit, tidslinje, betalningar och attester saknar fortfarande test av faktisk filtrering |
 | Ordningen är stabil vid samma tidsstämpel | Int | Ej testad | Inget sorteringstest |
 | Signerad granskningslogg: kedjan upptäcker ändrad, borttagen, ombytt eller förfalskad rad | Unit | Grön | `native/audit/audit_signer_test.c` · 39 Check-tester; `AuditSignerNativeIntegrationTest` · 5 mot det riktiga biblioteket (hoppas över om `libauditsigner.so` inte är byggd) |
 | Signerad rad skrivs först efter commit och aldrig vid rollback | Unit | Grön | `AuditServiceSigningTest` · 6 |
 | Signeringsfel stoppar inte flödet, gränser och konfiguration | Unit | Grön | `AuditSignerServiceTest` · 18 |
 | Hälsokontroll visar trasig kedja eller saknade rader; `/actuator/health` är öppen utan detaljer | Unit + Int | Grön | `AuditSignerHealthIndicatorTest` · 5; `AuditSignerWiringTest` · 3 (hela appen på H2) |
+| Mina betalningar visar vilket konto betalningen dras från och vem som ska attestera, godkände eller avvisade (UX-feedback) | Unit + Int | Grön | `AuditServiceMyPaymentsTest` · 7; `AuditControllerMyPaymentsTest` (`fromAccountName` och `approvalSteps` i svaret); `features/audit/utils/formatters.test.ts` · 6 |
 
 **Avgränsningar och kvar att testa**
 
 - `AuditControllerTest` använder mockad service och `containsInAnyOrder`. Varken den faktiska sorteringen eller `AuditService.findPaymentEvents` verifieras.
 - Audit vid lyckad avvisning och rollback mot riktig databas saknar tester. Nekade åtgärder kontrolleras i ägarskapstesterna.
 - Frågorna filtrerar på `tenantId`, men inget negativt test verifierar åtkomst mellan kunder för audit, betalningar eller `my-payments`. `AuditControllerMyPaymentsTest.shouldReturnOnlyOwnPayments` mockar servicen och testar därför inte filtreringen.
+- Mina betalningar: attestantnamnen slås upp en gång för hela listan, och namn på användare och konton från andra företag visas aldrig (`AuditServiceMyPaymentsTest.aUserFromAnotherCompany_isNeverNamed`, `anAccountOutsideTheCompany_isNeverNamed`). Repositoryt är mockat, så frågan `findByTenantIdAndCreatedByWithApprovalSteps` (betalningar och steg i en fråga) är bara kontrollerad mot en riktig databas genom att Spring godkänner den vid uppstart i Testcontainers-testet och genom en manuell kontroll av `/api/my-payments` mot Docker 2026-10-15.
 - `findPaymentEvents` sorterar på `createdAt, id`, men lika tidsstämplar är inte testade. Även namnet `getMyPaymentStatuses_shouldReturnOnlyOwnPayments` beskriver inte tydligt vad testet verifierar.
 
 ### Servering av frontend (SPA-routing)
@@ -158,9 +181,9 @@ Delarna i användarflödet är testade var för sig. Det gröna servicetestet an
 
 | Prioritet | Att göra | Varför |
 | --- | --- | --- |
-| 1 | Lägg till ett E2E-test av MVP-flödet. | Ingen automatisk körning verifierar hela användarresan. |
+| 1 | Kör E2E i CI. | E2E-testet körs bara manuellt mot en app som är igång. |
 | 2 | Checka in och kör samtidighetstestet; testa rollback för saldo och audit mot databas. | Låsning och transaktionsutfall är inte verifierade i repot. |
-| 3 | Testa tenant-gränser och de två saknade behörighetsvägarna. | Filtrering och åtkomst till `/api/my-payments` och `/api/approvals/count` behöver verifieras. |
+| 3 | Testa tenant-gränser för audit, tidslinje, betalningar och attester (konton är klara) samt de två saknade behörighetsvägarna. | Filtrering och åtkomst till `/api/my-payments` och `/api/approvals/count` behöver verifieras. |
 | 4 | Testa skyddade routes och badge; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
 | 5 | Rätta de två missvisande testnamnen. | Testnamnen ska spegla vad som faktiskt testas. |
 
@@ -188,12 +211,20 @@ make test
 ```
 
 ```bash
+# E2E · Playwright · kräver att appen är igång (npm run dev eller Docker)
+cd frontend
+npx playwright install chromium   # första gången
+npm run test:e2e
+E2E_BASE_URL=http://localhost:8084 npm run test:e2e   # mot Docker-bygget
+```
+
+```bash
 # Rök-test · kräver att appen är igång (se "Köra lokalt" i DRIFT.md)
 # Med SMOKE_EMAIL och SMOKE_PASSWORD körs även kontrollerna som kräver token
 node scripts/smoke-spa.mjs
 node scripts/smoke-spa.mjs https://<stage-adress>
 ```
 
-GitHub Actions körs vid push och PR mot `develop`: `maven.yml` kör `mvn package` och `frontend.yml` kör lint, Vitest och build. Native C och rök-testet körs inte i CI. Något E2E-kommando finns ännu inte.
+GitHub Actions körs vid push och PR mot `develop`: `maven.yml` kör `mvn package` och `frontend.yml` kör lint, Vitest och build. Native C, rök-testet och E2E körs inte i CI.
 
 Täckningsgrad hjälper till att hitta luckor. Det viktiga är att varje AC har ett test som faktiskt verifierar beteendet.

@@ -10,7 +10,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: fetchLoginUser,
     onSuccess: (user) => {
-      setToken(user.token);
+      setToken(user.token, user.id);
       queryClient.removeQueries();
       queryClient.setQueryData(["auth", "me"], {
         id: user.id,

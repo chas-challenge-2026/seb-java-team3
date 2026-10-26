@@ -19,6 +19,11 @@ import java.util.List;
 @Service
 public class PaymentService {
 
+    // Ett enda meddelande för saknat konto, ogiltigt id, saknad tenant och annat företags konto,
+    // så att konto-id hos andra kunder inte går att kartlägga.
+    private static final String FROM_ACCOUNT_NOT_AVAILABLE =
+            "Från-kontot finns inte eller tillhör inte ditt företag";
+
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
@@ -70,10 +75,18 @@ public class PaymentService {
             throw new IllegalArgumentException("Från-konto måste anges");
         }
 
+        // Utan företag finns inget att jämföra kontot mot. Spring Datas härledda existsBy...-fråga
+        // översätter dessutom ett null-argument till "tenant_id IS NULL" och skulle då släppa igenom
+        // konton som saknar företag (se AccountRepositoryTenantTest). tenantId kommer från JWT och
+        // ska alltid finnas, men kontrollen får inte vila på det.
+        if (tenantId == null) {
+            throw new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE);
+        }
+
         // accounts.id är INT i databasen. Ett för stort Long-värde skulle annars
         // "slå runt" vid omvandlingen och kunna peka på ett helt annat konto.
         if (fromAccountId <= 0 || fromAccountId > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException("Från-kontot finns inte eller tillhör inte ditt företag");
+            throw new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE);
         }
 
         boolean ownsAccount = accountRepository.existsByIdAndTenantId(fromAccountId.intValue(), tenantId);
@@ -81,7 +94,7 @@ public class PaymentService {
         // Samma meddelande oavsett om kontot saknas eller tillhör ett annat företag,
         // så att man inte kan lista ut vilka konto-id som finns hos andra kunder.
         if (!ownsAccount) {
-            throw new IllegalArgumentException("Från-kontot finns inte eller tillhör inte ditt företag");
+            throw new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE);
         }
     }
 
@@ -106,6 +119,16 @@ public class PaymentService {
         validateAmount(request.amount());
         validateFromAccountBelongsToTenant(request.fromAccountId(), request.tenantId());
 
+        Account account = accountRepository
+                .findByIdAndTenantIdForUpdate(request.fromAccountId().intValue(), request.tenantId())
+                .orElseThrow(() -> new IllegalArgumentException(FROM_ACCOUNT_NOT_AVAILABLE));
+        if (account.getBalance() == null) {
+            throw new IllegalStateException("Account balance is missing: " + request.fromAccountId());
+        }
+        if (request.amount().compareTo(account.getBalance()) > 0) {
+            throw new IllegalArgumentException("Beloppet överstiger tillgängligt saldo.");
+        }
+
         Payment payment = new Payment(
                 request.tenantId(),
                 request.fromAccountId(),
@@ -118,6 +141,8 @@ public class PaymentService {
         if (request.amount().compareTo(thresholds.getNoAttestantThreshold()) <= 0) {
             // Upp till och med tröskeln (strikt > krävs för attest): ingen attestant
             // behövs, betalningen är klar direkt
+            payment.recordAccountDebit(account.getBalance());
+            account.setBalance(payment.getBalanceAfterPayment());
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 

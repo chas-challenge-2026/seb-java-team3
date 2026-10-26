@@ -6,14 +6,14 @@ import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
-import { formatAmount, formatAuditStatus, formatDateTime } from "../utils/formatters";
+import { formatAmount, formatAttestant, formatAuditStatus, formatDateTime } from "../utils/formatters";
 import styles from "../components/AuditGrid.module.css";
 
 export default function MyPaymentsPage() {
   const { data, isPending, isError, isFetching, refetch } = useQuery(myPaymentsQueryOptions);
 
   return (
-    <Container maxWidth="xl">
+    <Container maxWidth="xxl">
       {isPending ? (
         <LoadingMessage message="Laddar dina betalningar…" />
       ) : isError ? (
@@ -40,7 +40,7 @@ export default function MyPaymentsPage() {
             <div>
               <h2>Mina betalningar</h2>
               <p className={styles.description}>
-                Följ status och detaljer för betalningar du har skapat.
+                Följ status och se vem som ska attestera betalningar du har skapat.
               </p>
             </div>
             <div className={styles.count} aria-label={`${data.length} betalningar`}>
@@ -50,36 +50,40 @@ export default function MyPaymentsPage() {
           </header>
 
           <div className={styles.tableWrap}>
-            <table className={styles.grid}>
+            <table className={`${styles.grid} ${styles.myPaymentsGrid}`}>
               <thead>
                 <tr>
                   <th>Skapad</th>
                   <th>Referens</th>
                   <th>Belopp</th>
-                  <th>Mottagare</th>
+                  <th>Från konto</th>
+                  <th>Mottagarkonto</th>
                   <th>Status</th>
+                  <th>Attestant</th>
                   <th>Utförd</th>
                 </tr>
               </thead>
               <tbody>
                 {data.map((payment) => (
                   <tr key={payment.paymentId}>
-                    <td data-label="Skapad" className={styles.date}>
+                    <td data-label="Skapad" className={`${styles.date} ${styles.noWrap}`}>
                       {formatDateTime(payment.createdAt)}
                     </td>
                     <td data-label="Referens" className={styles.reference}>
                       {payment.reference?.trim() || "-"}
                     </td>
-                    <td data-label="Belopp" className={styles.amount}>
+                    <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
                       {formatAmount(payment.amount, payment.currency)}
                     </td>
-                    <td data-label="Mottagare" className={styles.reference}>
+                    <td data-label="Från konto" className={`${styles.date} ${styles.noWrap}`}>{payment.fromAccountName ?? "-"}</td>
+                    <td data-label="Mottagarkonto" className={`${styles.reference} ${styles.noWrap}`}>
                       {payment.toIban ?? "-"}
                     </td>
-                    <td data-label="Status">
+                    <td data-label="Status" className={styles.noWrap}>
                       <span className={styles.status}>{formatAuditStatus(payment.status)}</span>
                     </td>
-                    <td data-label="Utförd" className={styles.date}>
+                    <td data-label="Attestant" className={styles.date}>{formatAttestant(payment)}</td>
+                    <td data-label="Utförd" className={`${styles.date} ${styles.noWrap}`}>
                       {formatDateTime(payment.executedAt)}
                     </td>
                   </tr>

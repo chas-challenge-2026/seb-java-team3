@@ -9,6 +9,7 @@ import LoadingMessage from "../../components/ui/feedback/LoadingMessage";
 import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
 import { formatDateTime } from "../../lib/dateTime";
+import { formatAmount } from "../audit/utils/formatters";
 import { isApiError } from "../../error/api.error";
 import type { AttestSteg } from "./schema";
 
@@ -27,7 +28,7 @@ export default function AttestGrid() {
       onSuccess: () => {
         setFeedback({
           type: "success",
-          text: `Betalningen till ${step.mottagare} på ${formatBelopp(step)} är godkänd.`,
+          text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är godkänd.`,
         });
       },
       onError: (error) => {
@@ -77,7 +78,7 @@ export default function AttestGrid() {
     );
   } else {
     content = (
-    <Container maxWidth="lg">
+    <Container maxWidth="xxl">
       <section className={styles.card} aria-label="Väntande attesteringar">
         <header className={styles.header}>
           <div>
@@ -91,13 +92,15 @@ export default function AttestGrid() {
         </header>
 
         <div className={styles.tableWrap}>
-          <table className={styles.grid}>
+          <table className={`${styles.grid} ${styles.contentSized}`}>
             <thead>
               <tr>
                 <th>Mottagarkonto</th>
+                <th>Från konto</th>
                 <th>Typ</th>
                 <th>Belopp</th>
                 <th>Datum</th>
+                <th>Skapad av</th>
                 <th>Referens</th>
                 <th><span className={styles.srOnly}>Åtgärd</span></th>
               </tr>
@@ -107,14 +110,27 @@ export default function AttestGrid() {
                 const pending = approve.isPending && approve.variables === m.id;
                 return (
                   <tr key={m.id}>
-                    <td data-label="Mottagarkonto">
+                    <td data-label="Mottagarkonto" className={styles.noWrap}>
                       <div className={styles.recipient}>
                         <strong>{m.mottagare}</strong>
                       </div>
                     </td>
-                    <td data-label="Typ"><span className={styles.type}>{m.typ}</span></td>
-                    <td data-label="Belopp" className={styles.amount}>{m.belopp} <span>{m.currency}</span></td>
-                    <td data-label="Datum" className={styles.date}>{formatDateTime(m.createdAt)}</td>
+                    <td data-label="Från konto" className={`${styles.date} ${styles.noWrap}`}>
+                      {m.fromAccountName ?? "-"}
+                      <span className={styles.balanceAfterPayment}>
+                        Saldo efter betalning: {m.balanceAfterPayment == null
+                          ? "Kan inte beräknas"
+                          : formatAmount(m.balanceAfterPayment, m.currency)}
+                      </span>
+                    </td>
+                    <td data-label="Typ" className={styles.noWrap}><span className={styles.type}>{m.typ}</span></td>
+                    <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
+                      {formatAmount(m.belopp, m.currency)}
+                    </td>
+                    <td data-label="Datum" className={`${styles.date} ${styles.noWrap}`}>
+                      {formatDateTime(m.createdAt)}
+                    </td>
+                    <td data-label="Skapad av" className={`${styles.date} ${styles.noWrap}`}>{m.initiatorName ?? "-"}</td>
                     <td data-label="Referens" className={styles.reference}>{m.reference}</td>
                     <td data-label="Åtgärd">
                       <div className={styles.actions}>
@@ -128,6 +144,15 @@ export default function AttestGrid() {
                           aria-label={`Godkänn betalning till ${m.mottagare}`}
                           title={pending ? "Godkänner…" : "Godkänn"}
                         />
+                        <Button
+                          type="button"
+                          disabled={pending}
+                          className={styles.reject}
+                          buttonStyle="icon-only"
+                          icon="x"
+                          aria-label={`Neka betalning till ${m.mottagare}`}
+                          title="Neka"
+                        />
                       </div>
                     </td>
                   </tr>
@@ -139,6 +164,7 @@ export default function AttestGrid() {
         <footer className={styles.footer}>
           <CircleCheck size={17} aria-hidden="true" />
           Kontrollera alltid mottagare och belopp innan du godkänner.
+          Beräknat saldo gäller efter denna betalning och kan ändras av andra transaktioner.
         </footer>
       </section>
     </Container>
@@ -171,11 +197,4 @@ export default function AttestGrid() {
       {content}
     </>
   );
-}
-
-function formatBelopp(step: AttestSteg): string {
-  return step.belopp.toLocaleString("sv-SE", {
-    style: "currency",
-    currency: step.currency,
-  });
 }

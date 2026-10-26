@@ -8,15 +8,9 @@ import {
   formatDateTime,
 } from "../audit/utils/formatters";
 import { getDateTimeSortValue } from "../../lib/dateTime";
+import { accountsQueryOptions } from "../accounts/api";
+import { useUser } from "../auth/useUser";
 import styles from "./DashboardAccountsAndPayments.module.css";
-
-const mockAccounts = [
-  { name: "Driftkonto", number: "•••• 4821", balance: 128450.75 },
-  { name: "Lönekonto", number: "•••• 1936", balance: 76420 },
-  { name: "Projektkonto", number: "•••• 7054", balance: 215800.5 },
-];
-
-const mockTotal = mockAccounts.reduce((total, account) => total + account.balance, 0);
 
 const sekFormatter = new Intl.NumberFormat("sv-SE", {
   minimumFractionDigits: 2,
@@ -93,6 +87,13 @@ export function DashboardAccounts({
   standalone?: boolean;
   showNewPayment?: boolean;
 }) {
+  const { data: user } = useUser();
+  const canReadAccounts = user?.role === "INITIATOR" || user?.role === "ATTESTANT" || user?.role === "ADMIN";
+  const { data: accounts = [], isPending, isError, refetch } = useQuery({ ...accountsQueryOptions, enabled: canReadAccounts });
+  const totals = accounts.reduce<Record<string, number>>((result, account) => {
+    result[account.currency] = (result[account.currency] ?? 0) + account.balance;
+    return result;
+  }, {});
   return (
     <section
       className={`${styles.accounts} ${standalone ? styles.accountStandalone : ""}`}
@@ -110,20 +111,25 @@ export function DashboardAccounts({
         )}
       </header>
 
+      {!canReadAccounts ? <p className={styles.message}>Din roll har inte behörighet att visa konton.</p>
+        : isPending ? <p className={styles.message} role="status">Laddar konton…</p>
+        : isError ? <p className={styles.message} role="alert">Kontona kunde inte hämtas. <button type="button" onClick={() => void refetch()}>Försök igen</button></p>
+        : accounts.length === 0 ? <p className={styles.message}>Företaget har inga konton.</p>
+        : <>
       <div className={styles.accountList}>
-        {mockAccounts.map((account) => (
-          <article className={styles.account} key={account.name}>
+        {accounts.map((account) => (
+          <article className={styles.account} key={account.id}>
             <div className={styles.accountHeading}>
               <span className={styles.accountIcon} aria-hidden="true">
                 <Landmark size={18} />
               </span>
               <div>
                 <h3>{account.name}</h3>
-                <p>{account.number}</p>
+                <p>{account.iban}</p>
               </div>
             </div>
             <p className={styles.balance}>
-              {sekFormatter.format(account.balance)} <span>SEK</span>
+              {sekFormatter.format(account.balance)} <span>{account.currency}</span>
             </p>
           </article>
         ))}
@@ -131,8 +137,11 @@ export function DashboardAccounts({
 
       <div className={styles.total}>
         <span>Totalt saldo</span>
-        <strong>{sekFormatter.format(mockTotal)} SEK</strong>
+        <strong>{Object.entries(totals).map(([currency, total]) => (
+          <span key={currency}>{sekFormatter.format(total)} {currency}<br /></span>
+        ))}</strong>
       </div>
+      </>}
     </section>
   );
 }

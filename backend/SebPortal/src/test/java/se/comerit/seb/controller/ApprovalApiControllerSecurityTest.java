@@ -64,7 +64,7 @@ class ApprovalApiControllerSecurityTest {
                 new AuthenticatedUserContext(99L, 1L, Role.ATTESTANT));
 
         doThrow(new ApprovalStepAccessDeniedException("Approval step 1 is not assigned to actor 99"))
-                .when(approvalService).approve(1L, 99L);
+                .when(approvalService).approveForUser(1L, new AuthenticatedUserContext(99L, 1L, Role.ATTESTANT));
 
         mockMvc.perform(post("/api/approvals/1/approve")
                         .header("Authorization", "Bearer " + attestantBToken))
@@ -77,7 +77,7 @@ class ApprovalApiControllerSecurityTest {
         String attestantAToken = jwtService.generateToken(
                 new AuthenticatedUserContext(1L, 1L, Role.ATTESTANT));
 
-        doNothing().when(approvalService).approve(1L, 1L);
+        doNothing().when(approvalService).approveForUser(1L, new AuthenticatedUserContext(1L, 1L, Role.ATTESTANT));
 
         mockMvc.perform(post("/api/approvals/1/approve")
                         .header("Authorization", "Bearer " + attestantAToken))

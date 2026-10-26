@@ -94,6 +94,27 @@ class RoleAuthorizationTest {
     }
 
     @Test
+    void initiatorCannotViewPendingApprovalCount() throws Exception {
+        mockMvc.perform(get("/api/approvals/count")
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void attestantCanViewPendingApprovalCount() throws Exception {
+        mockMvc.perform(get("/api/approvals/count")
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminCanViewPendingApprovalCount() throws Exception {
+        mockMvc.perform(get("/api/approvals/count")
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void initiatorCannotApprovePayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", 10L)
                         .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
@@ -160,6 +181,31 @@ class RoleAuthorizationTest {
         when(auditService.getPaymentAuditTimeline(any(), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/payments/{paymentId}/audit", 100L)
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void initiatorCanViewMyPayments() throws Exception {
+        when(auditService.getMyPaymentStatuses(any())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/my-payments")
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void attestantCannotViewMyPayments() throws Exception {
+        mockMvc.perform(get("/api/my-payments")
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCanViewMyPayments() throws Exception {
+        when(auditService.getMyPaymentStatuses(any())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/my-payments")
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
                 .andExpect(status().isOk());
     }

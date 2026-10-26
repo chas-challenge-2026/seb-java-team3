@@ -18,6 +18,7 @@ export function useApprovals() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["approvals"] });
       qc.invalidateQueries({ queryKey: ["audit"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
 

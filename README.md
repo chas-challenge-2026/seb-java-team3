@@ -95,6 +95,7 @@ Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er
 Frontend (React, TanStack Router och Query) byggs i Dockerfilen och serveras av Spring från jar-filen. `SpaFallbackController` skickar frontend-routes till `index.html`, medan `/api/**` fortsätter vara API.
 
 Native C-moduler anropas från Java via JNA. Se [native/README.md](native/README.md).
+React-appen och API:t serveras från samma port. Frontenden byggs i Docker och paketeras in i backend-jarfilen, så ingen separat frontend-server behövs. Hur bygget och routingen fungerar, och hur man kör frontenden i dev-läge med `npm run dev`, står i [DRIFT.md](DRIFT.md#så-har-vi-byggt-det-team-3).
 
 ---
 
@@ -102,6 +103,8 @@ Native C-moduler anropas från Java via JNA. Se [native/README.md](native/README
 
 ```
 seb-java-team3/
+ChasChallenge/
+├── .dockerignore                 — Utesluter node_modules, target, .git m.m. från Docker-bygget
 ├── backend/
 │   └── SebPortal/                — Spring Boot 3.3 (Java 21), REST API
 │       ├── src/main/java/se/comerit/seb/
@@ -116,6 +119,8 @@ seb-java-team3/
 │       │   └── infrastructure/   — JNA-wrappers mot native bibliotek (iban, audit)
 │       ├── src/main/resources/
 │       │   ├── db/migration/     — Flyway-migrationer
+│       │   ├── templates/        — Thymeleaf-vyer
+│       │   ├── static/           — Statiska filer (React-bygget kopieras hit i Docker)
 │       │   └── application.properties
 │       ├── src/test/             — JUnit-tester
 │       ├── Dockerfile            — Bygger native libs, frontend och jar i fyra steg
@@ -128,6 +133,12 @@ seb-java-team3/
 │   ├── iban/                     — IBAN (MOD97) och BIC (ISO 9362)
 │   ├── csv/                      — CSV-parser (RFC 4180, OpenMP)
 │   └── audit/                    — Signerad granskningslogg (HMAC-SHA256-kedja)
+├── docs/
+│   ├── architecture.md           — Hur v1 är byggd
+│   ├── known-bugs.md             — Lista med 12 kända buggar (avsiktliga)
+│   ├── README-pain-points.md     — Vad som fungerar vs. går sönder
+│   └── v2-targets.md             — Vad ni ska bygga
+├── frontend/                     — React + TypeScript (Vite), byggs in i backend-imagen
 ├── infra/
 │   ├── docker-compose.yml        — Plattformsfil, se DRIFT.md
 │   └── docker-compose.override.yml — Lokala portar

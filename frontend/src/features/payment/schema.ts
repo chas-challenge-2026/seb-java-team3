@@ -22,10 +22,8 @@ function isValidIban(raw: string): boolean {
   return remainder === 1;
 }
 
-export const paymentAccountSchema = z.enum(
-  ["driftkonto", "lönekonto", "projektkonto"],
-  { error: "Välj vilket konto betalningen ska dras från." },
-);
+export const paymentAccountSchema = z.string().regex(/^[1-9]\d*$/, "Välj vilket konto betalningen ska dras från.")
+  .refine((value) => Number.isSafeInteger(Number(value)) && Number(value) <= 2147483647, "Välj vilket konto betalningen ska dras från.");
 
 export const ibanSchema = z
   .string()

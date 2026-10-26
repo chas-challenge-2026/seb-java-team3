@@ -15,7 +15,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByTenantId(Long tenantId);
 
-    List<Payment> findByTenantIdAndCreatedByOrderByCreatedAtDesc(Long tenantId, Long createdBy);
+    // Mina betalningar: atteststegen hämtas i samma fråga, så att listan inte ger en extra fråga per betalning.
+    @Query("""
+            SELECT DISTINCT p
+            FROM Payment p
+            LEFT JOIN FETCH p.approvalSteps
+            WHERE p.tenantId = :tenantId
+              AND p.createdBy = :createdBy
+            ORDER BY p.createdAt DESC
+            """)
+    List<Payment> findByTenantIdAndCreatedByWithApprovalSteps(
+            @Param("tenantId") Long tenantId,
+            @Param("createdBy") Long createdBy);
 
     @Query("""
             SELECT payment
@@ -41,6 +52,17 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findPendingApprovalsForAttestant(
             @Param("tenantId") Long tenantId,
             @Param("attestantId") Long attestantId);
+
+    @Query("""
+            SELECT DISTINCT p
+            FROM Payment p
+            JOIN FETCH p.approvalSteps step
+            WHERE p.tenantId = :tenantId
+              AND p.status = se.comerit.seb.domain.PaymentStatus.PENDING_APPROVAL
+              AND step.status = se.comerit.seb.domain.ApprovalStepStatus.PENDING
+            ORDER BY p.createdAt ASC
+            """)
+    List<Payment> findPendingApprovalsForTenant(@Param("tenantId") Long tenantId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

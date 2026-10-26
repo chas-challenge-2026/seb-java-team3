@@ -34,8 +34,8 @@ export function Dashboard() {
             </>
           ) : user?.role === "ATTESTANT" ? (
             <>
-              <DashboardApprovals />
               <DashboardAccounts standalone showNewPayment={false} />
+              <DashboardApprovals />
             </>
           ) : (
             <DashboardAccountsAndPayments />

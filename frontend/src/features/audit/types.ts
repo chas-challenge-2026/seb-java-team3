@@ -13,5 +13,7 @@ export type AuditEntry = {
   status: string;
   referens: string;
   belopp: string;
+  saldoFore: string;
+  saldoEfter: string;
   betalning: string;
 };

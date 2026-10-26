@@ -7,11 +7,15 @@ import { formatAmount } from "../utils/formatters";
 type PaymentAuditDetailsProps = {
   paymentId: string;
   id: string;
+  saldoFore: string;
+  saldoEfter: string;
 };
 
 export default function PaymentAuditDetails({
   paymentId,
   id,
+  saldoFore,
+  saldoEfter,
 }: PaymentAuditDetailsProps) {
   const { data, isPending, isError } = useQuery(
     paymentAuditTimelineQueryOptions(paymentId),
@@ -60,6 +64,14 @@ export default function PaymentAuditDetails({
         <div>
           <dt>Referens</dt>
           <dd>{payment.reference?.trim() || "-"}</dd>
+        </div>
+        <div>
+          <dt>Saldo före betalning</dt>
+          <dd>{saldoFore}</dd>
+        </div>
+        <div>
+          <dt>Saldo efter betalning</dt>
+          <dd>{saldoEfter}</dd>
         </div>
       </dl>
       <ol className={styles.timeline}>

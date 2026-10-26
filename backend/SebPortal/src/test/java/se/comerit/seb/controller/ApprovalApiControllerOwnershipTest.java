@@ -17,6 +17,7 @@ import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
 import se.comerit.seb.security.JwtUserContext;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // #116:s ägarkontroll genom hela kedjan: JWT-filter -> säkerhetskedjor -> controller ->
@@ -65,6 +67,10 @@ class ApprovalApiControllerOwnershipTest {
 
     @MockBean
     private AuditService auditService;
+
+    // ApprovalService slår upp initiatörens namn för attestkorgen
+    @MockBean
+    private UserRepository userRepository;
 
     private Payment payment;
     private ApprovalStep step;
@@ -111,7 +117,8 @@ class ApprovalApiControllerOwnershipTest {
     void approve_asAttestantWhoOwnsTheStep_returns204AndApprovesTheStep() throws Exception {
         Account account = mock(Account.class);
         when(account.getBalance()).thenReturn(new BigDecimal("1000.00"));
-        when(accountRepository.findById(ACCOUNT_ID.intValue())).thenReturn(Optional.of(account));
+        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
+                .thenReturn(Optional.of(account));
 
         mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
@@ -121,7 +128,64 @@ class ApprovalApiControllerOwnershipTest {
         assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
     }
 
+    // R-04: rätt attestant, men betalningen pekar på ett konto som ägs av ett annat företag.
+    // Den tenant-scopade frågan svarar tomt (som databasen gör), så pengarna flyttas inte.
+    @Test
+    void approve_whenTheAccountBelongsToAnotherTenant_returns400AndDoesNotCompleteThePayment() throws Exception {
+        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Från-kontot finns inte eller tillhör inte ditt företag"));
+
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        verifyNoInteractions(auditService);
+    }
+
     private String tokenFor(Long userId) {
         return jwtService.generateToken(new AuthenticatedUserContext(userId, TENANT_ID, Role.ATTESTANT));
+    }
+
+    @Test
+    void admin_canApproveAnotherAttestantsStepInTheirCompany() throws Exception {
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("1000.00"));
+        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
+                .thenReturn(Optional.of(account));
+        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
+        org.mockito.Mockito.verify(account).setBalance(new BigDecimal("800.00"));
+        org.mockito.Mockito.verify(auditService).record(org.mockito.ArgumentMatchers.eq(TENANT_ID),
+                org.mockito.ArgumentMatchers.eq(99L), org.mockito.ArgumentMatchers.eq("APPROVE_PAYMENT"),
+                org.mockito.ArgumentMatchers.eq("PAYMENT"), org.mockito.ArgumentMatchers.eq(PAYMENT_ID),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void admin_canRejectAnotherAttestantsStepInTheirCompany() throws Exception {
+        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        assertEquals(PaymentStatus.REJECTED, payment.getStatus());
+        verifyNoInteractions(accountRepository);
+    }
+
+    @Test
+    void admin_cannotApproveOrRejectAnotherCompanysStep() throws Exception {
+        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID + 1, Role.ADMIN));
+        for (String action : new String[] {"approve", "reject"}) {
+            mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isForbidden());
+        }
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        verifyNoInteractions(accountRepository, auditService);
     }
 }

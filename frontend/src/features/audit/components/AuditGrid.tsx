@@ -33,7 +33,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
         <div>
           <h2>Auditlogg</h2>
           <p className={styles.description}>
-            Senaste händelsen per betalning med full historik vid behov.
+            Senaste händelsen per betalning. Öppna en rad för saldon, referens och historik.
           </p>
         </div>
         <div className={styles.count} aria-label={`${entries.length} händelser`}>
@@ -50,7 +50,6 @@ export default function AuditGrid({ entries }: AuditGridProps) {
               <th>Vem</th>
               <th>Händelse</th>
               <th>Status</th>
-              <th>Referens</th>
               <th>Belopp</th>
               <th>Betalning</th>
             </tr>
