@@ -9,13 +9,13 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 33 klasser, 221 tester | Alla gröna vid lokal körning 2026-10-26, inklusive Testcontainers-testet mot Postgres 12 |
+| Backend · JUnit | 38 klasser, 258 tester | Gröna vid lokal körning 2026-10-26, utom de två Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest` (Docker låg nere, de körs i CI) och fem som hoppas över utan byggd `libauditsigner.so` |
 | Frontend · Vitest | 20 filer, 170 tester | Alla gröna vid lokal körning 2026-10-26 |
 | Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla gröna 2026-10-26 i en gcc-container med Check; sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-10-26 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-26, efter sammanslagningen av #226 |
 
-Alla 221 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-26. `ApprovalServiceTransactionIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+De 258 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-26, med undantag för de två Testcontainers-testerna som nämns i tabellen. `ApprovalServiceTransactionIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -131,7 +131,10 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Beslutshändelser skrivs atomärt (BUG-008, R-02) | Int | Delvis | `ApprovalServiceTransactionIntegrationTest` · 2 (godkännande mot Postgres 12); avvisning saknar test mot riktig databas |
 | Tenant-filtrering hindrar läckage (R-04) | Int | Delvis | `AccountRepositoryTenantTest` · 6 och `AccountServiceTest` · 5 (konton, H2). Audit, tidslinje, betalningar och attester saknar fortfarande test av faktisk filtrering |
 | Ordningen är stabil vid samma tidsstämpel | Int | Ej testad | Inget sorteringstest |
-| Auditloggen visar från-konto, märker betalningar under tröskeln som Automatiskt godkänd och filtrerar på status (UX-feedback) | Unit + Komp | Grön | `AuditServiceAuditEntriesTest` · 7; `features/audit/utils/mappers.test.ts` · 5; `features/audit/components/AuditGrid.test.tsx` · 4 |
+| Signerad granskningslogg: kedjan upptäcker ändrad, borttagen, ombytt eller förfalskad rad | Unit | Grön | `native/audit/audit_signer_test.c` · 39 Check-tester; `AuditSignerNativeIntegrationTest` · 5 mot det riktiga biblioteket (hoppas över om `libauditsigner.so` inte är byggd) |
+| Signerad rad skrivs först efter commit och aldrig vid rollback | Unit | Grön | `AuditServiceSigningTest` · 6 |
+| Signeringsfel stoppar inte flödet, gränser och konfiguration | Unit | Grön | `AuditSignerServiceTest` · 18 |
+| Hälsokontroll visar trasig kedja eller saknade rader; `/actuator/health` är öppen utan detaljer | Unit + Int | Grön | `AuditSignerHealthIndicatorTest` · 5; `AuditSignerWiringTest` · 3 (hela appen på H2) |
 | Mina betalningar visar vilket konto betalningen dras från och vem som ska attestera, godkände eller avvisade (UX-feedback) | Unit + Int | Grön | `AuditServiceMyPaymentsTest` · 7; `AuditControllerMyPaymentsTest` (`fromAccountName` och `approvalSteps` i svaret); `features/audit/utils/formatters.test.ts` · 6 |
 
 **Avgränsningar och kvar att testa**

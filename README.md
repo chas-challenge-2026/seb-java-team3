@@ -84,6 +84,7 @@ Dev-värdena i `application.properties` får aldrig användas i stage eller prod
 | `JWT_SECRET` | Signering av JWT, se ADR 0009 |
 | `AUDIT_SIGNING_KEY` | HMAC-nyckel för den signerade granskningsloggen (native audit-signering) |
 | `AUDIT_LOG_PATH` | Loggfilens sökväg. I Docker ligger den på volymen `auditlog` (`/app/audit`) så att den överlever omstart |
+| `AUDIT_SIGNING_REQUIRED` | Sätt `true` i stage och produktion. Appen vägrar då starta utan native-biblioteket och med dev-nyckeln |
 
 ---
 
@@ -115,7 +116,7 @@ ChasChallenge/
 │       │   ├── dto/              — Request/response-objekt
 │       │   ├── security/         — JWT-tjänst och -filter, rollhantering
 │       │   ├── exception/        — Felhantering
-│       │   └── infrastructure/   — JNA-wrappers mot native bibliotek (iban)
+│       │   └── infrastructure/   — JNA-wrappers mot native bibliotek (iban, audit)
 │       ├── src/main/resources/
 │       │   ├── db/migration/     — Flyway-migrationer
 │       │   ├── templates/        — Thymeleaf-vyer
@@ -186,7 +187,7 @@ GitHub Actions kör `mvn package` (Maven) och lint, Vitest och build (frontend) 
 |-------|--------|----------------------|
 | `native/iban` — IBAN MOD97 och BIC | Klar, 36 tester | Ja, via JNA med Java-fallback |
 | `native/csv` — CSV-batchparser | Klar, 37 tester | Nej, väntar på batch-uppladdningen |
-| `native/audit` — signerad granskningslogg | Klar, 39 tester | Nej, JNA-wrapper och koppling mot `AuditService` återstår |
+| `native/audit` — signerad granskningslogg | Klar, 39 tester | Ja, via JNA. `AuditService` skriver en signerad rad efter varje committad händelse, kedjan verifieras vid start och syns i `/actuator/health` |
 
 `cd native && make lib` bygger alla tre till `native/build/lib/`. Detaljer, API och format står i [native/README.md](native/README.md).
 
@@ -220,7 +221,6 @@ Det här är medvetet inte byggt i MVP (ADR 0003, [docs/mvp.md](docs/mvp.md)):
 - Batch/CSV-uppladdning med allt-eller-inget (parsern finns, endpointen och vyn saknas)
 - Påminnelser via e-post med kö och retry
 - Dubbel attest, attestant 2 (VD) och tröskeltrappa (datamodellen stöder flera steg)
-- Koppling av den signerade granskningsloggen till `AuditService`
 - Förfallodatum på betalningar (ADR 0013)
 - Compliance-export, 2FA och valutaomvandling (allt hanteras i SEK)
 

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
@@ -12,6 +13,7 @@ import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.dto.AccountResponse;
+import se.comerit.seb.infrastructure.audit.AuditSignerService;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
@@ -33,6 +35,10 @@ class AccountBalanceAfterApprovalTest {
 
     private static final Long TENANT = 1L;
     private static final Long ATTESTANT_ID = 7L;
+
+    // AuditService skriver en signerad rad efter commit; i H2-testet behövs ingen riktig signering
+    @MockBean
+    private AuditSignerService auditSigner;
 
     @Autowired
     private ApprovalService approvalService;

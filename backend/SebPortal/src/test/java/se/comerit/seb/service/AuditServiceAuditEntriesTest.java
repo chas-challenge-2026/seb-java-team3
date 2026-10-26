@@ -11,6 +11,7 @@ import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.infrastructure.audit.AuditSignerService;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.AuditRepository;
 import se.comerit.seb.repository.PaymentRepository;
@@ -51,7 +52,7 @@ class AuditServiceAuditEntriesTest {
         paymentRepository = mock(PaymentRepository.class);
         accountRepository = mock(AccountRepository.class);
         auditService = new AuditService(auditRepository, mock(UserRepository.class), paymentRepository,
-                accountRepository);
+                accountRepository, mock(AuditSignerService.class));
     }
 
     @Test

@@ -201,7 +201,7 @@ public boolean validateIban(String iban) {
 
 ### Status
 - ✅ **IMPLEMENTERAD** — C-biblioteket med enhetstester
-- ⏳ JNA-wrapper och koppling mot `AuditService` återstår
+- ✅ **IMPLEMENTERAD** — JNA-wrapper, koppling mot `AuditService`, verifiering vid start och hälsokontroll
 
 ### Format
 
@@ -243,25 +243,26 @@ int audit_verify(const char* log_path, const char* secret_key);
 - Rader som tas bort **i slutet** av loggen upptäcks inte av en hashkedja ensam (inget senare finns som märker det). Skydda genom att spara senaste hashen på annat ställe, t.ex. i databasen
 - Den som känner till `secret_key` kan skapa en giltig kedja
 
-### Java JNA-wrapper (ska implementeras)
+### Java-integration (implementerad)
 
-```java
-import com.sun.jna.*;
+Se `backend/SebPortal/src/main/java/se/comerit/seb/infrastructure/audit/`:
 
-public interface AuditSignerLib extends Library {
-    AuditSignerLib INSTANCE = Native.load("auditsigner", AuditSignerLib.class);
-    int audit_append(String logPath, String secretKey, int userId,
-                     String action, int entityId, String description);
-    int audit_verify(String logPath, String secretKey);
-}
-// secret_key läses från miljövariabel AUDIT_SIGNING_KEY (aldrig i källkod) —
-// i Spring t.ex. via @Value("${audit.signing-key}") bundet mot env.
-```
+- `AuditSignerLib` — JNA-interfacet. Till skillnad från `IbanLib` finns ingen statisk `INSTANCE`: ett misslyckat statiskt laddningsförsök hade förstört klassen för resten av JVM:en. Ladda med `AuditSignerLib.load()`
+- `AuditSignerService` — läser `audit.signing-key`, `audit.log-path` och `audit.signing-required`, skriver rader (`append`) och verifierar kedjan (`verify`)
+- `AuditSignerHealthIndicator` — visar kedjans skick i `/actuator/health`
+
+Så fungerar kopplingen:
+- `AuditService.record()` sparar databasraden som vanligt och skriver den signerade raden **efter commit**. En händelse som rullas tillbaka hamnar alltså aldrig i den signerade loggen
+- Ett signeringsfel stoppar inte betalningen. Det loggas, räknas, och hälsokontrollen blir DOWN tills appen startas om
+- Kedjan verifieras vid appstart och därefter högst en gång i minuten när hälsokontrollen frågar. DOWN betyder trasig kedja, oläsbar fil eller saknade rader. UNKNOWN betyder att signering är avstängd (inget bibliotek eller ingen nyckel)
+- Javasidan kapar `action` till 64 och `description` till 1024 byte (UTF-8) och byter CR/LF/NUL mot mellanslag, eftersom C-biblioteket annars avvisar raden
+- `audit.signing-required=true` (`AUDIT_SIGNING_REQUIRED=true`) gör att appen vägrar starta utan biblioteket, utan nyckel eller med dev-nyckeln. Sätt det i stage och produktion
+- Den signerade raden innehåller användare, action, entitets-id och beskrivning, men inte tenant eller entitetstyp (C-API:t har inga fält för dem). Dessa finns kvar i databastabellen `audit_entries`
 
 ### Säkerhetskrav
-- `secret_key` ska aldrig lagras i källkod — läses från miljövariabel `AUDIT_SIGNING_KEY`
-- Filen ska öppnas med `O_APPEND | O_SYNC` för att förhindra partiella skrivningar
-- Verifiering ska köras vid applikationsstart (t.ex. `@PostConstruct` / `ApplicationRunner`) och rapporteras i healthcheck (Spring Actuator `HealthIndicator`)
+- `secret_key` lagras aldrig i källkod i produktion — läses från miljövariabel `AUDIT_SIGNING_KEY` (dev-defaulten i `application.properties` är bara för lokal körning)
+- Filen öppnas med `O_APPEND | O_SYNC` för att förhindra partiella skrivningar
+- Verifiering körs vid applikationsstart och rapporteras i healthcheck
 
 ---
 
