@@ -52,9 +52,6 @@ export default function AuditGridRow({
         <td data-label="Status" className={styles.noWrap}>
           <span className={styles.status}>{entry.status}</span>
         </td>
-        <td data-label="Referens" className={styles.reference}>
-          {entry.referens}
-        </td>
         <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
           {entry.belopp}
         </td>
@@ -70,8 +67,13 @@ export default function AuditGridRow({
       </tr>
       {isExpanded && (
         <tr className={styles.detailsRow}>
-          <td colSpan={8}>
-            <PaymentAuditDetails paymentId={entry.paymentId} id={detailsId} />
+          <td colSpan={7}>
+            <PaymentAuditDetails
+              paymentId={entry.paymentId}
+              id={detailsId}
+              saldoFore={entry.saldoFore}
+              saldoEfter={entry.saldoEfter}
+            />
           </td>
         </tr>
       )}

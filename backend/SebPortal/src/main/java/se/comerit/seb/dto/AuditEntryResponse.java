@@ -19,6 +19,8 @@ public record AuditEntryResponse(
         String currency,
         LocalDateTime createdAt,
         String userName,
+        BigDecimal balanceBeforePayment,
+        BigDecimal balanceAfterPayment,
         String fromAccountName,
         boolean autoApproved
 ) {
@@ -29,6 +31,8 @@ public record AuditEntryResponse(
             String reference,
             BigDecimal amount,
             String currency,
+            BigDecimal balanceBeforePayment,
+            BigDecimal balanceAfterPayment,
             String fromAccountName,
             boolean autoApproved
     ) {
@@ -44,6 +48,8 @@ public record AuditEntryResponse(
                 currency,
                 entry.getCreatedAt(),
                 userName,
+                balanceBeforePayment,
+                balanceAfterPayment,
                 fromAccountName,
                 autoApproved
         );

@@ -15,6 +15,8 @@ function entry(id: string, reference: string, statusKey: string, status: string)
     statusKey,
     referens: reference,
     belopp: "7 500,00 SEK",
+    saldoFore: "10 000,00 SEK",
+    saldoEfter: "2 500,00 SEK",
     franKonto: "Driftkonto",
     betalning: `Betalning #${id}`,
   };
@@ -42,9 +44,10 @@ describe("AuditGrid", () => {
 
     await user.click(screen.getByRole("button", { name: "Genomförda 2" }));
 
-    expect(screen.queryByText("Faktura väntar")).not.toBeInTheDocument();
-    expect(screen.getByText("Faktura klar")).toBeInTheDocument();
-    expect(screen.getByText("Faktura också klar")).toBeInTheDocument();
+    // Referensen syns bara i den utfällda raden, så raderna känns igen på betalningsnumret
+    expect(screen.queryByText("Betalning #1")).not.toBeInTheDocument();
+    expect(screen.getByText("Betalning #2")).toBeInTheDocument();
+    expect(screen.getByText("Betalning #3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Genomförda 2" })).toHaveAttribute("aria-pressed", "true");
   });
 

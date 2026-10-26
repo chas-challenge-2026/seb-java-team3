@@ -316,9 +316,9 @@
 }
 
 .paymentSummary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: 0.75rem 1.25rem;
     margin: 0 0 1rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border-soft);

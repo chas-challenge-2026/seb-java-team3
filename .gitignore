@@ -24,3 +24,7 @@ application-local.properties
 
 # Byggstatus
 backend/SebPortal/target/maven-status/
+# Native build
+native/build/
+native/*/build/
+native/iban/test_simple

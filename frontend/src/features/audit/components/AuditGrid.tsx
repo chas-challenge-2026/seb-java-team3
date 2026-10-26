@@ -50,7 +50,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
         <div>
           <h2>Auditlogg</h2>
           <p className={styles.description}>
-            Senaste händelsen per betalning med full historik vid behov.
+            Senaste händelsen per betalning. Öppna en rad för saldon, referens och historik.
           </p>
           <div className={styles.filters} role="group" aria-label="Filtrera på status">
             {STATUS_FILTERS.map((filter) => (
@@ -80,7 +80,6 @@ export default function AuditGrid({ entries }: AuditGridProps) {
               <th>Vem</th>
               <th>Händelse</th>
               <th>Status</th>
-              <th>Referens</th>
               <th>Belopp</th>
               <th>Från konto</th>
               <th>Betalning</th>
@@ -89,7 +88,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
           <tbody>
             {visibleEntries.length === 0 ? (
               <tr>
-                <td colSpan={8} className={styles.stateText}>
+                <td colSpan={7} className={styles.stateText}>
                   Inga betalningar med den statusen.
                 </td>
               </tr>

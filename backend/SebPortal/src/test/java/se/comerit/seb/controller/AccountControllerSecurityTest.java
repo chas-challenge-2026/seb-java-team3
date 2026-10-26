@@ -58,11 +58,17 @@ class AccountControllerSecurityTest {
     }
 
     @Test
-    void getAccounts_asAttestant_returns403() throws Exception {
-        mockMvc.perform(get("/api/accounts").header("Authorization", bearer(Role.ATTESTANT)))
-                .andExpect(status().isForbidden());
+    void getAccounts_asAttestant_returns200WithAccounts() throws Exception {
+        when(accountService.getAccounts(any())).thenReturn(List.of(
+                new AccountResponse(1, "Driftkonto", "SE0000000000000000000010",
+                        new BigDecimal("1000.00"), BigDecimal.ZERO, new BigDecimal("1000.00"), "SEK")));
 
-        verify(accountService, never()).getAccounts(any());
+        mockMvc.perform(get("/api/accounts").header("Authorization", bearer(Role.ATTESTANT)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Driftkonto"))
+                .andExpect(jsonPath("$[0].balance").value(1000.00));
+
+        verify(accountService).getAccounts(new AuthenticatedUserContext(1L, 1L, Role.ATTESTANT));
     }
 
     @Test

@@ -80,10 +80,13 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
   await test.step("audit visar hela händelsekedjan med vem som gjorde vad", async () => {
     await menu(attestant).getByRole("link", { name: "Historik" }).click();
 
-    const row = rowWith(attestant, reference);
+    // Referensen visas bara när raden fälls ut, så raden hittas på beloppet. Loggen är sorterad med den
+    // senaste händelsen först, och godkännandet nyss är den senaste.
+    const row = attestant.locator("tbody tr").filter({ hasText: AMOUNT_SHOWN }).first();
+    await expect(row).toContainText("Betalning godkänd");
     await expect(row).toContainText("Genomförd");
-    await expect(row).toContainText(AMOUNT_SHOWN);
     await row.click();
+    await expect(attestant.locator("tbody")).toContainText(reference);
 
     const timeline = attestant.getByRole("list").filter({ hasText: "Betalning skapad" });
     await expect(

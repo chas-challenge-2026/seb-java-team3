@@ -16,7 +16,7 @@ Denna katalog innehåller (i v2) tre prestandakritiska och säkerhetskritiska mo
 
 ## Modul 1: CSV-batchparser
 
-**Fil:** `csv_parser.c` / `csv_parser.h`  
+**Fil:** `csv/csv_parser.c` / `csv/csv_parser.h`  
 **Kompilering:** `gcc -O2 -fopenmp -shared -fPIC -o libcsvparser.so csv_parser.c`
 
 ### API
@@ -81,11 +81,12 @@ public interface CsvParserLib extends Library {
 
 ## Modul 2: IBAN/BIC-validator
 
-**Filer:** 
+**Filer (i `native/iban/`):** 
 - `iban_validator.h` — API-definition
 - `iban_validator.c` — Implementering (ISO 13616 MOD97 + ISO 9362 BIC-validering)
 - `iban_validator_test.c` — Enhetstester (Check framework)
-- `Makefile` — Bygg- och testskript
+- `test_simple.c` — Fristående testprogram utan Check
+- `Makefile` — Bygg- och testskript för modulen (anropas från `native/Makefile`)
 
 ### Status
 - ✅ **IMPLEMENTERAD** — MOD97-algoritm, BIC-validering, enhetstester
@@ -156,10 +157,10 @@ Testsviten (`iban_validator_test.c`) täcker:
 
 ```bash
 # Bygga delad bibliotek (.so):
-gcc -O2 -shared -fPIC -o native/build/lib/libiban.so native/iban_validator.c
+gcc -O2 -shared -fPIC -o native/build/lib/libiban.so native/iban/iban_validator.c
 
 # Länka test (kräver Check-ramverk):
-gcc -std=c99 -Wall -Wextra native/iban_validator_test.c native/iban_validator.c \
+gcc -std=c99 -Wall -Wextra native/iban/iban_validator_test.c native/iban/iban_validator.c \
     $(pkg-config --cflags --libs check) -o native/build/test/iban_validator_test
 ./native/build/test/iban_validator_test
 ```
@@ -195,22 +196,32 @@ public boolean validateIban(String iban) {
 
 ## Modul 3: Audit-signering (append-only, tamper-evident)
 
-**Fil:** `audit_signer.c` / `audit_signer.h`  
-**Kompilering:** `gcc -O2 -shared -fPIC -o libauditsigner.so audit_signer.c -lssl -lcrypto`
+**Filer:** `audit/audit_signer.h`, `audit/audit_signer.c`, `audit/audit_signer_test.c` (39 Check-tester), `audit/Makefile`  
+**Bibliotek:** `libauditsigner.so` (länkar mot OpenSSL: `libssl-dev` vid bygge, `libssl3` i runtime)
+
+### Status
+- ✅ **IMPLEMENTERAD** — C-biblioteket med enhetstester
+- ⏳ JNA-wrapper och koppling mot `AuditService` återstår
 
 ### Format
 
-Varje loggrad: `TIMESTAMP|USER_ID|ACTION|ENTITY_ID|DESCRIPTION|PREV_HASH|HMAC`
+Varje loggrad slutar med `\n`: `TIMESTAMP|USER_ID|ACTION|ENTITY_ID|DESCRIPTION|PREV_HASH|HMAC`
 
-- `PREV_HASH`: SHA256 av föregående rads hela innehåll (hex)
-- `HMAC`: HMAC-SHA256(rad_utan_hmac, secret_key) (hex)
-- Första radens `PREV_HASH` = `0000...0000` (64 nollor)
+- `TIMESTAMP`: sätts av biblioteket, UTC, `YYYY-MM-DDTHH:MM:SSZ`
+- `PREV_HASH`: SHA-256 (gemena hex) av hela föregående rad, inklusive dess HMAC och utan radbrytningen. Första radens `PREV_HASH` = 64 nollor
+- `HMAC`: HMAC-SHA256 (gemena hex) med `secret_key` över raden fram till, men utan, `|` framför HMAC-fältet
+- `ACTION` och `DESCRIPTION` escapas: `|` blir `\|` och `\` blir `\\`. CR och LF är inte tillåtna (anropet misslyckas)
+- Gränser: `ACTION` högst 64 tecken, `DESCRIPTION` högst 1024 tecken (före escapning). För långa värden avvisas, de kapas inte
+- Filen skapas med rättigheterna 0600 och öppnas med `O_APPEND | O_SYNC`
+- Samtidiga anrop (trådar och processer) serialiseras med `flock`, så kedjan kan inte grenas
 
 ### API
 
 ```c
-// Lägg till en loggrad. Hämtar föregående hash från log_path automatiskt.
-// Returnerar 0 vid lyckat skrivande, -1 vid fel.
+// Lägg till en signerad loggrad. Hämtar föregående hash från log_path automatiskt.
+// Returnerar 0 (AUDIT_OK) vid lyckat skrivande, -1 (AUDIT_ERROR) vid fel. Vid fel skrivs ingenting.
+// Fel: NULL-argument, tom nyckel eller tom action, för långa fält, CR/LF i fält,
+// filen kan inte öppnas, eller sista raden i filen saknar radbrytning (avbruten skrivning).
 int audit_append(
     const char* log_path,
     const char* secret_key,
@@ -220,10 +231,17 @@ int audit_append(
     const char* description
 );
 
-// Verifiera hela loggfilen. Returnerar -1 om ok, annars radnummer för
-// första trasiga posten (1-indexerat).
+// Verifiera hela loggfilen. Returnerar:
+//   -1 (AUDIT_VERIFY_OK)       hela kedjan stämmer. Saknad eller tom fil räknas som en intakt, tom logg
+//   n >= 1                     radnummer (1-indexerat) för första trasiga posten: fel hash/HMAC,
+//                              felformaterad rad, blank rad eller sista raden utan radbrytning
+//   0 (AUDIT_VERIFY_IO_ERROR)  NULL-argument eller filen kan inte läsas (t.ex. en katalog)
 int audit_verify(const char* log_path, const char* secret_key);
 ```
+
+### Begränsningar
+- Rader som tas bort **i slutet** av loggen upptäcks inte av en hashkedja ensam (inget senare finns som märker det). Skydda genom att spara senaste hashen på annat ställe, t.ex. i databasen
+- Den som känner till `secret_key` kan skapa en giltig kedja
 
 ### Java JNA-wrapper (ska implementeras)
 
@@ -251,29 +269,12 @@ public interface AuditSignerLib extends Library {
 
 ```bash
 cd native/
-make all   # kompilerar alla tre .so-filer
-make test  # kör enhetstester (kräver check.h eller cmocka)
+make lib          # bygger alla .so-filer till native/build/lib/
+make test         # kör enhetstester för alla moduler (kräver Check)
+make test-iban    # kör bara en moduls tester
+make iban         # bygger bara en modul
 ```
+
+Varje modul ligger i en egen mapp (`native/iban/`, `native/csv/`, `native/audit/`) med en egen `Makefile`. Toppnivå-`Makefile` loopar över modulerna i `MODULES` — lägg till nya moduler där. Mellanfiler hamnar i `native/build/<modul>/` och alla bibliotek i `native/build/lib/`.
 
 `.so`-filerna måste ligga på `jna.library.path` (eller `java.library.path`) i runtime — t.ex. starta JVM med `-Djna.library.path=native/build/lib` eller kopiera in dem i Docker-imagen.
-
-Makefile (ska skapas i v2):
-```makefile
-CC = gcc
-CFLAGS = -O2 -Wall -fPIC
-LDFLAGS = -shared
-
-all: libcsvparser.so libiban.so libauditsigner.so
-
-libcsvparser.so: csv_parser.c
-	$(CC) $(CFLAGS) -fopenmp $(LDFLAGS) -o $@ $<
-
-libiban.so: iban_validator.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
-
-libauditsigner.so: audit_signer.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lssl -lcrypto
-
-clean:
-	rm -f *.so
-```

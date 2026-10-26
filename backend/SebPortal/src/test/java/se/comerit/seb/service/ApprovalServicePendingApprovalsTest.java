@@ -65,6 +65,36 @@ class ApprovalServicePendingApprovalsTest {
 
         assertEquals("Driftkonto", approval.fromAccountName());
         assertEquals("Lisa Persson", approval.initiatorName());
+        assertEquals(new BigDecimal("2500.00"), approval.balanceAfterPayment());
+    }
+
+    @Test
+    void calculatesEachPaymentFromItsOwnAccountAndKeepsNegativeBalances() {
+        Account first = account(1, "Driftkonto");
+        Account second = account(2, "Lönekonto");
+        when(second.getBalance()).thenReturn(new BigDecimal("5000.00"));
+        when(paymentRepository.findPendingApprovalsForAttestant(TENANT, ATTESTANT_ID))
+                .thenReturn(List.of(payment(100L, 1L, INITIATOR_ID, ATTESTANT_ID),
+                        payment(101L, 2L, INITIATOR_ID, ATTESTANT_ID),
+                        payment(102L, 1L, INITIATOR_ID, ATTESTANT_ID)));
+        when(accountRepository.findByTenantIdOrderByIdAsc(TENANT)).thenReturn(List.of(first, second));
+
+        List<PendingApprovalResponse> approvals = approvalService.getPendingApprovals(attestant);
+
+        assertEquals(new BigDecimal("2500.00"), approvals.get(0).balanceAfterPayment());
+        assertEquals(new BigDecimal("-2500.00"), approvals.get(1).balanceAfterPayment());
+        assertEquals(new BigDecimal("2500.00"), approvals.get(2).balanceAfterPayment());
+    }
+
+    @Test
+    void doesNotSubtractDifferentCurrencies() {
+        Account account = account(1, "Eurokonto");
+        when(account.getCurrency()).thenReturn("EUR");
+        when(paymentRepository.findPendingApprovalsForAttestant(TENANT, ATTESTANT_ID))
+                .thenReturn(List.of(payment(100L, 1L, INITIATOR_ID, ATTESTANT_ID)));
+        when(accountRepository.findByTenantIdOrderByIdAsc(TENANT)).thenReturn(List.of(account));
+
+        assertNull(approvalService.getPendingApprovals(attestant).get(0).balanceAfterPayment());
     }
 
     @Test
@@ -80,6 +110,7 @@ class ApprovalServicePendingApprovalsTest {
         PendingApprovalResponse approval = approvalService.getPendingApprovals(attestant).get(0);
 
         assertNull(approval.fromAccountName());
+        assertNull(approval.balanceAfterPayment());
         assertNull(approval.initiatorName());
     }
 
@@ -125,6 +156,8 @@ class ApprovalServicePendingApprovalsTest {
         Account account = mock(Account.class);
         when(account.getId()).thenReturn(id);
         when(account.getAccountName()).thenReturn(name);
+        when(account.getBalance()).thenReturn(new BigDecimal("10000.00"));
+        when(account.getCurrency()).thenReturn("SEK");
         return account;
     }
 

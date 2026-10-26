@@ -12,6 +12,8 @@ export const auditApiEntrySchema = z.object({
   currency: z.string().nullable(),
   createdAt: z.string(),
   userName: z.string(),
+  balanceBeforePayment: z.number().nullable().default(null),
+  balanceAfterPayment: z.number().nullable().default(null),
   // Kontot betalningen dras från. Null om det inte går att slå upp.
   fromAccountName: z.string().nullable().default(null),
   // Genomförd utan atteststeg, eftersom beloppet låg under tröskeln

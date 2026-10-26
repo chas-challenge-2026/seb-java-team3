@@ -18,9 +18,16 @@ export function toAuditEntry(raw: AuditApiEntry): AuditEntry {
     statusKey: raw.status,
     referens: raw.reference?.trim() || "-",
     belopp: formatAmount(raw.amount, raw.currency),
+    saldoFore: formatHistoricalBalance(raw.balanceBeforePayment, raw),
+    saldoEfter: formatHistoricalBalance(raw.balanceAfterPayment, raw),
     franKonto: raw.fromAccountName ?? "-",
     betalning: formatEntityLabel(raw.entityType, raw.entityId),
   };
+}
+
+function formatHistoricalBalance(balance: number | null, entry: AuditApiEntry): string {
+  if (balance != null) return formatAmount(balance, entry.currency);
+  return entry.status === "COMPLETED" ? "Saknas i historiken" : "Ej genomförd";
 }
 
 export function latestAuditEntryByPayment(entries: AuditApiEntry[]): AuditApiEntry[] {

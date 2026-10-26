@@ -146,7 +146,8 @@ public class PaymentService {
         if (request.amount().compareTo(thresholds.getNoAttestantThreshold()) <= 0) {
             // Upp till och med tröskeln (strikt > krävs för attest): ingen attestant
             // behövs, betalningen är klar direkt
-            account.setBalance(account.getBalance().subtract(request.amount()));
+            payment.recordAccountDebit(account.getBalance());
+            account.setBalance(payment.getBalanceAfterPayment());
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 

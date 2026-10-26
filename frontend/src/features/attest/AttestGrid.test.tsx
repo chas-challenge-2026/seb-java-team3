@@ -28,6 +28,7 @@ const step: AttestSteg = {
   createdAt: "2026-09-28T13:52:00",
   status: "Väntar",
   fromAccountName: "Driftkonto",
+  balanceAfterPayment: 87500,
   initiatorName: "Lisa Persson",
 };
 
@@ -37,16 +38,16 @@ type RejectMutate = (input: { stepId: number; comment: string }, options: Mutate
 
 function mockApprovals(
   mutate: (id: number, options: MutateOptions) => void,
-  rejectMutate: RejectMutate = vi.fn(),
+  { reject = vi.fn(), data = [step] }: { reject?: RejectMutate; data?: AttestSteg[] } = {},
 ) {
   mockedUseApprovals.mockReturnValue({
-    data: [step],
+    data,
     isLoading: false,
     isError: false,
     isFetching: false,
     refetch: vi.fn(),
     approve: { mutate, isPending: false, variables: undefined },
-    reject: { mutate: rejectMutate, isPending: false, variables: undefined },
+    reject: { mutate: reject, isPending: false, variables: undefined },
   } as unknown as ReturnType<typeof useApprovals>);
 }
 
@@ -70,6 +71,18 @@ describe("AttestGrid", () => {
 
     const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
     expect(within(row).getByText(/^12\s500,00 SEK$/)).toBeInTheDocument();
+  });
+
+  it("shows the remaining balance for the payment account", () => {
+    mockApprovals(vi.fn());
+    render(<AttestGrid />);
+    expect(screen.getByText(/^Saldo efter betalning: 87\s500,00 SEK$/)).toBeInTheDocument();
+  });
+
+  it("does not show a made-up balance when the account balance is unavailable", () => {
+    mockApprovals(vi.fn(), { data: [{ ...step, balanceAfterPayment: null }] });
+    render(<AttestGrid />);
+    expect(screen.getByText("Saldo efter betalning: Kan inte beräknas")).toBeInTheDocument();
   });
 
   it("confirms which payment was approved", async () => {
@@ -146,7 +159,7 @@ describe("AttestGrid", () => {
   describe("avvisa", () => {
     it("asks for an optional reason before rejecting", async () => {
       const rejectMutate = vi.fn();
-      mockApprovals(vi.fn(), rejectMutate);
+      mockApprovals(vi.fn(), { reject: rejectMutate });
       const user = userEvent.setup();
       render(<AttestGrid />);
 
@@ -158,7 +171,7 @@ describe("AttestGrid", () => {
 
     it("rejects the payment with the reason that was written", async () => {
       const rejectMutate = vi.fn<RejectMutate>((_input, options) => options.onSuccess?.());
-      mockApprovals(vi.fn(), rejectMutate);
+      mockApprovals(vi.fn(), { reject: rejectMutate });
       const user = userEvent.setup();
       render(<AttestGrid />);
 
@@ -175,7 +188,7 @@ describe("AttestGrid", () => {
 
     it("can be cancelled without rejecting anything", async () => {
       const rejectMutate = vi.fn();
-      mockApprovals(vi.fn(), rejectMutate);
+      mockApprovals(vi.fn(), { reject: rejectMutate });
       const user = userEvent.setup();
       render(<AttestGrid />);
 
@@ -190,7 +203,7 @@ describe("AttestGrid", () => {
       const rejectMutate = vi.fn<RejectMutate>((_input, options) =>
         options.onError?.(new ApiError(400, "Kommentaren får vara högst 255 tecken.")),
       );
-      mockApprovals(vi.fn(), rejectMutate);
+      mockApprovals(vi.fn(), { reject: rejectMutate });
       const user = userEvent.setup();
       render(<AttestGrid />);
 

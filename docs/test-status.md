@@ -2,20 +2,20 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-15
+**Senast uppdaterad:** 2026-10-26
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 33 klasser, 218 tester | Alla gröna vid lokal körning 2026-10-15 |
-| Frontend · Vitest | 20 filer, 164 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Backend · JUnit | 221 tester | Alla gröna vid lokal körning 2026-10-26 |
+| Frontend · Vitest | 20 filer, 170 tester | Alla gröna vid lokal körning 2026-10-26 |
 | Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-15, inklusive kontrollerna av konto och attestant i Mina betalningar |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-26 (efter sammanslagning med #225) |
 
-Alla 218 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Alla 221 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-26. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -100,7 +100,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | --- | --- | --- | --- |
 | IBAN kontrolleras med MOD97 (BUG-003, R-10) | Unit | Grön | `IbanValidatorServiceTest`; `payment/schema.test.ts` (`ibanSchema`) |
 | BIC-format enligt ISO 9362 | Unit | Delvis | `IbanValidatorServiceTest.testValidBic/testInvalidBic` |
-| Native C-validering via JNA | Unit | Delvis | `native/iban_validator_test.c` · 36 Check-tester |
+| Native C-validering via JNA | Unit | Delvis | `native/iban/iban_validator_test.c` · 36 Check-tester |
 | Felaktigt IBAN stoppas i formuläret | Komp | Delvis | `PaymentForm.test.tsx` · test för ogiltigt IBAN |
 
 **Avgränsningar och kvar att testa**

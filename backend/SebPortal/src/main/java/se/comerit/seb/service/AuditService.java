@@ -112,6 +112,8 @@ public class AuditService {
                             payment.map(Payment::getReference).orElse(null),
                             payment.map(Payment::getAmount).orElse(null),
                             payment.map(Payment::getCurrency).orElse(null),
+                            payment.map(Payment::getBalanceBeforePayment).orElse(null),
+                            payment.map(Payment::getBalanceAfterPayment).orElse(null),
                             payment.map(p -> accountNamesById.get(p.getFromAccountId())).orElse(null),
                             payment.map(AuditService::isAutoApproved).orElse(false));
                 })
