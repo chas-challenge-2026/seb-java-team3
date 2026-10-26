@@ -9,17 +9,13 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Frontend · Vitest | 7 filer, 54 tester | Alla gröna vid lokal körning 2026-09-24 |
-| Backend · JUnit | 18 klasser, 116 tester | Alla gröna vid lokal körning 2026-10-14 |
-| Native C · Check | 112 tester (36 IBAN, 37 CSV, 39 audit) | Alla gröna vid lokal körning 2026-10-14. Sviten körs inte i CI |
-| Backend · JUnit | 31 klasser, 199 tester | Alla gröna vid lokal körning 2026-10-15 |
+| Backend · JUnit | 36 klasser, 239 tester | Gröna vid lokal körning 2026-10-26, utom de två Docker-testerna i `ApprovalServiceTransactionIntegrationTest` (Docker låg nere, de körs i CI) och fem som hoppas över utan byggd `libauditsigner.so` |
 | Frontend · Vitest | 17 filer, 145 tester | Alla gröna vid lokal körning 2026-10-15 |
-| Native C · Check | 36 tester | Ej körda: `check` saknas lokalt och sviten körs inte i CI |
+| Native C · Check | 112 tester (36 IBAN, 37 CSV, 39 audit) | Alla gröna vid lokal körning 2026-10-14. Sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-15, inklusive kontrollerna av konto och attestant i Mina betalningar |
 
-Alla 116 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-14. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
-Alla 199 backendtester, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-15. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+De 239 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-26, med undantag för Docker-testerna som nämns i tabellen. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.

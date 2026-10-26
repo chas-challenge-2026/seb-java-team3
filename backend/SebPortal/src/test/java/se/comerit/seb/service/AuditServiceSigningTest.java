@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import se.comerit.seb.domain.AuditEntry;
 import se.comerit.seb.infrastructure.audit.AuditSignerService;
+import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.AuditRepository;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
@@ -20,7 +21,8 @@ class AuditServiceSigningTest {
     private final AuditRepository auditRepository = mock(AuditRepository.class);
     private final AuditSignerService signer = mock(AuditSignerService.class);
     private final AuditService auditService = new AuditService(
-            auditRepository, mock(UserRepository.class), mock(PaymentRepository.class), signer);
+            auditRepository, mock(UserRepository.class), mock(PaymentRepository.class),
+            mock(AccountRepository.class), signer);
 
     @BeforeEach
     void startTransaction() {

@@ -49,16 +49,13 @@ public class AuditService {
     public AuditService(AuditRepository auditRepository,
                         UserRepository userRepository,
                         PaymentRepository paymentRepository,
+                        AccountRepository accountRepository,
                         AuditSignerService auditSigner) {
         this.auditRepository = auditRepository;
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
-        this.auditSigner = auditSigner;
-                        AccountRepository accountRepository) {
-        this.auditRepository = auditRepository;
-        this.userRepository = userRepository;
-        this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
+        this.auditSigner = auditSigner;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
