@@ -8,12 +8,55 @@ import org.springframework.data.repository.query.Param;
 
 import jakarta.persistence.LockModeType;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByTenantId(Long tenantId);
+
+    // Reserverat belopp på ett konto: summan av betalningar från kontot som väntar på attest. Tillgängligt
+    // saldo är saldot minus det, så en väntande betalning håller sina pengar tills den godkänns (dras)
+    // eller avvisas (släpps). Inget lagras, så reservationen kan aldrig komma ur synk med betalningarna.
+    @Query("""
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM Payment p
+            WHERE p.tenantId = :tenantId
+              AND p.fromAccountId = :accountId
+              AND p.status = se.comerit.seb.domain.PaymentStatus.PENDING_APPROVAL
+            """)
+    BigDecimal sumPendingAmountForAccount(
+            @Param("tenantId") Long tenantId,
+            @Param("accountId") Long accountId);
+
+    interface ReservedAmount {
+        Long getAccountId();
+
+        BigDecimal getTotal();
+    }
+
+    // Samma reservation för alla företagets konton på en gång (kontolistan).
+    @Query("""
+            SELECT p.fromAccountId AS accountId, SUM(p.amount) AS total
+            FROM Payment p
+            WHERE p.tenantId = :tenantId
+              AND p.status = se.comerit.seb.domain.PaymentStatus.PENDING_APPROVAL
+            GROUP BY p.fromAccountId
+            """)
+    List<ReservedAmount> sumPendingAmountPerAccount(@Param("tenantId") Long tenantId);
+
+    // Auditloggen: betalningarna bakom en lista händelser, med atteststegen i samma fråga och bara inom företaget.
+    @Query("""
+            SELECT DISTINCT p
+            FROM Payment p
+            LEFT JOIN FETCH p.approvalSteps
+            WHERE p.tenantId = :tenantId
+              AND p.id IN :paymentIds
+            """)
+    List<Payment> findByTenantIdAndIdInWithApprovalSteps(
+            @Param("tenantId") Long tenantId,
+            @Param("paymentIds") List<Long> paymentIds);
 
     // Mina betalningar: atteststegen hämtas i samma fråga, så att listan inte ger en extra fråga per betalning.
     @Query("""

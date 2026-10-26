@@ -13,12 +13,14 @@ export function toAuditEntry(raw: AuditApiEntry): AuditEntry {
     paymentId: String(raw.entityId),
     tid: formatDateTime(raw.createdAt),
     vem: raw.userName,
-    handelse: formatEventType(raw.action),
+    handelse: formatHandelse(raw),
     status: formatAuditStatus(raw.status),
+    statusKey: raw.status,
     referens: raw.reference?.trim() || "-",
     belopp: formatAmount(raw.amount, raw.currency),
     saldoFore: formatHistoricalBalance(raw.balanceBeforePayment, raw),
     saldoEfter: formatHistoricalBalance(raw.balanceAfterPayment, raw),
+    franKonto: raw.fromAccountName ?? "-",
     betalning: formatEntityLabel(raw.entityType, raw.entityId),
   };
 }
@@ -41,6 +43,16 @@ export function latestAuditEntryByPayment(entries: AuditApiEntry[]): AuditApiEnt
   }
 
   return [...latestByPayment.values()].sort(compareNewestFirst);
+}
+
+// En betalning under tröskeln genomförs direkt när den skapas, utan attest. Skapandet är då också
+// godkännandet, så händelsen visas som det.
+function formatHandelse(raw: AuditApiEntry): string {
+  if (raw.action === "CREATE_PAYMENT" && raw.autoApproved) {
+    return "Automatiskt godkänd";
+  }
+
+  return formatEventType(raw.action);
 }
 
 function formatEntityLabel(entityType: string, entityId: number): string {

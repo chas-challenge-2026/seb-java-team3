@@ -113,6 +113,41 @@ class ApprovalApiControllerOwnershipTest {
         verifyNoInteractions(accountRepository, auditService);
     }
 
+    // Attestanten och en admin beslutar om samma betalning samtidigt: den som kommer tvåa ska få 409 och
+    // ett begripligt meddelande, inte 500, och ingenting ska ändras en gång till.
+    @Test
+    void approve_whenThePaymentWasAlreadyRejected_returns409AndChangesNothing() throws Exception {
+        step.setStatus(ApprovalStepStatus.REJECTED);
+        payment.setStatus(PaymentStatus.REJECTED);
+
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Betalningen är redan behandlad. Ladda om sidan för att se det senaste."));
+
+        assertEquals(ApprovalStepStatus.REJECTED, step.getStatus());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
+    @Test
+    void reject_whenThePaymentWasAlreadyApproved_returns409AndChangesNothing() throws Exception {
+        step.setStatus(ApprovalStepStatus.APPROVED);
+        payment.setStatus(PaymentStatus.COMPLETED);
+
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"För sent\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Betalningen är redan behandlad. Ladda om sidan för att se det senaste."));
+
+        assertEquals(ApprovalStepStatus.APPROVED, step.getStatus());
+        assertNull(step.getComment());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
     @Test
     void approve_asAttestantWhoOwnsTheStep_returns204AndApprovesTheStep() throws Exception {
         Account account = mock(Account.class);

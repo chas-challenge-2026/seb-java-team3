@@ -35,7 +35,7 @@ export default function AuditGridRow({
           }
         }}
       >
-        <td data-label="Tid" className={styles.date}>
+        <td data-label="Tid" className={`${styles.date} ${styles.noWrap}`}>
           {entry.tid}
         </td>
         <td data-label="Vem" className={styles.actor}>
@@ -49,11 +49,14 @@ export default function AuditGridRow({
         <td data-label="Händelse" className={styles.eventCell}>
           {entry.handelse}
         </td>
-        <td data-label="Status">
+        <td data-label="Status" className={styles.noWrap}>
           <span className={styles.status}>{entry.status}</span>
         </td>
-        <td data-label="Belopp" className={styles.amount}>
+        <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
           {entry.belopp}
+        </td>
+        <td data-label="Från konto" className={`${styles.date} ${styles.noWrap}`}>
+          {entry.franKonto}
         </td>
         <td data-label="Betalning" className={styles.paymentCell}>
           <span className={styles.paymentLabel}>
@@ -64,8 +67,13 @@ export default function AuditGridRow({
       </tr>
       {isExpanded && (
         <tr className={styles.detailsRow}>
-          <td colSpan={6}>
-            <PaymentAuditDetails paymentId={entry.paymentId} id={detailsId} saldoFore={entry.saldoFore} saldoEfter={entry.saldoEfter} />
+          <td colSpan={7}>
+            <PaymentAuditDetails
+              paymentId={entry.paymentId}
+              id={detailsId}
+              saldoFore={entry.saldoFore}
+              saldoEfter={entry.saldoEfter}
+            />
           </td>
         </tr>
       )}

@@ -34,7 +34,12 @@ const step: AttestSteg = {
 
 type MutateOptions = { onSuccess?: () => void; onError?: (error: unknown) => void };
 
-function mockApprovals(mutate: (id: number, options: MutateOptions) => void, data = [step]) {
+type RejectMutate = (input: { stepId: number; comment: string }, options: MutateOptions) => void;
+
+function mockApprovals(
+  mutate: (id: number, options: MutateOptions) => void,
+  { reject = vi.fn(), data = [step] }: { reject?: RejectMutate; data?: AttestSteg[] } = {},
+) {
   mockedUseApprovals.mockReturnValue({
     data,
     isLoading: false,
@@ -42,6 +47,7 @@ function mockApprovals(mutate: (id: number, options: MutateOptions) => void, dat
     isFetching: false,
     refetch: vi.fn(),
     approve: { mutate, isPending: false, variables: undefined },
+    reject: { mutate: reject, isPending: false, variables: undefined },
   } as unknown as ReturnType<typeof useApprovals>);
 }
 
@@ -74,7 +80,7 @@ describe("AttestGrid", () => {
   });
 
   it("does not show a made-up balance when the account balance is unavailable", () => {
-    mockApprovals(vi.fn(), [{ ...step, balanceAfterPayment: null }]);
+    mockApprovals(vi.fn(), { data: [{ ...step, balanceAfterPayment: null }] });
     render(<AttestGrid />);
     expect(screen.getByText("Saldo efter betalning: Kan inte beräknas")).toBeInTheDocument();
   });
@@ -134,6 +140,7 @@ describe("AttestGrid", () => {
         isPending: false,
         variables: undefined,
       },
+      reject: { mutate: vi.fn(), isPending: false, variables: undefined },
     };
     mockedUseApprovals.mockImplementation(
       () => ({ ...approvals }) as unknown as ReturnType<typeof useApprovals>,
@@ -147,5 +154,65 @@ describe("AttestGrid", () => {
     expect(
       screen.getByText(/är godkänd\. Inget mer väntar på ditt godkännande\./),
     ).toBeInTheDocument();
+  });
+
+  describe("avvisa", () => {
+    it("asks for an optional reason before rejecting", async () => {
+      const rejectMutate = vi.fn();
+      mockApprovals(vi.fn(), { reject: rejectMutate });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+
+      expect(screen.getByLabelText("Anledning (valfritt)")).toHaveFocus();
+      expect(rejectMutate).not.toHaveBeenCalled();
+    });
+
+    it("rejects the payment with the reason that was written", async () => {
+      const rejectMutate = vi.fn<RejectMutate>((_input, options) => options.onSuccess?.());
+      mockApprovals(vi.fn(), { reject: rejectMutate });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+      await user.type(screen.getByLabelText("Anledning (valfritt)"), "Otillräckligt saldo");
+      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+
+      expect(rejectMutate).toHaveBeenCalledWith({ stepId: 7, comment: "Otillräckligt saldo" }, expect.anything());
+      expect(
+        screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00 SEK är avvisad\./),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText("Anledning (valfritt)")).not.toBeInTheDocument();
+    });
+
+    it("can be cancelled without rejecting anything", async () => {
+      const rejectMutate = vi.fn();
+      mockApprovals(vi.fn(), { reject: rejectMutate });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+      await user.click(screen.getByRole("button", { name: "Avbryt" }));
+
+      expect(screen.queryByLabelText("Anledning (valfritt)")).not.toBeInTheDocument();
+      expect(rejectMutate).not.toHaveBeenCalled();
+    });
+
+    it("shows why a rejection failed and keeps the reason", async () => {
+      const rejectMutate = vi.fn<RejectMutate>((_input, options) =>
+        options.onError?.(new ApiError(400, "Kommentaren får vara högst 255 tecken.")),
+      );
+      mockApprovals(vi.fn(), { reject: rejectMutate });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+      await user.type(screen.getByLabelText("Anledning (valfritt)"), "För lång");
+      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+
+      expect(screen.getByText(/Kunde inte avvisa betalningen.*högst 255 tecken/)).toBeInTheDocument();
+      expect(screen.getByLabelText("Anledning (valfritt)")).toHaveValue("För lång");
+    });
   });
 });
