@@ -218,11 +218,16 @@ Alla 12 buggar från v1 står i [docs/v1/known-bugs.md](docs/v1/known-bugs.md). 
 Det här är medvetet inte byggt i MVP (ADR 0003, [docs/mvp.md](docs/mvp.md)):
 
 - Batch/CSV-uppladdning med allt-eller-inget (parsern finns, endpointen och vyn saknas)
-- Avvisa betalning med kommentar (backend har `/reject`, UI och sparad kommentar saknas)
 - Påminnelser via e-post med kö och retry
 - Dubbel attest, attestant 2 (VD) och tröskeltrappa (datamodellen stöder flera steg)
 - Koppling av den signerade granskningsloggen till `AuditService`
-- Compliance-export, refresh-token-rotation, 2FA och valutaomvandling (allt hanteras i SEK)
+- Förfallodatum på betalningar (ADR 0013)
+- Compliance-export, 2FA och valutaomvandling (allt hanteras i SEK)
+
+Kända brister:
+
+- Bara en av seed-datans IBAN:er (`SE4550000000058398257466`) klarar MOD97, så betalningar till de andra stoppas av valideringen.
+- Samtidiga godkännanden av samma betalning är skyddade med radlås, men det finns inget incheckat test mot riktig databas (R-01).
 
 Kända brister i testerna, som samtidighet mot riktig databas och tenant-gränser, står i [docs/test-status.md](docs/test-status.md).
 
