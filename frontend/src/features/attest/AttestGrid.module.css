@@ -106,6 +106,13 @@
 .approve:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
 .approve:disabled { cursor: wait; opacity: 0.65; transform: none; }
 
+/* Anledning när en betalning avvisas, i en egen rad under betalningen */
+.grid tbody tr.rejectRow,
+.grid tbody tr.rejectRow:hover { background: var(--bg-muted); box-shadow: none; }
+.rejectForm { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
+.rejectForm > :first-child { flex: 1 1 18rem; }
+.rejectActions { display: flex; gap: 0.5rem; }
+
 .footer { display: flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.25rem; background: var(--bg-muted); border-top: 1px solid var(--border-soft); color: var(--text-secondary); font-size: 0.8rem; }
 .footer svg { color: var(--accent-muted); }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

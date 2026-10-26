@@ -22,11 +22,13 @@ public record MyPaymentStatusResponse(
         LocalDateTime executedAt,
         List<ApprovalStepSummary> approvalSteps
 ) {
+    // comment: attestantens motivering, satt när steget avvisats
     public record ApprovalStepSummary(
             Integer stepNumber,
             String attestantName,
             String status,
-            LocalDateTime decidedAt
+            LocalDateTime decidedAt,
+            String comment
     ) {}
 
     // Namn som visas om attestanten inte längre finns, så att steget ändå syns.
@@ -59,7 +61,8 @@ public record MyPaymentStatusResponse(
                 step.getStepNumber(),
                 userNamesById.getOrDefault(step.getAttestantId(), UNKNOWN_ATTESTANT),
                 step.getStatus().name(),
-                step.getDecidedAt()
+                step.getDecidedAt(),
+                step.getComment()
         );
     }
 }

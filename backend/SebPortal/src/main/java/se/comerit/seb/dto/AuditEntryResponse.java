@@ -5,6 +5,8 @@ import se.comerit.seb.domain.AuditEntry;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+// fromAccountName: kontot betalningen dras från (null om det inte går att slå upp inom företaget).
+// autoApproved: betalningen genomfördes utan atteststeg, eftersom beloppet låg under tröskeln.
 public record AuditEntryResponse(
         Long id,
         String action,
@@ -18,7 +20,9 @@ public record AuditEntryResponse(
         LocalDateTime createdAt,
         String userName,
         BigDecimal balanceBeforePayment,
-        BigDecimal balanceAfterPayment
+        BigDecimal balanceAfterPayment,
+        String fromAccountName,
+        boolean autoApproved
 ) {
     public static AuditEntryResponse from(
             AuditEntry entry,
@@ -28,7 +32,9 @@ public record AuditEntryResponse(
             BigDecimal amount,
             String currency,
             BigDecimal balanceBeforePayment,
-            BigDecimal balanceAfterPayment
+            BigDecimal balanceAfterPayment,
+            String fromAccountName,
+            boolean autoApproved
     ) {
         return new AuditEntryResponse(
                 entry.getId(),
@@ -43,7 +49,9 @@ public record AuditEntryResponse(
                 entry.getCreatedAt(),
                 userName,
                 balanceBeforePayment,
-                balanceAfterPayment
+                balanceAfterPayment,
+                fromAccountName,
+                autoApproved
         );
     }
 }

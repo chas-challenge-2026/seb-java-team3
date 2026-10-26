@@ -2,7 +2,7 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-15
+**Senast uppdaterad:** 2026-10-26
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
@@ -13,7 +13,7 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Frontend · Vitest | 17 filer, 145 tester | Alla gröna vid lokal körning 2026-10-15 |
 | Native C · Check | 112 tester (36 IBAN, 37 CSV, 39 audit) | Alla gröna vid lokal körning 2026-10-14. Sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-09-29 |
-| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-15, inklusive kontrollerna av konto och attestant i Mina betalningar |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-26 (efter sammanslagning med #225) |
 
 De 239 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-26, med undantag för Docker-testerna som nämns i tabellen. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
@@ -79,6 +79,9 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Stegen godkänns i ordning och betalningen slutförs först vid sista steget | Unit | Grön | `ApprovalServiceTest.approve_shouldNotCompletePaymentWhileAnotherStepIsStillPending`, `approve_concurrentApproval_shouldThrowAndRollback` |
 | Saldo dras vid slutligt godkännande (BUG-009, R-02) | Unit | Delvis | `ApprovalServiceTest.finalApproval_*` |
 | Attestkorgen visar vilket konto som belastas och vem som skapade betalningen, bara inom attestantens företag (UX-feedback) | Unit + Komp | Grön | `ApprovalServicePendingApprovalsTest` · 4; `AttestGrid.test.tsx` (`shows which account is drawn from and who created the payment`) |
+| Väntande betalningar reserverar saldot: en ny betalning får bara använda saldo minus det som väntar på attest, och reservationen släpps vid godkännande eller avvisning | Unit + Int | Grön | `PaymentServiceTest.amountOverWhatIsLeftAfterReservations_*`, `amountWithinWhatIsLeftAfterReservations_*`; `AccountServiceTest.getAccounts_reservesPendingPayments*` (H2); `PaymentForm.test.tsx` (tillgängligt saldo) |
+| Avvisa från attestkorgen med valfri anledning; anledningen sparas, syns i audit och i Mina betalningar, och längden kontrolleras (255) | Unit + Komp | Grön | `ApprovalServiceRejectCommentTest` · 5; `AttestGrid.test.tsx` (avvisa) · 4; `formatters.test.ts` (`formatRejectionReason`) |
+| Ett andra beslut på samma betalning (t.ex. attestant och admin samtidigt) ger 409 med begripligt meddelande, ändrar ingenting och attestkorgen hämtas om | Int + Unit | Grön | `ApprovalApiControllerOwnershipTest.approve_whenThePaymentWasAlreadyRejected_*`, `reject_whenThePaymentWasAlreadyApproved_*`; `useApprovals.test.tsx` · 3 |
 | Samtidiga godkännanden ger inte dubbel debitering (R-01) | – | Ej testad | Inget incheckat test |
 | `GET /api/accounts` visar bara det egna företagets konton, sorterade på id (#184, #185, #186, R-04) | Int | Grön | `AccountServiceTest` · 5 (H2); `AccountControllerSecurityTest` · 5 (401 utan/ogiltig token, 403 ATTESTANT, 200 INITIATOR och ADMIN) |
 | Saldot i `/api/accounts` stämmer efter en attesterad betalning (#186) | Int | Grön | `AccountBalanceAfterApprovalTest` · 2 (H2) |

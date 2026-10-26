@@ -4,11 +4,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
+import se.comerit.seb.domain.Payment;
+import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.dto.AccountResponse;
+import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.math.BigDecimal;
@@ -38,6 +42,12 @@ class AccountServiceTest {
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
+    private PaymentRepository paymentRepository;
 
     @BeforeEach
     void seedAccounts() {
@@ -98,6 +108,52 @@ class AccountServiceTest {
         jdbc.update("insert into accounts (tenant_id, account_name, balance) values (null, 'Utan företag', 1.00)");
 
         assertThrows(IllegalStateException.class, () -> accountService.getAccounts(user(null)));
+    }
+
+    // Reservation: betalningar som väntar på attest håller sina pengar. Körs mot H2, så att summafrågorna i
+    // PaymentRepository prövas på riktigt: bara väntande betalningar räknas, och bara per konto och företag.
+    @Test
+    void getAccounts_reservesPendingPaymentsAndShowsWhatIsAvailable() {
+        Long driftkonto = accountId("SE0000000000000000000010");
+        Long otherCompanysAccount = accountId("SE0000000000000000000002");
+        payment(TENANT_A, driftkonto, "300.00", PaymentStatus.PENDING_APPROVAL);
+        payment(TENANT_A, driftkonto, "200.00", PaymentStatus.PENDING_APPROVAL);
+        payment(TENANT_A, driftkonto, "100.00", PaymentStatus.COMPLETED);
+        payment(TENANT_A, driftkonto, "50.00", PaymentStatus.REJECTED);
+        payment(TENANT_B, otherCompanysAccount, "900.00", PaymentStatus.PENDING_APPROVAL);
+
+        AccountResponse account = accountService.getAccounts(user(TENANT_A)).stream()
+                .filter(candidate -> candidate.name().equals("Företag A Driftkonto"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(0, new BigDecimal("1000.00").compareTo(account.balance()));
+        assertEquals(0, new BigDecimal("500.00").compareTo(account.reserved()));
+        assertEquals(0, new BigDecimal("500.00").compareTo(account.availableBalance()));
+        assertEquals(0, new BigDecimal("500.00").compareTo(
+                paymentRepository.sumPendingAmountForAccount(TENANT_A, driftkonto)));
+    }
+
+    @Test
+    void getAccounts_withoutPendingPayments_hasEverythingAvailable() {
+        AccountResponse account = accountService.getAccounts(user(TENANT_A)).get(0);
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(account.reserved()));
+        assertEquals(0, account.balance().compareTo(account.availableBalance()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(
+                paymentRepository.sumPendingAmountForAccount(TENANT_A, accountId("SE0000000000000000000011"))));
+    }
+
+    private Long accountId(String iban) {
+        return jdbc.queryForObject("select id from accounts where iban = ?", Long.class, iban);
+    }
+
+    private void payment(Long tenantId, Long fromAccountId, String amount, PaymentStatus status) {
+        Payment payment = new Payment(tenantId, fromAccountId, "SE4550000000058398257466",
+                new BigDecimal(amount), "Test", 1L);
+        payment.setStatus(status);
+        entityManager.persist(payment);
+        entityManager.flush();
     }
 
     private static AuthenticatedUserContext user(Long tenantId) {

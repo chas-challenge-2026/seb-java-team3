@@ -93,7 +93,7 @@ class AuditServiceMyPaymentsTest {
 
         MyPaymentStatusResponse response = auditService.getMyPaymentStatuses(initiator).get(0);
 
-        assertEquals(List.of(new ApprovalStepSummary(1, "Johan Berg", "PENDING", null)), response.approvalSteps());
+        assertEquals(List.of(new ApprovalStepSummary(1, "Johan Berg", "PENDING", null, null)), response.approvalSteps());
     }
 
     @Test
@@ -111,8 +111,8 @@ class AuditServiceMyPaymentsTest {
         List<ApprovalStepSummary> steps = auditService.getMyPaymentStatuses(initiator).get(0).approvalSteps();
 
         assertEquals(List.of(
-                new ApprovalStepSummary(1, "Johan Berg", "APPROVED", decidedAt),
-                new ApprovalStepSummary(2, "Vera VD", "PENDING", null)
+                new ApprovalStepSummary(1, "Johan Berg", "APPROVED", decidedAt, null),
+                new ApprovalStepSummary(2, "Vera VD", "PENDING", null, null)
         ), steps);
     }
 

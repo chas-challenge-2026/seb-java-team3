@@ -32,7 +32,7 @@ class AuditControllerMyPaymentsTest {
         MyPaymentStatusResponse ownPayment = new MyPaymentStatusResponse(
                 100L, "Testbetalning", new BigDecimal("500.00"), "SEK", "Driftkonto",
                 "SE1234567890123456789012", "PENDING_APPROVAL", null, null,
-                List.of(new MyPaymentStatusResponse.ApprovalStepSummary(1, "Johan Berg", "PENDING", null)));
+                List.of(new MyPaymentStatusResponse.ApprovalStepSummary(1, "Johan Berg", "PENDING", null, null)));
 
         when(jwtUserContext.requireAuthenticated()).thenReturn(initiator);
         when(auditService.getMyPaymentStatuses(initiator)).thenReturn(List.of(ownPayment));

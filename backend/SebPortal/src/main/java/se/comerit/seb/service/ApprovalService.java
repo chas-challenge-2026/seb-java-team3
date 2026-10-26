@@ -10,6 +10,7 @@ import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.PaymentStatus;
 import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.PendingApprovalResponse;
+import se.comerit.seb.exception.ApprovalNotPendingException;
 import se.comerit.seb.exception.ApprovalStepAccessDeniedException;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.PaymentRepository;
@@ -105,7 +106,7 @@ public class ApprovalService {
                 .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
 
         if (payment.getStatus() != PaymentStatus.PENDING_APPROVAL) {
-            throw new IllegalStateException("Payment is not pending approval: " + payment.getId());
+            throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
@@ -114,7 +115,7 @@ public class ApprovalService {
                 .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
-            throw new IllegalStateException("Approval step is not pending: " + approvalStepId);
+            throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
         if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
@@ -130,8 +131,7 @@ public class ApprovalService {
                         && step.getStatus() == ApprovalStepStatus.PENDING);
 
         if (earlierStepPending) {
-            throw new IllegalStateException(
-                    "Cannot approve step " + approvalStepId + ": an earlier step is still pending");
+            throw new ApprovalNotPendingException("Ett tidigare atteststeg måste godkännas först.");
         }
 
         approvalStep.setStatus(ApprovalStepStatus.APPROVED);
@@ -187,7 +187,17 @@ public class ApprovalService {
         rejectInternal(approvalStepId, actorId, comment, null);
     }
 
-    private void rejectInternal(Long approvalStepId, Long actorId, String comment, AuthenticatedUserContext user) {
+    // Samma gräns som kolumnen approval_steps.comment (V3), så att en för lång kommentar ger 400 i stället
+    // för ett databasfel.
+    static final int MAX_COMMENT_LENGTH = 255;
+
+    private void rejectInternal(Long approvalStepId, Long actorId, String rawComment, AuthenticatedUserContext user) {
+        String comment = rawComment == null || rawComment.isBlank() ? null : rawComment.trim();
+        if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Kommentaren får vara högst " + MAX_COMMENT_LENGTH + " tecken.");
+        }
+
         if (approvalStepId == null) {
             throw new IllegalArgumentException("Approval step id is required");
         }
@@ -200,7 +210,7 @@ public class ApprovalService {
                 .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
 
         if (payment.getStatus() != PaymentStatus.PENDING_APPROVAL) {
-            throw new IllegalStateException("Payment is not pending approval: " + payment.getId());
+            throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
@@ -209,7 +219,7 @@ public class ApprovalService {
                 .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
-            throw new IllegalStateException("Approval step is not pending: " + approvalStepId);
+            throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
         if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
@@ -237,6 +247,9 @@ public class ApprovalService {
                 payment.getAmount(),
                 payment.getCurrency(),
                 payment.getToIban());
+        if (comment != null) {
+            description += ". Kommentar: " + comment;
+        }
 
         auditService.record(
                 payment.getTenantId(),
