@@ -11,6 +11,7 @@ import se.comerit.seb.infrastructure.iban.IbanValidatorService;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.AccountRepository;
 import se.comerit.seb.repository.UserRepository;
+import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -177,6 +178,14 @@ public class PaymentService {
         );
 
         return PaymentResponse.from(saved);
+    }
+
+    // Badge för initiatorn: samma mönster som ApprovalService.countPendingByAttestant, men databasen
+    // räknar. Användare och företag kommer från JWT, aldrig från anropet.
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @Transactional(readOnly = true)
+    public int countChangedForInitiator(AuthenticatedUserContext user) {
+        return (int) paymentRepository.countDecidedByInitiator(user.tenantId(), user.userId());
     }
 
 }

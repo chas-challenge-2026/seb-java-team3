@@ -16,6 +16,7 @@ import se.comerit.seb.security.JwtUserContext;
 import se.comerit.seb.service.PaymentService;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -57,5 +58,12 @@ public class NewPaymentController {
 
         PaymentResponse response = paymentService.createPayment(authenticatedRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @GetMapping("/changed-count")
+    public ResponseEntity<Map<String, Integer>> changedCount() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        return ResponseEntity.ok(Map.of("count", paymentService.countChangedForInitiator(user)));
     }
 }
