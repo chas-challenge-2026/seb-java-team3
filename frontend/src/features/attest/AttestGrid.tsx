@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import styles from "./AttestGrid.module.css";
 import Button from "../../components/ui/buttons/Button";
 import Input from "../../components/ui/forms/Input";
@@ -9,6 +9,7 @@ import LoadErrorMessage from "../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../components/ui/feedback/LoadingMessage";
 import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
+import Modal from "../../components/ui/overlay/Modal";
 import { formatDateTime } from "../../lib/dateTime";
 import { formatAmount } from "../audit/utils/formatters";
 import { isApiError } from "../../error/api.error";
@@ -25,18 +26,35 @@ type ApprovalFeedback = {
 export default function AttestGrid() {
   const { data, isLoading, isError, isFetching, refetch, approve, reject } = useApprovals();
   const [feedback, setFeedback] = useState<ApprovalFeedback | null>(null);
-  // Steget vars avvisning håller på att fyllas i, och anledningen som skrivits
-  const [rejectingStepId, setRejectingStepId] = useState<number | null>(null);
+  // Steget som granskas i rutan, och om avvisningen håller på att fyllas i
+  const [reviewingStepId, setReviewingStepId] = useState<number | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
 
-  function startReject(step: AttestSteg) {
+  function openReview(step: AttestSteg) {
+    setFeedback(null);
+    setIsRejecting(false);
+    setRejectComment("");
+    setReviewingStepId(step.id);
+  }
+
+  function closeReview() {
+    // Ett fel visas i rutan och gäller bara medan den är öppen
+    setFeedback(null);
+    setReviewingStepId(null);
+    setIsRejecting(false);
+    setRejectComment("");
+  }
+
+  function startReject() {
     setFeedback(null);
     setRejectComment("");
-    setRejectingStepId(step.id);
+    setIsRejecting(true);
   }
 
   function cancelReject() {
-    setRejectingStepId(null);
+    setFeedback(null);
+    setIsRejecting(false);
     setRejectComment("");
   }
 
@@ -44,7 +62,7 @@ export default function AttestGrid() {
     setFeedback(null);
     reject.mutate({ stepId: step.id, comment: rejectComment }, {
       onSuccess: () => {
-        cancelReject();
+        closeReview();
         setFeedback({
           type: "success",
           text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är avvisad.`,
@@ -65,6 +83,7 @@ export default function AttestGrid() {
     setFeedback(null);
     approve.mutate(step.id, {
       onSuccess: () => {
+        closeReview();
         setFeedback({
           type: "success",
           text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är godkänd.`,
@@ -84,6 +103,7 @@ export default function AttestGrid() {
   // När sista betalningen godkänts visas bekräftelsen i "Allt är klart"-kortet istället för ovanför
   const isAllApproved = !isLoading && !isError && !data?.length;
   const showFeedbackInCard = isAllApproved && feedback?.type === "success";
+  const reviewingStep = data?.find((step) => step.id === reviewingStepId);
 
   let content;
 
@@ -145,14 +165,8 @@ export default function AttestGrid() {
               </tr>
             </thead>
             <tbody>
-              {data.map((m) => {
-                const pending = approve.isPending && approve.variables === m.id;
-                const rejecting = rejectingStepId === m.id;
-                const rejectPending = reject.isPending && reject.variables?.stepId === m.id;
-                const reasonId = `reject-reason-${m.id}`;
-                return (
-                  <Fragment key={m.id}>
-                  <tr>
+              {data.map((m) => (
+                  <tr key={m.id}>
                     <td data-label="Mottagarkonto" className={styles.noWrap}>
                       <div className={styles.recipient}>
                         <strong>{m.mottagare}</strong>
@@ -178,64 +192,20 @@ export default function AttestGrid() {
                     <td data-label="Åtgärd">
                       <div className={styles.actions}>
                         <Button
-                          onClick={() => handleApprove(m)}
-                          disabled={pending}
-                          className={styles.approve}
-                          buttonStyle="icon-only"
-                          icon="check"
+                          onClick={() => openReview(m)}
+                          className={styles.review}
+                          buttonStyle="icon-text"
+                          icon="chevron"
                           variant="primary"
-                          aria-label={`Godkänn betalning till ${m.mottagare}`}
-                          title={pending ? "Godkänner…" : "Godkänn"}
-                        />
-                        <Button
-                          onClick={() => (rejecting ? cancelReject() : startReject(m))}
-                          disabled={pending || rejectPending}
-                          className={styles.reject}
-                          buttonStyle="icon-only"
-                          icon="x"
-                          variant="secondary"
-                          aria-label={`Avvisa betalning till ${m.mottagare}`}
-                          aria-expanded={rejecting}
-                          aria-controls={reasonId}
-                          title="Avvisa"
-                        />
+                          aria-label={`Granska betalning till ${m.mottagare}`}
+                          aria-haspopup="dialog"
+                        >
+                          Granska
+                        </Button>
                       </div>
                     </td>
                   </tr>
-                  {rejecting && (
-                    <tr className={styles.rejectRow}>
-                      <td colSpan={8}>
-                        <form
-                          id={reasonId}
-                          className={styles.rejectForm}
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            handleReject(m);
-                          }}
-                        >
-                          <Input
-                            label="Anledning (valfritt)"
-                            placeholder="Till exempel: otillräckligt saldo"
-                            value={rejectComment}
-                            maxLength={MAX_COMMENT_LENGTH}
-                            onChange={(event) => setRejectComment(event.target.value)}
-                            autoFocus
-                          />
-                          <div className={styles.rejectActions}>
-                            <Button type="button" variant="secondary" onClick={cancelReject} disabled={rejectPending}>
-                              Avbryt
-                            </Button>
-                            <Button type="submit" variant="dark" disabled={rejectPending}>
-                              {rejectPending ? "Avvisar…" : "Avvisa betalningen"}
-                            </Button>
-                          </div>
-                        </form>
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
@@ -250,6 +220,121 @@ export default function AttestGrid() {
   }
 
   const FeedbackIcon = feedback?.type === "error" ? TriangleAlert : CircleCheck;
+  // Medan rutan är öppen är resten av sidan inaktiv, så ett fel visas i rutan
+  const showFeedbackInModal = Boolean(reviewingStep) && feedback?.type === "error";
+
+  let reviewModal = null;
+
+  if (reviewingStep) {
+    const step = reviewingStep;
+    const approvePending = approve.isPending && approve.variables === step.id;
+    const rejectPending = reject.isPending && reject.variables?.stepId === step.id;
+    const busy = approvePending || rejectPending;
+
+    reviewModal = (
+      <Modal
+        title={isRejecting ? "Avvisa betalning" : "Granska betalning"}
+        description={
+          isRejecting
+            ? "Betalningen genomförs inte. Initiatören ser anledningen i sin historik."
+            : "Kontrollera mottagare och belopp innan du fattar beslut."
+        }
+        onClose={closeReview}
+        dismissible={!busy}
+      >
+        <dl className={styles.reviewSummary}>
+          <div>
+            <dt>Belopp</dt>
+            <dd className={styles.reviewAmount}>{formatAmount(step.belopp, step.currency)}</dd>
+          </div>
+          <div>
+            <dt>Till</dt>
+            <dd className={styles.recipient}><strong>{step.mottagare}</strong></dd>
+          </div>
+          <div>
+            <dt>Från konto</dt>
+            <dd>{step.fromAccountName ?? "-"}</dd>
+          </div>
+          <div>
+            <dt>Saldo efter betalning</dt>
+            <dd>
+              {step.balanceAfterPayment == null
+                ? "Kan inte beräknas"
+                : formatAmount(step.balanceAfterPayment, step.currency)}
+            </dd>
+          </div>
+          <div>
+            <dt>Typ</dt>
+            <dd>{step.typ}</dd>
+          </div>
+          <div>
+            <dt>Skapad</dt>
+            <dd>{formatDateTime(step.createdAt)}{step.initiatorName ? ` av ${step.initiatorName}` : ""}</dd>
+          </div>
+          <div>
+            <dt>Referens</dt>
+            <dd>{step.reference || "–"}</dd>
+          </div>
+        </dl>
+
+        {showFeedbackInModal && feedback && (
+          <p className={`${styles.feedback} ${styles.feedbackError} ${styles.reviewError}`} role="alert">
+            <TriangleAlert size={18} aria-hidden="true" />
+            {feedback.text}
+          </p>
+        )}
+
+        {isRejecting ? (
+          <form
+            className={styles.rejectForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleReject(step);
+            }}
+          >
+            <Input
+              label="Anledning (valfritt)"
+              placeholder="Till exempel: otillräckligt saldo"
+              value={rejectComment}
+              maxLength={MAX_COMMENT_LENGTH}
+              onChange={(event) => setRejectComment(event.target.value)}
+              autoFocus
+            />
+            <div className={styles.reviewActions}>
+              <Button type="button" variant="secondary" onClick={cancelReject} disabled={rejectPending}>
+                Tillbaka
+              </Button>
+              <Button type="submit" className={styles.reject} disabled={rejectPending}>
+                {rejectPending ? "Avvisar…" : "Bekräfta avvisning"}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className={styles.reviewActions}>
+            <Button
+              onClick={startReject}
+              disabled={busy}
+              className={styles.reject}
+              buttonStyle="icon-text"
+              icon="x"
+            >
+              Avvisa betalningen
+            </Button>
+            <Button
+              onClick={() => handleApprove(step)}
+              disabled={busy}
+              className={styles.approve}
+              buttonStyle="icon-text"
+              icon="check"
+              variant="primary"
+            >
+              {approvePending ? "Godkänner…" : `Godkänn ${formatAmount(step.belopp, step.currency)}`}
+            </Button>
+          </div>
+        )}
+      </Modal>
+    );
+  }
 
   return (
     <>
@@ -257,7 +342,7 @@ export default function AttestGrid() {
           betalningen godkänts och tabellen byts mot det tomma läget. Då döljs
           det visuellt eftersom samma text visas i kortet */}
       <div className={styles.feedbackRegion} aria-live="polite">
-        {feedback && (
+        {feedback && !showFeedbackInModal && (
           <p
             className={
               showFeedbackInCard
@@ -273,6 +358,7 @@ export default function AttestGrid() {
         )}
       </div>
       {content}
+      {reviewModal}
     </>
   );
 }

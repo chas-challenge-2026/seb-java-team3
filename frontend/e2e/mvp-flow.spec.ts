@@ -62,7 +62,11 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
 
     const row = rowWith(attestant, reference);
     await expect(row).toContainText(RECIPIENT_IBAN);
-    await row.getByRole("button", { name: /Godkänn betalning/ }).click();
+    await row.getByRole("button", { name: /Granska betalning/ }).click();
+    const dialog = attestant.getByRole("dialog", { name: "Granska betalning" });
+    await expect(dialog).toContainText(RECIPIENT_IBAN);
+    await dialog.getByRole("button", { name: /^Godkänn 5\s500,50 SEK$/ }).click();
+    await expect(dialog).toBeHidden();
 
     await expect(attestant.getByText(/är godkänd\./).first()).toBeVisible();
     await expect(rowWith(attestant, reference)).toHaveCount(0);
