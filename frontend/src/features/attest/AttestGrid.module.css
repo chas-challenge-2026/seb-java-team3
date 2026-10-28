@@ -97,8 +97,35 @@
 
 .actions { display: flex; justify-content: flex-end; gap: 0.45rem; }
 .actions > button { flex-shrink: 0; }
-.actions .reject { background: #b42318; color: #fff; cursor: pointer; }
-.actions .reject:hover { background: #912018; }
+.review { cursor: pointer; white-space: nowrap; }
+.review:hover { background: var(--btn-primary-strong); }
+.review:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
+
+/* Granskningsrutan. Sammanfattningen ser ut som den initiatören får när betalningen skickats */
+.reviewSummary {
+    margin: 0 0 1.25rem;
+    overflow: hidden;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    background: var(--bg-primary);
+}
+.reviewSummary div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-soft);
+}
+.reviewSummary div:last-child { border-bottom: 0; }
+.reviewSummary dt { flex: 0 0 auto; color: var(--text-secondary); font-size: 0.82rem; }
+.reviewSummary dd { min-width: 0; margin: 0; color: var(--text-heading); font-size: 0.88rem; font-weight: 650; text-align: right; overflow-wrap: anywhere; }
+.reviewSummary .reviewAmount { font-size: 1.1rem; font-weight: 750; }
+.reviewError { margin-bottom: 1rem; }
+.reviewActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.6rem; }
+
+.reject { background: #b42318; color: #fff; cursor: pointer; }
+.reject:hover { background: #912018; }
 .reject:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
 .reject:disabled { cursor: wait; opacity: 0.65; }
 .approve { cursor: pointer; box-shadow: none; transition: box-shadow 160ms ease, background-color 160ms ease; }
@@ -106,12 +133,7 @@
 .approve:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
 .approve:disabled { cursor: wait; opacity: 0.65; transform: none; }
 
-/* Anledning när en betalning avvisas, i en egen rad under betalningen */
-.grid tbody tr.rejectRow,
-.grid tbody tr.rejectRow:hover { background: var(--bg-muted); box-shadow: none; }
-.rejectForm { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
-.rejectForm > :first-child { flex: 1 1 18rem; }
-.rejectActions { display: flex; gap: 0.5rem; }
+.rejectForm { display: grid; gap: 1rem; }
 
 .footer { display: flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.25rem; background: var(--bg-muted); border-top: 1px solid var(--border-soft); color: var(--text-secondary); font-size: 0.8rem; }
 .footer svg { color: var(--accent-muted); }
@@ -123,6 +145,9 @@
     .count { align-self: flex-start; }
     .grid th, .grid td { padding-left: 1rem; padding-right: 1rem; }
     .footer { align-items: flex-start; padding: 0.9rem 1rem; }
+    /* Knapparna staplas i full bredd, med beslutet att godkänna överst */
+    .reviewActions { flex-direction: column-reverse; }
+    .reviewActions button { width: 100%; }
 }
 
 @media (max-width: 760px) {

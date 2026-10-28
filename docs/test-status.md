@@ -2,20 +2,20 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-26
+**Senast uppdaterad:** 2026-10-28
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 38 klasser, 258 tester | Gröna vid lokal körning 2026-10-26, utom de två Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest` (Docker låg nere, de körs i CI) och fem som hoppas över utan byggd `libauditsigner.so` |
-| Frontend · Vitest | 20 filer, 170 tester | Alla gröna vid lokal körning 2026-10-26 |
-| Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla gröna 2026-10-26 i en gcc-container med Check; sviten körs inte i CI |
-| Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-10-26 |
-| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna mot Docker 2026-10-26, efter sammanslagningen av #226 |
+| Backend · JUnit | 38 klasser, 258 tester | Gröna vid lokal körning 2026-10-28 i en Maven-container, även de två Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest`; fem hoppas över utan byggd `libauditsigner.so` |
+| Frontend · Vitest | 20 filer, 175 tester | Alla gröna vid lokal körning 2026-10-28 |
+| Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla gröna 2026-10-28 i en gcc-container med Check; sviten körs inte i CI |
+| Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-10-28 |
+| E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna 2026-10-28 mot Vite dev-servern med backend i Docker, med granskningsrutan i attestkorgen |
 
-De 258 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-26, med undantag för de två Testcontainers-testerna som nämns i tabellen. `ApprovalServiceTransactionIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+De 258 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-28. Fem tester i `AuditSignerNativeIntegrationTest` hoppas över när `libauditsigner.so` inte är byggd. `ApprovalServiceTransactionIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -29,7 +29,7 @@ Backendens unit-tester använder mockade repositories. De verifierar servicelogi
 | Logga in → skapa betalning → se attest-badge → godkänn → saldo dras → händelsen syns i audit | E2E | Grön | `frontend/e2e/mvp-flow.spec.ts` (#164) |
 | Sista godkännandet slutför betalningen, drar saldo och skriver audit | Unit | Grön | `ApprovalServiceTest.finalApproval_shouldCompletePaymentDeductBalanceAndRecordAudit` |
 
-E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, godkänner, badgen räknas ned och audit visar vem som skapade och vem som godkände. Saldot läses från `GET /api/accounts` med initiatörens token före och efter, och testet kräver att Driftkonto minskat med exakt beloppet. Kontrollen görs mot API:t. Dashboarden hämtar nu konton från `/api/accounts`, så en kontroll av saldot i UI:t kan läggas till. E2E körs manuellt mot en app som är igång och ingår inte i CI.
+E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar en betalning över tröskeln, attestanten ser badgen, öppnar granskningsrutan, kontrollerar mottagaren och godkänner beloppet, rutan stängs, badgen räknas ned och audit visar vem som skapade och vem som godkände. Saldot läses från `GET /api/accounts` med initiatörens token före och efter, och testet kräver att Driftkonto minskat med exakt beloppet. Kontrollen görs mot API:t. Dashboarden hämtar nu konton från `/api/accounts`, så en kontroll av saldot i UI:t kan läggas till. E2E körs manuellt mot en app som är igång och ingår inte i CI.
 
 ## 3. Teststatus per område
 
@@ -49,13 +49,13 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Refresh-cookie och endpoints: HttpOnly, SameSite=Strict, Path, header-krav, 401, 403 och 204 (ADR 0012) | Int | Grön | `AuthControllerRefreshTest` · 13 |
 | Inloggning spärrar webbläsarens gamla session, men inte vid fel lösenord | Int | Grön | `AuthControllerRefreshTest.login_revokesThePreviousSessionOfThisBrowser_*`, `login_withWrongCredentials_doesNotRevokeThePreviousSession` |
 | Saknad eller ogiltig token mot API ger 401 | Int | Grön | `ApprovalApiControllerSecurityTest.approve_withoutToken/withGarbageToken_returns401` |
-| Loginformulärets validering och fel | Komp | Grön | `LoginForm.test.tsx` · 4; `auth/schema.test.ts` · 7 |
-| Skyddade routes och fel roll (#198) | Unit | Grön | `lib/requireAuth.test.ts` · 7; `lib/requireRole.test.ts` · 6 |
-| Omladdning förnyar sessionen tyst och sparar användaren; utloggning går via servern (ADR 0012) | Unit | Grön | `lib/requireAuth.test.ts` (utan token i minnet) · 4; `features/auth/useLogout.test.tsx` · 2 |
+| Loginformulärets validering och fel | Komp | Grön | `LoginForm.test.tsx` · 6; `auth/schema.test.ts` · 7 |
+| Skyddade routes och fel roll (#198) | Unit | Grön | `lib/requireAuth.test.ts` · 9; `lib/requireRole.test.ts` · 6 |
+| Omladdning förnyar sessionen tyst och sparar användaren; utloggning går via servern (ADR 0012) | Unit | Grön | `lib/requireAuth.test.ts` (utan token i minnet) · 4; `features/auth/useLogout.test.tsx` · 3 |
 | Access-token hålls bara i minnet, och en gammal token i `localStorage` tas bort (ADR 0012) | Unit | Grön | `lib/authToken.test.ts` · 5 |
-| Tyst förnyelse: en förnyelse åt gången, Web Locks mellan flikar, nytt försök en gång efter 401, ingen loop, cookies bara till session-endpoints (ADR 0012) | Unit | Grön | `lib/authSession.test.ts` · 11; `lib/api.test.ts` (blocket "session refresh on 401") · 7 |
+| Tyst förnyelse: en förnyelse åt gången, Web Locks mellan flikar, nytt försök en gång efter 401, ingen loop, cookies bara till session-endpoints (ADR 0012) | Unit | Grön | `lib/authSession.test.ts` · 21; `lib/api.test.ts` (blocket "session refresh on 401") · 10 |
 | Sessionen finns kvar efter omladdning, cookien är HttpOnly, utloggning håller (ADR 0012) | E2E | Grön | `frontend/e2e/session.spec.ts` · 3 (körs manuellt, gröna mot Docker 2026-10-26) |
-| API-klientens Bearer-token och felhantering | Unit | Grön | `lib/api.test.ts` · 19 |
+| API-klientens Bearer-token och felhantering | Unit | Grön | `lib/api.test.ts` · 22 |
 | Access-token gäller 15 minuter med standardkonfigurationen (ADR 0012) | Int | Grön | `JwtLifetimeConfigTest` · 1 (läser `application.properties`) |
 
 **Avgränsningar och kvar att testa**
@@ -72,7 +72,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 13; `payment/schema.test.ts` |
+| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 17; `payment/schema.test.ts` · 25 |
 | Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup`, `missingTenant_shouldBeRejectedWithoutDatabaseLookup` |
 | Godkännande belastar bara kontot om det tillhör betalningens företag, och låser kontot (#191, R-04) | Unit + Int | Grön | `ApprovalServiceTest.approve_shouldRefuseToDebitAccountOfAnotherTenant`, `approve_shouldRefuseInvalidFromAccountIdWithoutLookup` · 5; `ApprovalApiControllerOwnershipTest.approve_whenTheAccountBelongsToAnotherTenant_*`; `AccountRepositoryTenantTest` · 6 (H2) |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
@@ -80,7 +80,8 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Saldo dras vid slutligt godkännande (BUG-009, R-02) | Unit | Delvis | `ApprovalServiceTest.finalApproval_*` |
 | Attestkorgen visar vilket konto som belastas och vem som skapade betalningen, bara inom attestantens företag (UX-feedback) | Unit + Komp | Grön | `ApprovalServicePendingApprovalsTest` · 4; `AttestGrid.test.tsx` (`shows which account is drawn from and who created the payment`) |
 | Väntande betalningar reserverar saldot: en ny betalning får bara använda saldo minus det som väntar på attest, och reservationen släpps vid godkännande eller avvisning | Unit + Int | Grön | `PaymentServiceTest.amountOverWhatIsLeftAfterReservations_*`, `amountWithinWhatIsLeftAfterReservations_*`; `AccountServiceTest.getAccounts_reservesPendingPayments*` (H2); `PaymentForm.test.tsx` (tillgängligt saldo) |
-| Avvisa från attestkorgen med valfri anledning; anledningen sparas, syns i audit och i Mina betalningar, och längden kontrolleras (255) | Unit + Komp | Grön | `ApprovalServiceRejectCommentTest` · 5; `AttestGrid.test.tsx` (avvisa) · 4; `formatters.test.ts` (`formatRejectionReason`) |
+| Attestkorgen har en Granska-knapp per betalning som öppnar en ruta med sammanfattning (belopp, mottagare, konto, saldo efter, skapare, referens). Beslutet fattas i rutan, Godkänn-knappen visar beloppet, rutan stängs efter beslut, ett fel visas i rutan och den kan stängas utan beslut (UX-feedback) | Komp + E2E | Grön | `AttestGrid.test.tsx` (granska) · 5; `frontend/e2e/mvp-flow.spec.ts` |
+| Avvisa i granskningsrutan med valfri anledning; anledningen sparas, syns i audit och i Mina betalningar, och längden kontrolleras (255) | Unit + Komp | Grön | `ApprovalServiceRejectCommentTest` · 5; `AttestGrid.test.tsx` (avvisa) · 4; `formatters.test.ts` (`formatRejectionReason`) · 2 |
 | Ett andra beslut på samma betalning (t.ex. attestant och admin samtidigt) ger 409 med begripligt meddelande, ändrar ingenting och attestkorgen hämtas om | Int + Unit | Grön | `ApprovalApiControllerOwnershipTest.approve_whenThePaymentWasAlreadyRejected_*`, `reject_whenThePaymentWasAlreadyApproved_*`; `useApprovals.test.tsx` · 3 |
 | Samtidiga godkännanden ger inte dubbel debitering (R-01) | – | Ej testad | Inget incheckat test |
 | `GET /api/accounts` visar bara det egna företagets konton, sorterade på id (#184, #185, #186, R-04) | Int | Grön | `AccountServiceTest` · 5 (H2); `AccountControllerSecurityTest` · 5 (401 utan/ogiltig token, 403 ATTESTANT, 200 INITIATOR och ADMIN) |
@@ -88,6 +89,8 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 **Avgränsningar och kvar att testa**
 
+- Granskningsrutan bygger på `<dialog>` (`components/ui/overlay/Modal.tsx`). Fokus som stannar i rutan, Esc och klick utanför är webbläsarens beteende. jsdom saknar `showModal`, så Vitest kör med en enkel ersättning i `src/test/setup.ts` och verifierar inte det beteendet. Rutan, avvisningssteget, Esc och mobilbredd kontrollerades i Chromium via Playwright 2026-10-28, men den kontrollen är inte incheckad. `Modal` har inget eget test och testas genom `AttestGrid.test.tsx`.
+- Godkännandet har ingen separat "Är du säker?"-fråga. Den extra bekräftelsen är granskningsrutan: det krävs två klick med sammanfattningen emellan, och knappen visar beloppet som godkänns.
 - Backend nekar belopp 0. Frontend nekar tomma och negativa belopp samt fler än två decimaler; referens får vara högst 140 tecken. Gränsfallen vid exakt tröskel är testade och frontend hämtar tröskeln från backend.
 - `approve_concurrentApproval_shouldThrowAndRollback` testar att ett tidigare steg fortfarande väntar. Namnet antyder samtidighet, men det är inte vad testet verifierar.
 - Saldo, status och audit sätts i samma `@Transactional`-metod. `ApprovalServiceTransactionIntegrationTest` (Postgres 12, Testcontainers) verifierar båda utfallen: `commits_balance_and_audit_on_success` och `rollback_on_failure`, där en trigger får commit att misslyckas och saldo, status, steg och audit står kvar orörda. Rollback vid avvisning är inte testad.
@@ -114,12 +117,12 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Badge visar väntande steg för inloggad attestant (BUG-007) | Komp | Ej testad | Inget komponenttest |
+| Badge visar väntande steg för inloggad attestant och döljs vid noll (BUG-007) | Komp | Grön | `components/ui/navigation/Badge.test.tsx` · 2 |
 | Bara den aktuella attestantens steg räknas | Unit + Int | Grön | `ApprovalServiceTest.countPendingByAttestant_shouldReturnNumberOfPendingStepsForUser`; `ApprovalApiControllerCountTest` · 4 (`/api/approvals/count`, delad betalning, noll väntande, admin inom sitt företag) |
 
 **Avgränsningar och kvar att testa**
 
-- Badge finns i `SideBar` och `SideBarItem`, men `Badge.test.tsx` saknas.
+- `Badge.test.tsx` renderar `SideBar`, där regeln "visa bara vid fler än noll" ligger, med mockade hooks. Att badgen räknas ned efter ett godkännande verifieras i E2E-testet.
 - Servicetestet frågar på rätt tenant och attestant, och `ApprovalApiControllerCountTest` testar `/api/approvals/count` på webbnivå.
 
 ### Audit och spårbarhet
@@ -135,7 +138,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Signerad rad skrivs först efter commit och aldrig vid rollback | Unit | Grön | `AuditServiceSigningTest` · 6 |
 | Signeringsfel stoppar inte flödet, gränser och konfiguration | Unit | Grön | `AuditSignerServiceTest` · 18 |
 | Hälsokontroll visar trasig kedja eller saknade rader; `/actuator/health` är öppen utan detaljer | Unit + Int | Grön | `AuditSignerHealthIndicatorTest` · 5; `AuditSignerWiringTest` · 3 (hela appen på H2) |
-| Mina betalningar visar vilket konto betalningen dras från och vem som ska attestera, godkände eller avvisade (UX-feedback) | Unit + Int | Grön | `AuditServiceMyPaymentsTest` · 7; `AuditControllerMyPaymentsTest` (`fromAccountName` och `approvalSteps` i svaret); `features/audit/utils/formatters.test.ts` · 6 |
+| Mina betalningar visar vilket konto betalningen dras från och vem som ska attestera, godkände eller avvisade (UX-feedback) | Unit + Int | Grön | `AuditServiceMyPaymentsTest` · 7; `AuditControllerMyPaymentsTest` (`fromAccountName` och `approvalSteps` i svaret); `features/audit/utils/formatters.test.ts` (`formatAttestant`) · 6 |
 
 **Avgränsningar och kvar att testa**
 
@@ -151,7 +154,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | --- | --- | --- | --- |
 | Frontend-routes och `/` forwardas till `index.html` utan token (#160, #161) | Int | Grön | `SpaFallbackControllerTest.root_*`, `frontendRoute_*`, `nestedFrontendRoute_*`, `unknownFrontendRoute_*` |
 | `/api/**` och filer forwardas inte; `/api` kräver fortfarande token | Int | Grön | `SpaFallbackControllerTest.unknownApiRoute_*`, `apiRoot_*`, `apiRoute_*`, `assetFile_*`, `rootFile_*`, `indexHtml_*` |
-| Byggd app servar React på frontend-routes, filer som filer och `/api` som API (#162) | Rök | Grön | `scripts/smoke-spa.mjs` · 18 kontroller mot Docker 2026-09-29 |
+| Byggd app servar React på frontend-routes, filer som filer och `/api` som API (#162) | Rök | Grön | `scripts/smoke-spa.mjs` · 18 kontroller mot Docker 2026-10-28 |
 
 **Avgränsningar och kvar att testa**
 
@@ -171,7 +174,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Funktion | Status | Läget |
 | --- | --- | --- |
-| Avvisa betalning med kommentar | Grön | Byggt i #226: avvisa från attestkorgen med valfri anledning, som sparas och syns i audit och Mina betalningar. Se "Betalning och godkännande". |
+| Avvisa betalning med kommentar | Grön | Byggt i #226: avvisa med valfri anledning, som sparas och syns i audit och Mina betalningar. Görs nu i granskningsrutan i attestkorgen. Godkännande har ingen kommentar, och backend tar inte emot någon. Se "Betalning och godkännande". |
 | Påminnelse via e-post med kö och retry | Ej testad | Inte byggt. |
 | Dubbel attest / attestant 2, till exempel VD | Ej testad | Datamodellen stöder flera steg, men hela flödet för attestant 2 är inte byggt. |
 | Batch/CSV enligt RFC 4180 med allt-eller-inget | Delvis | Native-parsern i `native/csv` har 37 Check-tester, som inte körs i CI. Endpoint, vy och allt-eller-inget är inte byggda. |
@@ -183,7 +186,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | 1 | Kör E2E i CI. | E2E-testet körs bara manuellt mot en app som är igång. |
 | 2 | Checka in och kör samtidighetstestet mot Postgres med Testcontainers. | Låsning vid samtidiga godkännanden (R-01) är inte verifierad i repot. |
 | 3 | Testa tenant-gränser för audit, tidslinje, betalningar och attester (konton är klara) samt behörighet för `/api/my-payments`. | Filtrering mellan företag och åtkomst till `/api/my-payments` behöver verifieras. |
-| 4 | Testa skyddade routes och badge; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
+| 4 | Testa omdirigeringen i skyddade routes; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
 | 5 | Rätta de två missvisande testnamnen. | Testnamnen ska spegla vad som faktiskt testas. |
 
 ## 6. Köra testerna

@@ -32,6 +32,9 @@ const step: AttestSteg = {
   initiatorName: "Lisa Persson",
 };
 
+// Godkänn-knappen visar beloppet som godkänns
+const APPROVE_BUTTON = /^Godkänn 12\s500,00 SEK$/;
+
 type MutateOptions = { onSuccess?: () => void; onError?: (error: unknown) => void };
 
 type RejectMutate = (input: { stepId: number; comment: string }, options: MutateOptions) => void;
@@ -49,6 +52,10 @@ function mockApprovals(
     approve: { mutate, isPending: false, variables: undefined },
     reject: { mutate: reject, isPending: false, variables: undefined },
   } as unknown as ReturnType<typeof useApprovals>);
+}
+
+async function openReview(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /granska betalning till/i }));
 }
 
 describe("AttestGrid", () => {
@@ -90,7 +97,8 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(
       screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00 SEK är godkänd\./),
@@ -104,7 +112,8 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(
       screen.getByText(
@@ -119,9 +128,78 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(mutate).toHaveBeenCalledWith(7, expect.any(Object));
+  });
+
+  describe("granska", () => {
+    it("shows one review button per payment instead of approve and reject", () => {
+      mockApprovals(vi.fn());
+      render(<AttestGrid />);
+
+      const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+      expect(within(row).getByRole("button", { name: /granska betalning till/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /godkänn/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /avvisa/i })).not.toBeInTheDocument();
+    });
+
+    it("opens a dialog with a summary of the payment and both decisions", async () => {
+      mockApprovals(vi.fn());
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+
+      const dialog = screen.getByRole("dialog", { name: "Granska betalning" });
+      expect(within(dialog).getByText(/^12\s500,00 SEK$/)).toBeInTheDocument();
+      expect(within(dialog).getByText("SE4550000000058398257466")).toBeInTheDocument();
+      expect(within(dialog).getByText("Driftkonto")).toBeInTheDocument();
+      expect(within(dialog).getByText(/^87\s500,00 SEK$/)).toBeInTheDocument();
+      expect(within(dialog).getByText(/av Lisa Persson$/)).toBeInTheDocument();
+      expect(within(dialog).getByText("Faktura 1042")).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: APPROVE_BUTTON })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Avvisa betalningen" })).toBeInTheDocument();
+    });
+
+    it("can be closed without deciding anything", async () => {
+      const mutate = vi.fn();
+      const rejectMutate = vi.fn();
+      mockApprovals(mutate, { reject: rejectMutate });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Stäng" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(mutate).not.toHaveBeenCalled();
+      expect(rejectMutate).not.toHaveBeenCalled();
+    });
+
+    it("closes the dialog when the payment is approved", async () => {
+      mockApprovals((_id, options) => options.onSuccess?.());
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("keeps the dialog open and shows the error inside it when approval fails", async () => {
+      mockApprovals((_id, options) => options.onError?.(new ApiError(409, "Betalningen är redan hanterad.")));
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByRole("alert")).toHaveTextContent("Betalningen är redan hanterad.");
+    });
   });
 
   it("shows the confirmation inside the empty state when the last payment is approved", async () => {
@@ -148,7 +226,8 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(screen.getByRole("heading", { name: "Allt är klart" })).toBeInTheDocument();
     expect(
@@ -163,7 +242,8 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
 
       expect(screen.getByLabelText("Anledning (valfritt)")).toHaveFocus();
       expect(rejectMutate).not.toHaveBeenCalled();
@@ -175,9 +255,10 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
-      await user.type(screen.getByLabelText("Anledning (valfritt)"), "Otillräckligt saldo");
+      await openReview(user);
       await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.type(screen.getByLabelText("Anledning (valfritt)"), "Otillräckligt saldo");
+      await user.click(screen.getByRole("button", { name: "Bekräfta avvisning" }));
 
       expect(rejectMutate).toHaveBeenCalledWith({ stepId: 7, comment: "Otillräckligt saldo" }, expect.anything());
       expect(
@@ -192,10 +273,12 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
-      await user.click(screen.getByRole("button", { name: "Avbryt" }));
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.click(screen.getByRole("button", { name: "Tillbaka" }));
 
       expect(screen.queryByLabelText("Anledning (valfritt)")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: APPROVE_BUTTON })).toBeInTheDocument();
       expect(rejectMutate).not.toHaveBeenCalled();
     });
 
@@ -207,9 +290,10 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
-      await user.type(screen.getByLabelText("Anledning (valfritt)"), "För lång");
+      await openReview(user);
       await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.type(screen.getByLabelText("Anledning (valfritt)"), "För lång");
+      await user.click(screen.getByRole("button", { name: "Bekräfta avvisning" }));
 
       expect(screen.getByText(/Kunde inte avvisa betalningen.*högst 255 tecken/)).toBeInTheDocument();
       expect(screen.getByLabelText("Anledning (valfritt)")).toHaveValue("För lång");
