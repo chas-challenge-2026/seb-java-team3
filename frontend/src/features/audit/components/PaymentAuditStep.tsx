@@ -1,12 +1,14 @@
 import styles from "./AuditGrid.module.css";
 import type { PaymentAuditTimelineEntry } from "../types";
-import { formatDateTime, formatEventType } from "../utils/formatters";
+import { formatDateTime, formatEventType, formatTimelineComment } from "../utils/formatters";
 
 type PaymentAuditStepProps = {
   entry: PaymentAuditTimelineEntry;
 };
 
 export default function PaymentAuditStep({ entry }: PaymentAuditStepProps) {
+  const comment = formatTimelineComment(entry);
+
   return (
     <li className={styles.timelineItem}>
       <div className={styles.order}>{entry.order}</div>
@@ -23,6 +25,12 @@ export default function PaymentAuditStep({ entry }: PaymentAuditStepProps) {
             {formatDateTime(entry.timestamp)}
           </time>
         </p>
+        {comment && (
+          <p className={styles.comment}>
+            <span className={styles.commentLabel}>Meddelande</span>
+            {comment}
+          </p>
+        )}
       </div>
     </li>
   );
