@@ -19,13 +19,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 // Godkänn från attestkorgen (#228): samma frivilliga meddelande som vid avvisning. Det sparas på steget och
-// står i auditraden, och ett för långt meddelande stoppas innan något låses eller dras.
+// på auditraden (i beskrivningen och i en egen kolumn), och ett för långt meddelande stoppas innan något
+// låses eller dras.
 class ApprovalServiceApproveCommentTest {
 
     private static final Long TENANT = 1L;
@@ -68,7 +70,8 @@ class ApprovalServiceApproveCommentTest {
         assertEquals("Stämmer mot faktura 4711", step.getComment());
         assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
         verify(auditService).record(eq(TENANT), eq(ATTESTANT_ID), eq("APPROVE_PAYMENT"), eq("PAYMENT"), eq(100L),
-                eq("Betalning godkänd: 270.00 SEK till SE8550000000054910000003. Kommentar: Stämmer mot faktura 4711"));
+                eq("Betalning godkänd: 270.00 SEK till SE8550000000054910000003. Kommentar: Stämmer mot faktura 4711"),
+                eq("Stämmer mot faktura 4711"));
     }
 
     // Attestkorgen skickar i dag ingen body vid godkännande, och det ska fortsätta fungera
@@ -79,7 +82,7 @@ class ApprovalServiceApproveCommentTest {
         assertNull(step.getComment());
         assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
         verify(auditService).record(eq(TENANT), eq(ATTESTANT_ID), eq("APPROVE_PAYMENT"), eq("PAYMENT"), eq(100L),
-                eq("Betalning godkänd: 270.00 SEK till SE8550000000054910000003"));
+                eq("Betalning godkänd: 270.00 SEK till SE8550000000054910000003"), isNull());
     }
 
     @Test

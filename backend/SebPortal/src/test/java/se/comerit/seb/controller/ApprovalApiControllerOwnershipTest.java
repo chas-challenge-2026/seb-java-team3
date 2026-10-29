@@ -231,7 +231,7 @@ class ApprovalApiControllerOwnershipTest {
         org.mockito.Mockito.verify(auditService).record(org.mockito.ArgumentMatchers.eq(TENANT_ID),
                 org.mockito.ArgumentMatchers.eq(99L), org.mockito.ArgumentMatchers.eq("APPROVE_PAYMENT"),
                 org.mockito.ArgumentMatchers.eq("PAYMENT"), org.mockito.ArgumentMatchers.eq(PAYMENT_ID),
-                org.mockito.ArgumentMatchers.anyString());
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull());
     }
 
     @Test

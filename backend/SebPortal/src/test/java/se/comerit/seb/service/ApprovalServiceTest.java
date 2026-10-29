@@ -84,7 +84,8 @@ class ApprovalServiceTest {
                 "APPROVE_PAYMENT",
                 "PAYMENT",
                 paymentId,
-                "Betalning godkänd: 200.00 SEK till SE8550000000054910000003"
+                "Betalning godkänd: 200.00 SEK till SE8550000000054910000003",
+                null
         );
     }
 
@@ -169,11 +170,9 @@ class ApprovalServiceTest {
         // Steget ska fortfarande vara PENDING — B lyckades inte ändra något
         assertEquals(ApprovalStepStatus.PENDING, approvalStep.getStatus());
 
-        // Ingen audit-post, inget kontosaldo ska ha rörts
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        // Ingen audit-post, inget kontosaldo ska ha rörts. verifyNoInteractions täcker alla varianter av
+        // record, oavsett hur många argument de tar.
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -354,10 +353,7 @@ class ApprovalServiceTest {
         assertEquals(ApprovalStepStatus.PENDING, approvalStep1.getStatus());
 
         // Ingen audit-post ska ha skapats
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verifyNoInteractions(auditService);
     }
 
     @Test

@@ -63,13 +63,22 @@ public class AuditService {
     @Transactional(propagation = Propagation.MANDATORY)
     public AuditEntry record(Long tenantId, Long userId, String action,
                              String entityType, Long entityId, String description) {
+        return record(tenantId, userId, action, entityType, entityId, description, null);
+    }
+
+    // comment: attestantens meddelande vid godkännande eller avvisning (#228). MANDATORY gör att raden
+    // bara kan skrivas inuti beslutets transaktion, så meddelandet sparas med beslutet eller inte alls.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public AuditEntry record(Long tenantId, Long userId, String action,
+                             String entityType, Long entityId, String description, String comment) {
         AuditEntry entry = new AuditEntry(
                 tenantId,
                 userId,
                 action,
                 entityType,
                 entityId,
-                description
+                description,
+                comment
         );
 
         AuditEntry saved = auditRepository.save(entry);

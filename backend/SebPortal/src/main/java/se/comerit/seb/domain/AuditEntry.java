@@ -30,6 +30,10 @@ public class AuditEntry {
     @Column(name = "description")
     private String description;
 
+    // Attestantens meddelande vid godkännande eller avvisning (#228, V10). Null för övriga händelser.
+    @Column(name = "comment", length = 255)
+    private String comment;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -39,12 +43,18 @@ public class AuditEntry {
 
     public AuditEntry(Long tenantId, Long userId, String action,
                       String entityType, Long entityId, String description) {
+        this(tenantId, userId, action, entityType, entityId, description, null);
+    }
+
+    public AuditEntry(Long tenantId, Long userId, String action,
+                      String entityType, Long entityId, String description, String comment) {
         this.tenantId = tenantId;
         this.userId = userId;
         this.action = action;
         this.entityType = entityType;
         this.entityId = entityId;
         this.description = description;
+        this.comment = comment;
     }
 
     public Long getId() { return id; }
@@ -54,5 +64,6 @@ public class AuditEntry {
     public String getEntityType() { return entityType; }
     public Long getEntityId() { return entityId; }
     public String getDescription() { return description; }
+    public String getComment() { return comment; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

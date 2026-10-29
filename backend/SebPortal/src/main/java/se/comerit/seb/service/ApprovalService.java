@@ -173,7 +173,8 @@ public class ApprovalService {
                     "APPROVE_PAYMENT",
                     "PAYMENT",
                     payment.getId(),
-                    description
+                    description,
+                    comment
             );
         }
     }
@@ -245,7 +246,8 @@ public class ApprovalService {
                 "REJECT_PAYMENT",
                 "PAYMENT",
                 payment.getId(),
-                description
+                description,
+                comment
         );
     }
 
