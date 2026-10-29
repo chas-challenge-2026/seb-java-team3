@@ -24,6 +24,7 @@ import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -106,8 +107,7 @@ public class AuditService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        Map<Long, String> userNamesById = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getName));
+        Map<Long, String> userNamesById = userNamesInTenant(user.tenantId(), userIds);
 
         List<Long> paymentIds = entries.stream()
                 .filter(entry -> "PAYMENT".equalsIgnoreCase(entry.getEntityType()))
@@ -172,8 +172,7 @@ public class AuditService {
                     .forEach(userIds::add);
         }
 
-        Map<Long, String> userNamesById = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getName));
+        Map<Long, String> userNamesById = userNamesInTenant(user.tenantId(), userIds);
 
         List<TimelineEvent> events = new ArrayList<>();
 
@@ -252,15 +251,21 @@ public class AuditService {
                 .collect(Collectors.toList());
 
         // Attestanterna tillhör samma företag som betalningen; namnen slås upp en gång för hela listan
-        Map<Long, String> attestantNamesById = userRepository.findAllById(attestantIds).stream()
-                .filter(attestant -> user.tenantId().equals(attestant.getTenantId()))
-                .collect(Collectors.toMap(User::getId, User::getName));
+        Map<Long, String> attestantNamesById = userNamesInTenant(user.tenantId(), attestantIds);
 
         Map<Long, String> accountNamesById = accountNamesForTenant(user.tenantId());
 
         return payments.stream()
                 .map(payment -> MyPaymentStatusResponse.from(payment, accountNamesById, attestantNamesById))
                 .collect(Collectors.toList());
+    }
+
+    // Bara det egna företagets användare namnges (R-04). En auditrad eller ett steg som pekar på en
+    // användare hos ett annat företag (bara möjligt med felaktig data) visas som en okänd användare.
+    private Map<Long, String> userNamesInTenant(Long tenantId, Collection<Long> userIds) {
+        return userRepository.findAllById(userIds).stream()
+                .filter(candidate -> tenantId.equals(candidate.getTenantId()))
+                .collect(Collectors.toMap(User::getId, User::getName));
     }
 
     // Bara det egna företagets konton slås upp, så ett annat företags konto kan aldrig namnges (R-04)

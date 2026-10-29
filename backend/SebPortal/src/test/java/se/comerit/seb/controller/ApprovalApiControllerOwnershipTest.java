@@ -211,13 +211,16 @@ class ApprovalApiControllerOwnershipTest {
         verifyNoInteractions(accountRepository);
     }
 
+    // Ett annat företags steg ser ut som ett steg som inte finns (400), så att steg-id hos andra kunder
+    // inte går att kartlägga (R-04)
     @Test
     void admin_cannotApproveOrRejectAnotherCompanysStep() throws Exception {
         String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID + 1, Role.ADMIN));
         for (String action : new String[] {"approve", "reject"}) {
             mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
                             .header("Authorization", "Bearer " + token))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Approval step not found: " + STEP_ID));
         }
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
