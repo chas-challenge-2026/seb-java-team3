@@ -9,8 +9,8 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 39 klasser, 271 tester | Gröna vid lokal körning 2026-10-29 i en Maven-container, även Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest` och `TenantIsolationIntegrationTest`; fem hoppas över utan byggd `libauditsigner.so` |
-| Frontend · Vitest | 20 filer, 175 tester | Alla gröna vid lokal körning 2026-10-28 |
+| Backend · JUnit | 38 klasser, 258 tester | Gröna vid lokal körning 2026-10-28 i en Maven-container, även de två Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest`; fem hoppas över utan byggd `libauditsigner.so` |
+| Frontend · Vitest | 20 filer, 176 tester | Alla gröna vid lokal körning 2026-10-29 |
 | Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla gröna 2026-10-28 i en gcc-container med Check; sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-10-28 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna 2026-10-28 mot Vite dev-servern med backend i Docker, med granskningsrutan i attestkorgen |
@@ -72,7 +72,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 17; `payment/schema.test.ts` · 25 |
+| Skapa betalning med belopp och mottagare, initiatörsbekräftelse och kvitto efter skickad betalning | Unit + Komp + E2E | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 18 (bekräftelse, avbrytande, kvitto och väntar-på-attest-status); `PaymentConfirmationDialog.tsx` i `features/confirmation`; `frontend/e2e/mvp-flow.spec.ts`; `payment/schema.test.ts` · 25 |
 | Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup`, `missingTenant_shouldBeRejectedWithoutDatabaseLookup` |
 | Godkännande belastar bara kontot om det tillhör betalningens företag, och låser kontot (#191, R-04) | Unit + Int | Grön | `ApprovalServiceTest.approve_shouldRefuseToDebitAccountOfAnotherTenant`, `approve_shouldRefuseInvalidFromAccountIdWithoutLookup` · 5; `ApprovalApiControllerOwnershipTest.approve_whenTheAccountBelongsToAnotherTenant_*`; `AccountRepositoryTenantTest` · 6 (H2) |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |
@@ -80,7 +80,8 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Saldo dras vid slutligt godkännande (BUG-009, R-02) | Unit | Delvis | `ApprovalServiceTest.finalApproval_*` |
 | Attestkorgen visar vilket konto som belastas och vem som skapade betalningen, bara inom attestantens företag (UX-feedback) | Unit + Komp | Grön | `ApprovalServicePendingApprovalsTest` · 4; `AttestGrid.test.tsx` (`shows which account is drawn from and who created the payment`) |
 | Väntande betalningar reserverar saldot: en ny betalning får bara använda saldo minus det som väntar på attest, och reservationen släpps vid godkännande eller avvisning | Unit + Int | Grön | `PaymentServiceTest.amountOverWhatIsLeftAfterReservations_*`, `amountWithinWhatIsLeftAfterReservations_*`; `AccountServiceTest.getAccounts_reservesPendingPayments*` (H2); `PaymentForm.test.tsx` (tillgängligt saldo) |
-| Attestkorgen har en Granska-knapp per betalning som öppnar en ruta med sammanfattning (belopp, mottagare, konto, saldo efter, skapare, referens). Beslutet fattas i rutan, Godkänn-knappen visar beloppet, rutan stängs efter beslut, ett fel visas i rutan och den kan stängas utan beslut (UX-feedback) | Komp + E2E | Grön | `AttestGrid.test.tsx` (granska) · 5; `frontend/e2e/mvp-flow.spec.ts` |
+| Attestkorgen har en Granska-knapp per betalning som öppnar den delade bekräftelsedialogen med sammanfattning (belopp, mottagare, konto, saldo efter, skapare, referens). Beslutet fattas i dialogen, Godkänn-knappen visar beloppet, godkännandet anropas först efter bekräftelse, dialogen stängs efter beslut, ett fel visas i dialogen och den kan stängas utan beslut (UX-feedback) | Komp + E2E | Grön | `AttestGrid.test.tsx` (granska) · 5; `frontend/e2e/mvp-flow.spec.ts` |
+| Betalningsinitiativtagaren måste bekräfta uppgifterna innan betalningen skapas; bekräftelsen kan avbrytas utan att skapa betalning | Komp | Grön | `PaymentForm.test.tsx` (`submits the normalized data and shows the confirmation on success`, `does not create a payment when the initiator cancels the confirmation`) |
 | Avvisa i granskningsrutan med valfri anledning; anledningen sparas, syns i audit och i Mina betalningar, och längden kontrolleras (255) | Unit + Komp | Grön | `ApprovalServiceRejectCommentTest` · 5; `AttestGrid.test.tsx` (avvisa) · 4; `formatters.test.ts` (`formatRejectionReason`) · 2 |
 | Ett andra beslut på samma betalning (t.ex. attestant och admin samtidigt) ger 409 med begripligt meddelande, ändrar ingenting och attestkorgen hämtas om | Int + Unit | Grön | `ApprovalApiControllerOwnershipTest.approve_whenThePaymentWasAlreadyRejected_*`, `reject_whenThePaymentWasAlreadyApproved_*`; `useApprovals.test.tsx` · 3 |
 | Samtidiga godkännanden ger inte dubbel debitering (R-01) | – | Ej testad | Inget incheckat test |
