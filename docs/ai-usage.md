@@ -26,6 +26,31 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-10-29 — Test av tenant-isolering och två rättade läckor (R-04) Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att täcka bristen "Isoleringen mellan företag saknar heltäckande tester" (R-04 i `docs/test-status.md`, där bara konton hade test av faktisk filtrering). AI:n gick igenom alla endpoints som bär företagsdata och hur varje fråga filtrerar på `tenantId`, skrev testet, körde det och kontrollerade med mutationsprov att det fångar fel. Testet hittade två läckor, och efter att jag bett om det rättade AI:n dem.
+- **Genererades:**
+  - `TenantIsolationIntegrationTest` · 13 tester: hela appen över HTTP med riktiga JWT mot Postgres 12 (Testcontainers), utan mockar. Två företag körs mot varandra över konton, auditlogg, tidslinje, mina betalningar, attestkorgen och antal, godkänn, avvisa och skapa betalning. All text hos ett företag har en markör (`BOLAG_A`/`BOLAG_B`), så att varje svar kan sökas igenom efter läckage. Fixturen har också rader som korsar företagsgränsen, så att det är tenant-villkoret som prövas och inte bara att användar-id:n skiljer sig.
+  - Rättelse i `AuditService`: användarnamnen i auditloggen och tidslinjen slogs upp utan tenant-villkor. Nu namnges bara det egna företagets användare (`userNamesInTenant`).
+  - Rättelse i `ApprovalService`: godkänn och avvisa kontrollerade status före företag. Ett annat företags steg gav därför 403 eller 409 beroende på status, vilket avslöjade om steg-id:t fanns och om det var behandlat. Nu kontrolleras företaget först, och ett annat företags steg ger samma 400 som ett steg som inte finns.
+  - `ApprovalApiControllerOwnershipTest` är uppdaterat till 400, och `docs/test-status.md` till Grön för R-04. AI:n skrev också commit-meddelande och PR-beskrivning.
+  - Verifiering:
+    - Mutationsprov: tolv tenant-skydd togs bort ett i taget i en kopia av koden, och för vart och ett föll minst ett test.
+    - Mot koden före rättelserna föll 6 tester, och felmeddelandena visade båda läckorna.
+    - Med rättelserna är hela backendsviten grön: 271 tester, 5 överhoppade utan `libauditsigner.so`.
+    - Första versionen använde en ogiltig IBAN, så testet "betalning från annat företags konto nekas" blev grönt av fel skäl (IBAN-felet, inte kontot). Det upptäcktes vid första körningen, och testet kräver nu kontots felmeddelande. Av samma skäl kräver attesttestet att svaret är identiskt med ett steg som inte finns, inte bara en felkod.
+- **Hur jag granskade/ändrade:** användarnamn i AuditService.java. Kommentera bort raden .filter(candidate -> tenantId.equals(candidate.getTenantId())) i userNamesInTenant.
+Förväntat: auditLogAndTimeline_neverNameAnotherCompanysUser blir rött med expected: <Systemet> but was: <BOLAG_B Admin>.
+
+Kontroll 2: steg hos ett annat företag i ApprovalService.java. Ändra filtret i findPaymentOfStepForUpdate till .filter(payment -> true).
+Förväntat: approveAndReject_ofAnotherCompanysStep_... blir rött med 409 eller 204 i stället för 400.
+
+- **Valde bort (om något):**
+  - Att lägga tenant-villkoret i själva låsfrågan `findByApprovalStepIdForUpdate`. De interna anropen `approve/reject(stepId, actorId)` har ingen inloggad användare och använder samma fråga, så kontrollen görs i stället direkt efter uppslaget.
+  - Att ge en användare från ett annat företag en egen text som "Okänd användare". Den visas som "Systemet", samma text som en okänd användare redan får.
+  - Behörighetstestet för `/api/my-payments`. Det står kvar som nästa testinsats.
+- **Spår:** Commit `1e94f05`, branch `test-isolering`, PR #
+
 ### 2026-10-08 — Tester för badge, rollskydd, route-skydd och tidslinjens ordning (#196, #197, #198) Pontus Ingenius
 - **Verktyg:** Claude Code
 - **Använde AI till:** Att skriva testerna för tre test-issues utifrån issuetexterna, köra dem och kontrollera att de faktiskt fångar fel. Att ta reda på var logiken som skulle testas låg: badgens 0-regel ligger i `SideBar`, inte i `SideBarItem`, och tidslinjens ordning bestäms på två ställen (`ORDER BY` i `AuditRepository.findPaymentEvents` och sorteringen i `AuditService.getPaymentAuditTimeline`).
