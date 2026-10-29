@@ -2,18 +2,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountsQueryOptions, availableBalanceOf } from "../accounts/api";
 import React, {
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Clock3, Info } from "lucide-react";
+import { Clock3, Info, PartyPopper } from "lucide-react";
 
 import Container from "../../components/ui/layout/Container";
 import Button from "../../components/ui/buttons/Button";
 import Input from "../../components/ui/forms/Input";
 import Select from "../../components/ui/forms/Select";
-import PaymentConfirmationDialog from "../../components/ui/overlay/PaymentConfirmationDialog";
+import PaymentConfirmationDialog from "../confirmation/PaymentConfirmationDialog";
 
 import styles from "./PaymentForm.module.css";
 import { formatAmount } from "../audit/utils/formatters";
@@ -62,16 +61,6 @@ function PaymentForm() {
     useState<PaymentResponse | null>(null);
   const [paymentConfirmation, setPaymentConfirmation] =
     useState<PaymentFormData | null>(null);
-  const [pendingConfirmation, setPendingConfirmation] =
-    useState<PaymentResponse | null>(null);
-  const [cardDimensions, setCardDimensions] = useState<{
-    height: number;
-    width: number;
-  } | null>(null);
-  const [formWidth, setFormWidth] = useState<number | null>(null);
-  const [returningToForm, setReturningToForm] = useState(false);
-  const [isFormEntering, setIsFormEntering] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLButtonElement>(null);
   const recipientIbanRef = useRef<HTMLInputElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -117,133 +106,6 @@ function PaymentForm() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!pendingConfirmation) {
-      return;
-    }
-
-    const confirmationTimer = window.setTimeout(() => {
-      setCompletedPayment(pendingConfirmation);
-      setPendingConfirmation(null);
-    }, 250);
-
-    return () => window.clearTimeout(confirmationTimer);
-  }, [pendingConfirmation]);
-
-  useLayoutEffect(() => {
-    const cardWrapper = cardRef.current;
-    const card = cardWrapper?.firstElementChild;
-
-    if (!(cardWrapper && card instanceof HTMLElement)) {
-      return;
-    }
-
-    if (pendingConfirmation && cardDimensions === null) {
-      const { height, width } = card.getBoundingClientRect();
-      setCardDimensions({ height, width });
-      setFormWidth(width);
-      return;
-    }
-
-    if (completedPayment && cardDimensions !== null) {
-      const confirmationWidth = Math.min(cardDimensions.width, 420);
-
-      card.style.height = "auto";
-      cardWrapper.style.width = `${confirmationWidth}px`;
-      const nextDimensions = card.getBoundingClientRect();
-      card.style.height = `${cardDimensions.height}px`;
-      cardWrapper.style.width = `${cardDimensions.width}px`;
-
-      if (
-        Math.abs(nextDimensions.height - cardDimensions.height) > 1 ||
-        Math.abs(confirmationWidth - cardDimensions.width) > 1
-      ) {
-        const animationFrame = window.requestAnimationFrame(() => {
-          setCardDimensions({
-            height: nextDimensions.height,
-            width: confirmationWidth,
-          });
-        });
-
-        return () => window.cancelAnimationFrame(animationFrame);
-      }
-    }
-
-    if (isFormEntering && cardDimensions !== null && formWidth !== null) {
-      card.style.height = "auto";
-      cardWrapper.style.width = `${formWidth}px`;
-      const nextDimensions = card.getBoundingClientRect();
-      card.style.height = `${cardDimensions.height}px`;
-      cardWrapper.style.width = `${cardDimensions.width}px`;
-
-      if (
-        Math.abs(nextDimensions.height - cardDimensions.height) > 1 ||
-        Math.abs(formWidth - cardDimensions.width) > 1
-      ) {
-        const animationFrame = window.requestAnimationFrame(() => {
-          setCardDimensions({
-            height: nextDimensions.height,
-            width: formWidth,
-          });
-        });
-
-        return () => window.cancelAnimationFrame(animationFrame);
-      }
-    }
-  }, [
-    cardDimensions,
-    completedPayment,
-    formWidth,
-    isFormEntering,
-    pendingConfirmation,
-  ]);
-
-  useEffect(() => {
-    if (!returningToForm) {
-      return;
-    }
-
-    const formTimer = window.setTimeout(() => {
-      setCompletedPayment(null);
-      setReturningToForm(false);
-      setIsFormEntering(true);
-      setFormData({
-        account: "",
-        recipientIban: "",
-        amount: "",
-        reference: "",
-      });
-      setErrors({});
-    }, 250);
-
-    return () => window.clearTimeout(formTimer);
-  }, [returningToForm]);
-
-  useEffect(() => {
-    if (!isFormEntering) {
-      return;
-    }
-
-    const enteringTimer = window.setTimeout(() => {
-      setIsFormEntering(false);
-    }, 350);
-
-    return () => window.clearTimeout(enteringTimer);
-  }, [isFormEntering]);
-
-  const cardStyle = {
-    boxSizing: "border-box" as const,
-    height: cardDimensions
-      ? `${cardDimensions.height}px`
-      : undefined,
-  };
-
-  const cardWrapperStyle = {
-    width: cardDimensions
-      ? `${cardDimensions.width}px`
-      : undefined,
-  };
-
   const handleSubmit = async (
     event: React.SubmitEvent<HTMLFormElement>
   ) => {
@@ -285,8 +147,7 @@ function PaymentForm() {
       void queryClient.invalidateQueries({ queryKey: ["audit"] });
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      setPaymentConfirmation(null);
-      setPendingConfirmation(payment);
+      setCompletedPayment(payment);
     } catch (error) {
       console.error("Failed to create payment:", error);
       setSubmitError(getSubmitErrorMessage(error));
@@ -305,114 +166,24 @@ function PaymentForm() {
   };
 
   const handleNewPayment = () => {
-    setReturningToForm(true);
+    setCompletedPayment(null);
+    setPaymentConfirmation(null);
+    setSubmitError(null);
+    setFormData({ account: "", recipientIban: "", amount: "", reference: "" });
+    setErrors({});
   };
-
-  if (completedPayment) {
-    const isPendingApproval = completedPayment.status === "PENDING_APPROVAL";
-
-    return (
-      <div
-        ref={cardRef}
-        className={styles.paymentCardWrapper}
-        style={cardWrapperStyle}
-      >
-        <Container
-          maxWidth="sm"
-          variant="white"
-          className={styles.paymentCard}
-          style={cardStyle}
-        >
-          <section
-            className={`${styles.paymentConfirmation} ${
-              returningToForm ? styles.confirmationExiting : ""
-            }`}
-            aria-labelledby="payment-confirmation-title"
-          >
-          <header className={`${styles.formHeader} ${styles.confirmationHeader}`}>
-            <div>
-              <h2 id="payment-confirmation-title">Betalningen har skickats</h2>
-              <p>
-                {isPendingApproval
-                  ? "Din betalning har registrerats och väntar på attest."
-                  : "Din betalning har registrerats och genomförts."}
-              </p>
-            </div>
-          </header>
-
-          <div className={styles.confirmationBody}>
-            {isPendingApproval && (
-              <div className={styles.approvalNotice} role="status">
-                <Clock3 size={19} aria-hidden="true" />
-                <div>
-                  <strong>Väntar på attest</strong>
-                  <p>Betalningen behöver godkännas innan den genomförs.</p>
-                </div>
-              </div>
-            )}
-            <dl className={styles.paymentSummary}>
-              <div>
-                <dt>Belopp</dt>
-                <dd>
-                  {completedPayment.amount.toLocaleString("sv-SE", {
-                    style: "currency",
-                    currency: "SEK",
-                  })}
-                </dd>
-              </div>
-              <div>
-                <dt>Från konto</dt>
-                <dd>{accounts.find((account) => String(account.id) === formData.account)?.name ?? "Konto"}</dd>
-              </div>
-              <div>
-                <dt>Till IBAN</dt>
-                <dd>{completedPayment.toIban}</dd>
-              </div>
-              <div>
-                <dt>Referens</dt>
-                <dd>{formData.reference || "–"}</dd>
-              </div>
-            </dl>
-
-            <div className={styles.confirmationActions}>
-              <Button type="button" onClick={handleNewPayment}>
-                Ny betalning
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                onClick={handleCancel}
-              >
-                Gå till Översikt
-              </Button>
-            </div>
-          </div>
-          </section>
-        </Container>
-      </div>
-    );
-  }
 
   return (
     <div
-      ref={cardRef}
       className={styles.paymentCardWrapper}
-      style={cardWrapperStyle}
     >
       <Container
         maxWidth="sm"
         variant="white"
         className={styles.paymentCard}
-        style={cardStyle}
       >
         <form
-          className={`${styles.paymentForm} ${
-            pendingConfirmation
-              ? styles.formExiting
-              : isFormEntering
-                ? styles.formEntering
-                : ""
-          }`}
+          className={styles.paymentForm}
           onSubmit={handleSubmit}
           noValidate
         >
@@ -527,7 +298,7 @@ function PaymentForm() {
             <Button
               type="button"
               onClick={handleCancel}
-              disabled={Boolean(pendingConfirmation) || isSubmitting}
+              disabled={Boolean(paymentConfirmation) || isSubmitting}
             >
               Avbryt
             </Button>
@@ -535,7 +306,7 @@ function PaymentForm() {
             <Button
               type="submit"
               variant="primary"
-              disabled={Boolean(pendingConfirmation) || Boolean(paymentConfirmation) || isSubmitting || accountsPending || accountsError || accounts.length === 0 || exceedsBalance}
+              disabled={Boolean(paymentConfirmation) || isSubmitting || accountsPending || accountsError || accounts.length === 0 || exceedsBalance}
               aria-busy={isSubmitting}
             >
               Skicka betalning
@@ -559,13 +330,51 @@ function PaymentForm() {
           ]}
           confirmLabel={isSubmitting ? "Skickar…" : "Bekräfta och skicka betalning"}
           onConfirm={handleConfirmPayment}
-          onCancel={cancelPaymentConfirmation}
+          onCancel={completedPayment ? handleCancel : cancelPaymentConfirmation}
           isConfirming={isSubmitting}
           error={submitError ? (
             <p className={styles.submitError} role="alert">
               {submitError}
             </p>
           ) : undefined}
+          result={completedPayment ? {
+            title: "Betalningen har skickats",
+            description: completedPayment.status === "PENDING_APPROVAL"
+              ? "Din betalning har registrerats och väntar på attest."
+              : "Din betalning har registrerats och genomförts.",
+            decoration: <PartyPopper />,
+            statusLabel: "Betalningen har skickats",
+            notice: completedPayment.status === "PENDING_APPROVAL" ? (
+              <>
+                <Clock3 size={19} aria-hidden="true" />
+                <div>
+                  <strong>Väntar på attest</strong>
+                  <p>Betalningen behöver godkännas innan den genomförs.</p>
+                </div>
+              </>
+            ) : undefined,
+            details: [
+              {
+                label: "Belopp",
+                value: completedPayment.amount.toLocaleString("sv-SE", {
+                  style: "currency",
+                  currency: "SEK",
+                }),
+              },
+              {
+                label: "Från konto",
+                value: accounts.find((account) => String(account.id) === paymentConfirmation.account)?.name ?? "Konto",
+              },
+              { label: "Till IBAN", value: completedPayment.toIban },
+              { label: "Referens", value: paymentConfirmation.reference || "–" },
+            ],
+            actions: (
+              <>
+                <Button type="button" onClick={handleNewPayment}>Ny betalning</Button>
+                <Button type="button" variant="primary" onClick={handleCancel}>Gå till Översikt</Button>
+              </>
+            ),
+          } : undefined}
         />
       )}
     </div>

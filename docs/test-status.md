@@ -72,7 +72,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 | Kontroll | Typ | Status | Teststöd |
 | --- | --- | --- | --- |
-| Skapa betalning med belopp och mottagare | Unit + Komp | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 17; `payment/schema.test.ts` · 25 |
+| Skapa betalning med belopp och mottagare, initiatörsbekräftelse och kvitto efter skickad betalning | Unit + Komp + E2E | Grön | `PaymentServiceTest` · 10; `PaymentForm.test.tsx` · 18 (bekräftelse, avbrytande, kvitto och väntar-på-attest-status); `PaymentConfirmationDialog.tsx` i `features/confirmation`; `frontend/e2e/mvp-flow.spec.ts`; `payment/schema.test.ts` · 25 |
 | Betalning från annat företags konto nekas innan något sparas eller loggas (#187) | Unit | Grön | `PaymentServiceTest.fromAccountBelongingToOtherTenant_shouldBeRejected`, `missingFromAccount_shouldBeRejected`, `fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup`, `missingTenant_shouldBeRejectedWithoutDatabaseLookup` |
 | Godkännande belastar bara kontot om det tillhör betalningens företag, och låser kontot (#191, R-04) | Unit + Int | Grön | `ApprovalServiceTest.approve_shouldRefuseToDebitAccountOfAnotherTenant`, `approve_shouldRefuseInvalidFromAccountIdWithoutLookup` · 5; `ApprovalApiControllerOwnershipTest.approve_whenTheAccountBelongsToAnotherTenant_*`; `AccountRepositoryTenantTest` · 6 (H2) |
 | Tröskelvärdet ger rätt attestkedja (BUG-006, R-05) | Unit + Komp | Grön | `PaymentServiceTest.amountEqualToThreshold_*`, `amountJustOverThreshold_*`; PaymentForm-test |

@@ -193,6 +193,7 @@ describe("PaymentForm", () => {
     renderForm();
 
     await fillValidForm(user);
+    await user.type(screen.getByLabelText(/^Referens/), "Faktura 1042");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
 
     const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
@@ -211,9 +212,15 @@ describe("PaymentForm", () => {
       }),
     );
 
-    expect(
-      await screen.findByText("Betalningen har skickats"),
-    ).toBeInTheDocument();
+    const resultDialog = await screen.findByRole("dialog", { name: "Betalningen har skickats" });
+    expect(within(resultDialog).getByText("Din betalning har registrerats och genomförts.")).toBeInTheDocument();
+    expect(resultDialog.querySelector(".lucide-party-popper")).toBeInTheDocument();
+    expect(within(resultDialog).getByText(/1\s000,00\s?kr/)).toBeInTheDocument();
+    expect(within(resultDialog).getByText("Driftkonto")).toBeInTheDocument();
+    expect(within(resultDialog).getByText("SE4550000000058398257466")).toBeInTheDocument();
+    expect(within(resultDialog).getByText("Faktura 1042")).toBeInTheDocument();
+    expect(within(resultDialog).getByRole("button", { name: "Ny betalning" })).toBeInTheDocument();
+    expect(within(resultDialog).getByRole("button", { name: "Gå till Översikt" })).toBeInTheDocument();
   });
 
   it("does not create a payment when the initiator cancels the confirmation", async () => {
@@ -276,9 +283,10 @@ describe("PaymentForm", () => {
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
     await confirmPayment(user);
 
-    expect(await screen.findByText("Väntar på attest")).toBeInTheDocument();
+    const resultDialog = await screen.findByRole("dialog", { name: "Betalningen har skickats" });
+    expect(within(resultDialog).getByText("Väntar på attest")).toBeInTheDocument();
     expect(
-      screen.getByText("Betalningen behöver godkännas innan den genomförs."),
+      within(resultDialog).getByText("Betalningen behöver godkännas innan den genomförs."),
     ).toBeInTheDocument();
   });
 

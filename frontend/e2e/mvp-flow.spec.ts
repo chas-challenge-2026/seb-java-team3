@@ -30,10 +30,15 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     await initiator.getByLabel("Referens").fill(reference);
     await initiator.getByRole("button", { name: "Skicka betalning" }).click();
 
+    const paymentConfirmation = initiator.getByRole("dialog", { name: "Bekräfta betalning" });
+    await expect(paymentConfirmation).toBeVisible();
+    await paymentConfirmation.getByRole("button", { name: "Bekräfta och skicka betalning" }).click();
+
     await expect(
-      initiator.getByRole("heading", { name: "Betalningen har skickats" }),
+      initiator.getByRole("dialog", { name: "Betalningen har skickats" }),
     ).toBeVisible();
-    await expect(initiator.getByText("Väntar på attest", { exact: true })).toBeVisible();
+    await expect(initiator.getByRole("dialog", { name: "Betalningen har skickats" })
+      .getByText("Väntar på attest", { exact: true })).toBeVisible();
   });
 
   await test.step("betalningen väntar på attest i Mina betalningar", async () => {

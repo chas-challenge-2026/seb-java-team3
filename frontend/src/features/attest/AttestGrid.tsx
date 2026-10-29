@@ -10,7 +10,7 @@ import LoadingMessage from "../../components/ui/feedback/LoadingMessage";
 import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
 import Modal from "../../components/ui/overlay/Modal";
-import PaymentConfirmationDialog from "../../components/ui/overlay/PaymentConfirmationDialog";
+import PaymentConfirmationDialog from "../confirmation/PaymentConfirmationDialog";
 import { formatDateTime } from "../../lib/dateTime";
 import { formatAmount } from "../audit/utils/formatters";
 import { isApiError } from "../../error/api.error";
