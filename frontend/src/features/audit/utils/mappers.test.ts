@@ -20,6 +20,7 @@ function apiEntry(overrides: Partial<AuditApiEntry>): AuditApiEntry {
     balanceAfterPayment: 5500,
     fromAccountName: "Driftkonto",
     autoApproved: false,
+    comment: null,
     ...overrides,
   };
 }

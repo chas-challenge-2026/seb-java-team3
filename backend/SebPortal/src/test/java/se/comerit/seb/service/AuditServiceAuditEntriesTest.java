@@ -106,6 +106,26 @@ class AuditServiceAuditEntriesTest {
         verify(paymentRepository).findByTenantIdAndIdInWithApprovalSteps(TENANT, List.of(100L));
     }
 
+    // #228: attestantens meddelande följer med till historiken, och övriga händelser har inget
+    @Test
+    void decisionWithAMessage_carriesItToTheHistory() {
+        Payment payment = payment(100L, PaymentStatus.REJECTED, new ApprovalStep(ATTESTANT_ID, 1));
+        AuditEntry rejected = new AuditEntry(TENANT, ATTESTANT_ID, "REJECT_PAYMENT", "PAYMENT", 100L,
+                "Betalning avvisad. Kommentar: Fel konto", "Fel konto");
+        when(auditRepository.findTop200ByTenantIdOrderByCreatedAtDesc(TENANT)).thenReturn(List.of(rejected));
+        when(paymentRepository.findByTenantIdAndIdInWithApprovalSteps(TENANT, List.of(100L)))
+                .thenReturn(List.of(payment));
+
+        assertEquals("Fel konto", singleEntry().comment());
+    }
+
+    @Test
+    void eventWithoutAMessage_hasNoComment() {
+        givenPaymentEvent(payment(100L, PaymentStatus.COMPLETED));
+
+        assertNull(singleEntry().comment());
+    }
+
     @Test
     void noEvents_noPaymentQuery() {
         when(auditRepository.findTop200ByTenantIdOrderByCreatedAtDesc(TENANT)).thenReturn(List.of());

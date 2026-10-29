@@ -163,6 +163,39 @@ class ApprovalApiControllerOwnershipTest {
         assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
     }
 
+    // #228: meddelandet följer med i JSON-bodyn hela vägen till steget
+    @Test
+    void approve_withAMessage_returns204AndSavesTheMessageOnTheStep() throws Exception {
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("1000.00"));
+        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
+                .thenReturn(Optional.of(account));
+
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"Stämmer mot avtalet\"}"))
+                .andExpect(status().isNoContent());
+
+        assertEquals("Stämmer mot avtalet", step.getComment());
+        assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
+    }
+
+    @Test
+    void approve_withATooLongMessage_returns400AndChangesNothing() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"" + "x".repeat(256) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Kommentaren får vara högst 255 tecken."));
+
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(step.getComment());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
     // R-04: rätt attestant, men betalningen pekar på ett konto som ägs av ett annat företag.
     // Den tenant-scopade frågan svarar tomt (som databasen gör), så pengarna flyttas inte.
     @Test
@@ -198,7 +231,7 @@ class ApprovalApiControllerOwnershipTest {
         org.mockito.Mockito.verify(auditService).record(org.mockito.ArgumentMatchers.eq(TENANT_ID),
                 org.mockito.ArgumentMatchers.eq(99L), org.mockito.ArgumentMatchers.eq("APPROVE_PAYMENT"),
                 org.mockito.ArgumentMatchers.eq("PAYMENT"), org.mockito.ArgumentMatchers.eq(PAYMENT_ID),
-                org.mockito.ArgumentMatchers.anyString());
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull());
     }
 
     @Test

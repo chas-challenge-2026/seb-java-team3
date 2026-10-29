@@ -34,7 +34,7 @@ Kärnan, byggd i tre sprintar (v3-v5):
 
 Inte oviktigt, utan för att en stabil kärna slår fem halvfärdiga flöden. Byggs efter MVP:
 
-- Avvisa betalning med kommentar
+- Avvisa betalning med kommentar (byggt efter MVP i #226 och #228: avvisa och godkänn tar emot ett valfritt meddelande, som sparas atomärt med beslutet och visas i Historik)
 - Påminnelser via e-post (kö, retry)
 - Dubbel attest / attestant 2 (VD) och tröskeltrappa
 - Batch/CSV-uppladdning

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatAttestant, formatRejectionReason } from "./formatters";
-import type { MyPaymentApprovalStep, MyPaymentStatus } from "../schema";
+import { formatAttestant, formatRejectionReason, formatTimelineComment } from "./formatters";
+import type { MyPaymentApprovalStep, MyPaymentStatus, PaymentAuditTimelineEntry } from "../schema";
 
 function payment(status: string, approvalSteps: MyPaymentApprovalStep[]): MyPaymentStatus {
   return {
@@ -67,5 +67,39 @@ describe("formatRejectionReason", () => {
   it("has no reason when the payment was not rejected or no reason was given", () => {
     expect(formatRejectionReason(payment("PENDING_APPROVAL", [step(1, "Johan Berg", "PENDING")]))).toBeNull();
     expect(formatRejectionReason(payment("REJECTED", [step(1, "Johan Berg", "REJECTED")]))).toBeNull();
+  });
+});
+
+function timelineEntry(eventType: string, comment: string | null): PaymentAuditTimelineEntry {
+  return {
+    order: 1,
+    sequence: "AUDIT-1",
+    actor: "Johan Berg",
+    eventType,
+    description: "Betalning avvisad",
+    comment,
+    timestamp: "2026-10-29T10:00:00",
+    stepNumber: null,
+    status: "REJECTED",
+    reference: "Faktura 4711",
+    amount: 6000,
+    currency: "SEK",
+    toIban: "SE8550000000054910000003",
+  };
+}
+
+describe("formatTimelineComment", () => {
+  it.each(["APPROVE_PAYMENT", "REJECT_PAYMENT"])("shows the attestant's message on %s", (eventType) => {
+    expect(formatTimelineComment(timelineEntry(eventType, "  Stämmer mot avtalet  "))).toBe("Stämmer mot avtalet");
+  });
+
+  it("has no message when the attestant wrote none", () => {
+    expect(formatTimelineComment(timelineEntry("REJECT_PAYMENT", null))).toBeNull();
+    expect(formatTimelineComment(timelineEntry("REJECT_PAYMENT", "   "))).toBeNull();
+  });
+
+  // Admin får en rad per atteststeg som bär samma meddelande som beslutet; det ska inte stå två gånger
+  it.each(["APPROVAL_STEP_APPROVED", "APPROVAL_STEP_REJECTED"])("hides the message on the %s row", (eventType) => {
+    expect(formatTimelineComment(timelineEntry(eventType, "Stämmer mot avtalet"))).toBeNull();
   });
 });

@@ -364,6 +364,26 @@
     line-height: 1.35;
 }
 
+/* Attestantens meddelande på ett godkännande eller en avvisning. Texten kommer från en användare, så den
+   bryts var som helst och radbrytningar i den bevaras. */
+.comment {
+    margin: 0.5rem 0 0;
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--border-default);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.commentLabel {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 650;
+}
+
 .stepBadge {
     padding: 0.15rem 0.45rem;
     border-radius: 0.4rem;

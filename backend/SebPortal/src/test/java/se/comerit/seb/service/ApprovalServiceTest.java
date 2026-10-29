@@ -69,7 +69,7 @@ class ApprovalServiceTest {
         when(accountRepository.findByIdAndTenantIdForUpdate(10, tenantId)).thenReturn(Optional.of(account));
 
         // ACT
-        approvalService.approve(approvalStepId, actorId);
+        approvalService.approve(approvalStepId, actorId, null);
 
         // ASSERT
         assertEquals(ApprovalStepStatus.APPROVED, approvalStep.getStatus());
@@ -84,7 +84,8 @@ class ApprovalServiceTest {
                 "APPROVE_PAYMENT",
                 "PAYMENT",
                 paymentId,
-                "Betalning godkänd: 200.00 SEK till SE8550000000054910000003"
+                "Betalning godkänd: 200.00 SEK till SE8550000000054910000003",
+                null
         );
     }
 
@@ -123,7 +124,7 @@ class ApprovalServiceTest {
         // Kontot hämtas med betalningens företag (tenant) och låses; se findByIdAndTenantIdForUpdate
         when(accountRepository.findByIdAndTenantIdForUpdate(10, tenantId)).thenReturn(Optional.of(account));
 
-        assertThrows(IllegalArgumentException.class, () -> approvalService.approve(approvalStepId, actorId));
+        assertThrows(IllegalArgumentException.class, () -> approvalService.approve(approvalStepId, actorId, null));
         verify(account, never()).setBalance(org.mockito.ArgumentMatchers.any());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
         assertNull(payment.getExecutedAt());
@@ -163,17 +164,15 @@ class ApprovalServiceTest {
         // ACT + ASSERT
         assertThrows(
                 se.comerit.seb.exception.ApprovalStepAccessDeniedException.class,
-                () -> approvalService.approve(approvalStepId, intruderActorId)
+                () -> approvalService.approve(approvalStepId, intruderActorId, null)
         );
 
         // Steget ska fortfarande vara PENDING — B lyckades inte ändra något
         assertEquals(ApprovalStepStatus.PENDING, approvalStep.getStatus());
 
-        // Ingen audit-post, inget kontosaldo ska ha rörts
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        // Ingen audit-post, inget kontosaldo ska ha rörts. verifyNoInteractions täcker alla varianter av
+        // record, oavsett hur många argument de tar.
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -251,7 +250,7 @@ class ApprovalServiceTest {
                 .thenReturn(Optional.of(payment));
 
         // ACT
-        approvalService.approve(approvalStep1Id, actorId);
+        approvalService.approve(approvalStep1Id, actorId, null);
 
         // ASSERT: steg 1 är godkänt, men steg 2 är ogodkänt -> betalningen får INTE genomföras
         assertEquals(ApprovalStepStatus.APPROVED, approvalStep1.getStatus());
@@ -344,7 +343,7 @@ class ApprovalServiceTest {
         // ACT + ASSERT
         assertThrows(
                 IllegalStateException.class,
-                () -> approvalService.approve(approvalStep2Id, actorId)
+                () -> approvalService.approve(approvalStep2Id, actorId, null)
         );
 
         // Steg 2 ska fortfarande vara PENDING — godkännandet gick aldrig igenom
@@ -354,10 +353,7 @@ class ApprovalServiceTest {
         assertEquals(ApprovalStepStatus.PENDING, approvalStep1.getStatus());
 
         // Ingen audit-post ska ha skapats
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -381,7 +377,7 @@ class ApprovalServiceTest {
         // ACT + ASSERT
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> approvalService.approve(200L, actorId)
+                () -> approvalService.approve(200L, actorId, null)
         );
         assertEquals("Från-kontot finns inte eller tillhör inte ditt företag", ex.getMessage());
 
@@ -419,7 +415,7 @@ class ApprovalServiceTest {
         // ACT + ASSERT
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> approvalService.approve(200L, actorId)
+                () -> approvalService.approve(200L, actorId, null)
         );
         assertEquals("Från-kontot finns inte eller tillhör inte ditt företag", ex.getMessage());
 

@@ -18,6 +18,8 @@ export const auditApiEntrySchema = z.object({
   fromAccountName: z.string().nullable().default(null),
   // Genomförd utan atteststeg, eftersom beloppet låg under tröskeln
   autoApproved: z.boolean().default(false),
+  // Attestantens meddelande när händelsen är ett godkännande eller en avvisning
+  comment: z.string().nullable().default(null),
 });
 
 export const auditApiEntryListSchema = z.array(auditApiEntrySchema);
@@ -60,6 +62,9 @@ export const paymentAuditTimelineEntrySchema = z.object({
   actor: z.string(),
   eventType: z.string(),
   description: z.string(),
+  // Attestantens meddelande. Admin får det också på atteststeget, så samma text kommer två gånger; se
+  // formatTimelineComment.
+  comment: z.string().nullable().default(null),
   timestamp: z.string().nullable(),
   stepNumber: z.number().nullable(),
   status: z.string(),

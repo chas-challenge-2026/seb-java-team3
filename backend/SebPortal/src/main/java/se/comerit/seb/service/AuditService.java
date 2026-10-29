@@ -63,13 +63,22 @@ public class AuditService {
     @Transactional(propagation = Propagation.MANDATORY)
     public AuditEntry record(Long tenantId, Long userId, String action,
                              String entityType, Long entityId, String description) {
+        return record(tenantId, userId, action, entityType, entityId, description, null);
+    }
+
+    // comment: attestantens meddelande vid godkännande eller avvisning (#228). MANDATORY gör att raden
+    // bara kan skrivas inuti beslutets transaktion, så meddelandet sparas med beslutet eller inte alls.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public AuditEntry record(Long tenantId, Long userId, String action,
+                             String entityType, Long entityId, String description, String comment) {
         AuditEntry entry = new AuditEntry(
                 tenantId,
                 userId,
                 action,
                 entityType,
                 entityId,
-                description
+                description,
+                comment
         );
 
         AuditEntry saved = auditRepository.save(entry);
@@ -185,6 +194,7 @@ public class AuditService {
                     userNamesById.getOrDefault(entry.getUserId(), SYSTEM_USER_NAME),
                     entry.getAction(),
                     entry.getDescription(),
+                    entry.getComment(),
                     null
             ));
         }
@@ -205,6 +215,7 @@ public class AuditService {
                         userNamesById.getOrDefault(step.getAttestantId(), SYSTEM_USER_NAME),
                         eventType,
                         description,
+                        step.getComment(),
                         step.getStepNumber()
                 ));
             }
@@ -224,6 +235,7 @@ public class AuditService {
                     event.actor(),
                     event.eventType(),
                     event.description(),
+                    event.comment(),
                     event.timestamp(),
                     event.stepNumber(),
                     payment.getStatus().name(),
@@ -288,6 +300,7 @@ public class AuditService {
             String actor,
             String eventType,
             String description,
+            String comment,
             Integer stepNumber
     ) {}
 }

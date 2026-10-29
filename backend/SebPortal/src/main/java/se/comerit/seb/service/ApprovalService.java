@@ -32,6 +32,10 @@ public class ApprovalService {
     private static final String FROM_ACCOUNT_NOT_AVAILABLE =
             "Från-kontot finns inte eller tillhör inte ditt företag";
 
+    // Samma gräns som kolumnen approval_steps.comment (V3), så att ett för långt meddelande ger 400 i stället
+    // för ett databasfel. Gäller både godkännande och avvisning.
+    static final int MAX_COMMENT_LENGTH = 255;
+
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final AuditService auditService;
@@ -83,17 +87,19 @@ public class ApprovalService {
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
-    public void approveForUser(Long approvalStepId, AuthenticatedUserContext user) {
-        approveInternal(approvalStepId, user.userId(), user);
+    public void approveForUser(Long approvalStepId, AuthenticatedUserContext user, String comment) {
+        approveInternal(approvalStepId, user.userId(), comment, user);
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional
-    public void approve(Long approvalStepId, Long actorId) {
-        approveInternal(approvalStepId, actorId, null);
+    public void approve(Long approvalStepId, Long actorId, String comment) {
+        approveInternal(approvalStepId, actorId, comment, null);
     }
 
-    private void approveInternal(Long approvalStepId, Long actorId, AuthenticatedUserContext user) {
+    private void approveInternal(Long approvalStepId, Long actorId, String rawComment, AuthenticatedUserContext user) {
+        String comment = normalizeComment(rawComment);
+
         if (approvalStepId == null) {
             throw new IllegalArgumentException("Approval step id is required");
         }
@@ -132,6 +138,7 @@ public class ApprovalService {
 
         approvalStep.setStatus(ApprovalStepStatus.APPROVED);
         approvalStep.setDecidedAt(LocalDateTime.now());
+        approvalStep.setComment(comment);
 
         boolean allApproved = payment.getApprovalSteps().stream()
                 .allMatch(step -> step.getStatus() == ApprovalStepStatus.APPROVED);
@@ -155,10 +162,10 @@ public class ApprovalService {
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setExecutedAt(LocalDateTime.now());
 
-            String description = "Betalning godkänd: %s %s till %s".formatted(
+            String description = withComment("Betalning godkänd: %s %s till %s".formatted(
                     payment.getAmount(),
                     payment.getCurrency(),
-                    payment.getToIban());
+                    payment.getToIban()), comment);
 
             auditService.record(
                     payment.getTenantId(),
@@ -166,7 +173,8 @@ public class ApprovalService {
                     "APPROVE_PAYMENT",
                     "PAYMENT",
                     payment.getId(),
-                    description
+                    description,
+                    comment
             );
         }
     }
@@ -183,16 +191,8 @@ public class ApprovalService {
         rejectInternal(approvalStepId, actorId, comment, null);
     }
 
-    // Samma gräns som kolumnen approval_steps.comment (V3), så att en för lång kommentar ger 400 i stället
-    // för ett databasfel.
-    static final int MAX_COMMENT_LENGTH = 255;
-
     private void rejectInternal(Long approvalStepId, Long actorId, String rawComment, AuthenticatedUserContext user) {
-        String comment = rawComment == null || rawComment.isBlank() ? null : rawComment.trim();
-        if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
-            throw new IllegalArgumentException(
-                    "Kommentaren får vara högst " + MAX_COMMENT_LENGTH + " tecken.");
-        }
+        String comment = normalizeComment(rawComment);
 
         if (approvalStepId == null) {
             throw new IllegalArgumentException("Approval step id is required");
@@ -235,13 +235,10 @@ public class ApprovalService {
 
         payment.setStatus(PaymentStatus.REJECTED);
 
-        String description = "Betalning avvisad: %s %s till %s".formatted(
+        String description = withComment("Betalning avvisad: %s %s till %s".formatted(
                 payment.getAmount(),
                 payment.getCurrency(),
-                payment.getToIban());
-        if (comment != null) {
-            description += ". Kommentar: " + comment;
-        }
+                payment.getToIban()), comment);
 
         auditService.record(
                 payment.getTenantId(),
@@ -249,8 +246,26 @@ public class ApprovalService {
                 "REJECT_PAYMENT",
                 "PAYMENT",
                 payment.getId(),
-                description
+                description,
+                comment
         );
+    }
+
+    // Attestantens meddelande är frivilligt: tomt blir inget meddelande. Det kontrolleras innan betalningen
+    // låses, så ett för långt meddelande ger 400 utan att något har ändrats.
+    private static String normalizeComment(String rawComment) {
+        String comment = rawComment == null || rawComment.isBlank() ? null : rawComment.trim();
+        if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Kommentaren får vara högst " + MAX_COMMENT_LENGTH + " tecken.");
+        }
+        return comment;
+    }
+
+    // Meddelandet står också i auditradens beskrivning, eftersom den signerade loggen bara får beskrivningen
+    // och meddelandet då omfattas av manipulationsskyddet.
+    private static String withComment(String description, String comment) {
+        return comment == null ? description : description + ". Kommentar: " + comment;
     }
 
     // Betalningen bakom steget, låst tills transaktionen är klar. Ett annat företags steg ser ut precis

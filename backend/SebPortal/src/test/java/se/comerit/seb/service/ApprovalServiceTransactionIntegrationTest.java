@@ -33,6 +33,8 @@ class ApprovalServiceTransactionIntegrationTest {
     private static final BigDecimal FINAL_BALANCE = new BigDecimal("800.00");
     private static final String TO_IBAN = "SE8550000000054910000003";
     private static final String FAILURE_MARKER = "issue193_failure_after_all_database_writes";
+    // Inga citattecken: texten läggs in som SQL-literal i triggern nedan
+    private static final String COMMENT = "Stämmer mot avtalet";
 
     @Container
     private static final PostgreSQLContainer<?> POSTGRES =
@@ -134,11 +136,11 @@ class ApprovalServiceTransactionIntegrationTest {
 
     @Test
     void rollback_on_failure() {
-        installLateDatabaseFailure();
+        installLateDatabaseFailure(true, null);
 
         RuntimeException failure = assertThrows(
                 RuntimeException.class,
-                () -> approvalService.approve(approvalStepId, actorId));
+                () -> approvalService.approve(approvalStepId, actorId, null));
 
         SQLException databaseFailure = findSqlException(failure);
         assertEquals("P0001", databaseFailure.getSQLState());
@@ -157,7 +159,7 @@ class ApprovalServiceTransactionIntegrationTest {
 
     @Test
     void commits_balance_and_audit_on_success() {
-        approvalService.approve(approvalStepId, actorId);
+        approvalService.approve(approvalStepId, actorId, null);
 
         // Returning from the Spring proxy includes committing the service transaction.
         ApprovalState state = readApprovalState();
@@ -169,21 +171,7 @@ class ApprovalServiceTransactionIntegrationTest {
         assertNull(state.comment());
         assertEquals(1L, state.auditCount());
 
-        AuditSnapshot audit = jdbcTemplate.queryForObject("""
-                SELECT tenant_id, user_id, action, entity_type, entity_id, description, created_at
-                FROM audit_entries
-                WHERE tenant_id = ? AND entity_type = 'PAYMENT' AND entity_id = ?
-                """,
-                (resultSet, rowNumber) -> new AuditSnapshot(
-                        resultSet.getLong("tenant_id"),
-                        resultSet.getLong("user_id"),
-                        resultSet.getString("action"),
-                        resultSet.getString("entity_type"),
-                        resultSet.getLong("entity_id"),
-                        resultSet.getString("description"),
-                        resultSet.getTimestamp("created_at")),
-                tenantId,
-                paymentId);
+        AuditSnapshot audit = readAudit();
 
         assertNotNull(audit);
         assertEquals(tenantId.longValue(), audit.tenantId());
@@ -192,12 +180,98 @@ class ApprovalServiceTransactionIntegrationTest {
         assertEquals("PAYMENT", audit.entityType());
         assertEquals(paymentId.longValue(), audit.entityId());
         assertEquals("Betalning godkänd: 200.00 SEK till " + TO_IBAN, audit.description());
+        assertNull(audit.comment());
         assertNotNull(audit.createdAt());
     }
 
-    private void installLateDatabaseFailure() {
-        // AuditEntry uses IDENTITY, so its INSERT occurs before JPA flushes dirty account/payment/step
-        // updates. A deferred trigger checks all four database writes at commit before forcing failure.
+    // #228: meddelandet vid godkännande hamnar på steget och på auditraden, och står kvar i beskrivningen
+    // som den signerade loggen får. Mellanslag i kanterna tas bort.
+    @Test
+    void commits_approval_message_on_the_step_and_the_audit_row() {
+        approvalService.approve(approvalStepId, actorId, "  " + COMMENT + "  ");
+
+        ApprovalState state = readApprovalState();
+        assertEquals("approved", state.stepStatus());
+        assertEquals(COMMENT, state.comment());
+        assertEquals(1L, state.auditCount());
+
+        AuditSnapshot audit = readAudit();
+        assertEquals("APPROVE_PAYMENT", audit.action());
+        assertEquals(COMMENT, audit.comment());
+        assertEquals("Betalning godkänd: 200.00 SEK till " + TO_IBAN + ". Kommentar: " + COMMENT,
+                audit.description());
+    }
+
+    @Test
+    void commits_rejection_message_on_the_step_and_the_audit_row() {
+        approvalService.reject(approvalStepId, actorId, COMMENT);
+
+        // En avvisning drar inga pengar
+        ApprovalState state = readApprovalState();
+        assertEquals(STARTING_BALANCE, state.balance());
+        assertEquals("rejected", state.paymentStatus());
+        assertNull(state.executedAt());
+        assertEquals("rejected", state.stepStatus());
+        assertNotNull(state.decidedAt());
+        assertEquals(COMMENT, state.comment());
+        assertEquals(1L, state.auditCount());
+
+        AuditSnapshot audit = readAudit();
+        assertEquals("REJECT_PAYMENT", audit.action());
+        assertEquals(COMMENT, audit.comment());
+        assertEquals("Betalning avvisad: 200.00 SEK till " + TO_IBAN + ". Kommentar: " + COMMENT,
+                audit.description());
+    }
+
+    // #228: "ingen avvisad betalning utan sitt meddelande, och inget meddelande utan sin avvisning".
+    // Triggern kontrollerar vid commit att meddelandet står på både steget och auditraden innan den tvingar
+    // fram felet. Hade en av skrivningarna saknats hade felet i stället varit
+    // issue193_expected_database_writes_missing, så ett test som når spärrmeddelandet bevisar att allt
+    // skrevs i samma transaktion. Därefter ska allt, meddelandet inräknat, vara bortrullat.
+    @Test
+    void rollback_removes_the_approval_message_together_with_the_decision() {
+        installLateDatabaseFailure(true, COMMENT);
+
+        RuntimeException failure = assertThrows(
+                RuntimeException.class,
+                () -> approvalService.approve(approvalStepId, actorId, COMMENT));
+
+        assertTrue(findSqlException(failure).getMessage().contains(FAILURE_MARKER), failure::getMessage);
+
+        ApprovalState state = readApprovalState();
+        assertEquals(STARTING_BALANCE, state.balance());
+        assertEquals("pending_approval", state.paymentStatus());
+        assertEquals("pending", state.stepStatus());
+        assertNull(state.decidedAt());
+        assertNull(state.comment());
+        assertEquals(0L, state.auditCount());
+    }
+
+    @Test
+    void rollback_removes_the_rejection_message_together_with_the_decision() {
+        installLateDatabaseFailure(false, COMMENT);
+
+        RuntimeException failure = assertThrows(
+                RuntimeException.class,
+                () -> approvalService.reject(approvalStepId, actorId, COMMENT));
+
+        assertTrue(findSqlException(failure).getMessage().contains(FAILURE_MARKER), failure::getMessage);
+
+        ApprovalState state = readApprovalState();
+        assertEquals(STARTING_BALANCE, state.balance());
+        assertEquals("pending_approval", state.paymentStatus());
+        assertEquals("pending", state.stepStatus());
+        assertNull(state.decidedAt());
+        assertNull(state.comment());
+        assertEquals(0L, state.auditCount());
+    }
+
+    // AuditEntry uses IDENTITY, so its INSERT occurs before JPA flushes dirty account/payment/step
+    // updates. A deferred trigger checks every database write of the decision at commit before forcing
+    // failure: payment, step, audit row and (for approvals) the debited account, including the message on
+    // the step and on the audit row (comment is null when the attestant wrote none).
+    private void installLateDatabaseFailure(boolean approving, String comment) {
+        String commentLiteral = comment == null ? "NULL" : "'" + comment + "'";
         jdbcTemplate.execute("""
                 CREATE FUNCTION issue193_fail_approval_commit() RETURNS trigger AS $$
                 BEGIN
@@ -208,40 +282,69 @@ class ApprovalServiceTransactionIntegrationTest {
                         JOIN approval_steps step ON step.payment_id = payment.id
                         JOIN audit_entries audit ON audit.id = NEW.id
                         WHERE payment.id = NEW.entity_id
-                          AND payment.id = %d
-                          AND account.id = %d
-                          AND step.id = %d
-                          AND account.balance = %s
-                          AND payment.status = 'completed'
-                          AND payment.executed_at IS NOT NULL
-                          AND step.status = 'approved'
+                          AND payment.id = %1$d
+                          AND account.id = %2$d
+                          AND step.id = %3$d
+                          AND account.balance = %4$s
+                          AND payment.status = '%5$s'
+                          AND payment.executed_at %6$s
+                          AND step.status = '%7$s'
                           AND step.decided_at IS NOT NULL
+                          AND step.comment IS NOT DISTINCT FROM %8$s
                           AND audit.tenant_id = payment.tenant_id
-                          AND audit.user_id = %d
-                          AND audit.action = 'APPROVE_PAYMENT'
+                          AND audit.user_id = %9$d
+                          AND audit.action = '%10$s'
                           AND audit.entity_type = 'PAYMENT'
                           AND audit.entity_id = payment.id
+                          AND audit.comment IS NOT DISTINCT FROM %8$s
                     ) THEN
                         RAISE EXCEPTION 'issue193_expected_database_writes_missing'
                             USING ERRCODE = 'P0001';
                     END IF;
 
-                    RAISE EXCEPTION '%s' USING ERRCODE = 'P0001';
+                    RAISE EXCEPTION '%11$s' USING ERRCODE = 'P0001';
                 END;
                 $$ LANGUAGE plpgsql;
-                """.formatted(paymentId, accountId, approvalStepId, FINAL_BALANCE.toPlainString(),
-                actorId, FAILURE_MARKER));
+                """.formatted(
+                paymentId, accountId, approvalStepId,
+                (approving ? FINAL_BALANCE : STARTING_BALANCE).toPlainString(),
+                approving ? "completed" : "rejected",
+                approving ? "IS NOT NULL" : "IS NULL",
+                approving ? "approved" : "rejected",
+                commentLiteral,
+                actorId,
+                approving ? "APPROVE_PAYMENT" : "REJECT_PAYMENT",
+                FAILURE_MARKER));
         jdbcTemplate.execute("""
                 CREATE CONSTRAINT TRIGGER issue193_fail_approval_commit
                 AFTER INSERT ON audit_entries
                 DEFERRABLE INITIALLY DEFERRED
                 FOR EACH ROW
-                WHEN (NEW.action = 'APPROVE_PAYMENT'
+                WHEN (NEW.action = '%s'
                       AND NEW.entity_type = 'PAYMENT'
                       AND NEW.entity_id = %d
                       AND NEW.tenant_id = %d)
                 EXECUTE FUNCTION issue193_fail_approval_commit()
-                """.formatted(paymentId, tenantId));
+                """.formatted(approving ? "APPROVE_PAYMENT" : "REJECT_PAYMENT", paymentId, tenantId));
+    }
+
+    private AuditSnapshot readAudit() {
+        return jdbcTemplate.queryForObject("""
+                SELECT tenant_id, user_id, action, entity_type, entity_id, description, comment, created_at
+                FROM audit_entries
+                WHERE tenant_id = ? AND entity_type = 'PAYMENT' AND entity_id = ?
+                """,
+                (resultSet, rowNumber) -> new AuditSnapshot(
+                        resultSet.getLong("tenant_id"),
+                        resultSet.getLong("user_id"),
+                        resultSet.getString("action"),
+                        resultSet.getString("entity_type"),
+                        resultSet.getLong("entity_id"),
+                        resultSet.getString("description"),
+                        resultSet.getString("comment"),
+                        resultSet.getTimestamp("created_at")),
+                tenantId,
+                paymentId);
     }
 
     private ApprovalState readApprovalState() {
@@ -299,6 +402,7 @@ class ApprovalServiceTransactionIntegrationTest {
             String entityType,
             long entityId,
             String description,
+            String comment,
             Timestamp createdAt
     ) {}
 }
