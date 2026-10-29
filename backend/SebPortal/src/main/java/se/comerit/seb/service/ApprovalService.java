@@ -102,8 +102,7 @@ public class ApprovalService {
             throw new IllegalArgumentException("Actor id is required");
         }
 
-        Payment payment = paymentRepository.findByApprovalStepIdForUpdate(approvalStepId)
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+        Payment payment = findPaymentOfStepForUpdate(approvalStepId, user);
 
         if (payment.getStatus() != PaymentStatus.PENDING_APPROVAL) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -118,9 +117,6 @@ public class ApprovalService {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
-        if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
-            throw new ApprovalStepAccessDeniedException("Payment is not available for this company");
-        }
         if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
@@ -206,8 +202,7 @@ public class ApprovalService {
             throw new IllegalArgumentException("Actor id is required");
         }
 
-        Payment payment = paymentRepository.findByApprovalStepIdForUpdate(approvalStepId)
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+        Payment payment = findPaymentOfStepForUpdate(approvalStepId, user);
 
         if (payment.getStatus() != PaymentStatus.PENDING_APPROVAL) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -222,9 +217,6 @@ public class ApprovalService {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
-        if (user != null && (user.tenantId() == null || !Objects.equals(payment.getTenantId(), user.tenantId()))) {
-            throw new ApprovalStepAccessDeniedException("Payment is not available for this company");
-        }
         if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
@@ -259,6 +251,17 @@ public class ApprovalService {
                 payment.getId(),
                 description
         );
+    }
+
+    // Betalningen bakom steget, låst tills transaktionen är klar. Ett annat företags steg ser ut precis
+    // som ett steg som inte finns (R-04): företaget kontrolleras före status, så att svaret inte avslöjar
+    // om ett steg-id finns hos en annan kund eller om det redan är behandlat. user är null bara för de
+    // interna anropen approve/reject(stepId, actorId), som inte har någon inloggad användare.
+    private Payment findPaymentOfStepForUpdate(Long approvalStepId, AuthenticatedUserContext user) {
+        return paymentRepository.findByApprovalStepIdForUpdate(approvalStepId)
+                .filter(payment -> user == null
+                        || (user.tenantId() != null && Objects.equals(payment.getTenantId(), user.tenantId())))
+                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
     }
 
     @Transactional(readOnly = true)
