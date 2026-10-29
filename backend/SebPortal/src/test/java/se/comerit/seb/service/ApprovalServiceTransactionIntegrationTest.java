@@ -138,7 +138,7 @@ class ApprovalServiceTransactionIntegrationTest {
 
         RuntimeException failure = assertThrows(
                 RuntimeException.class,
-                () -> approvalService.approve(approvalStepId, actorId));
+                () -> approvalService.approve(approvalStepId, actorId, null));
 
         SQLException databaseFailure = findSqlException(failure);
         assertEquals("P0001", databaseFailure.getSQLState());
@@ -157,7 +157,7 @@ class ApprovalServiceTransactionIntegrationTest {
 
     @Test
     void commits_balance_and_audit_on_success() {
-        approvalService.approve(approvalStepId, actorId);
+        approvalService.approve(approvalStepId, actorId, null);
 
         // Returning from the Spring proxy includes committing the service transaction.
         ApprovalState state = readApprovalState();
