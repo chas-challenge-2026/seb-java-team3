@@ -129,7 +129,9 @@ describe("AttestGrid", () => {
     render(<AttestGrid />);
 
     await openReview(user);
-    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+    const dialog = screen.getByRole("dialog", { name: "Granska betalning" });
+    expect(mutate).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(mutate).toHaveBeenCalledWith(7, expect.any(Object));
   });
@@ -160,7 +162,11 @@ describe("AttestGrid", () => {
       expect(within(dialog).getByText(/av Lisa Persson$/)).toBeInTheDocument();
       expect(within(dialog).getByText("Faktura 1042")).toBeInTheDocument();
       expect(within(dialog).getByRole("button", { name: APPROVE_BUTTON })).toBeInTheDocument();
-      expect(within(dialog).getByRole("button", { name: "Avvisa betalningen" })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Avvisa betalning" })).toBeInTheDocument();
+      const decisionButtons = Array.from(dialog.querySelectorAll("button"))
+        .filter((button) => button.getAttribute("aria-label") !== "Stäng")
+        .map((button) => button.textContent?.trim().replace(/\s+/g, " "));
+      expect(decisionButtons).toEqual(["Avbryt", "Avvisa betalning", "Godkänn 12 500,00 SEK"]);
     });
 
     it("can be closed without deciding anything", async () => {
@@ -243,7 +249,7 @@ describe("AttestGrid", () => {
       render(<AttestGrid />);
 
       await openReview(user);
-      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
 
       expect(screen.getByLabelText("Anledning (valfritt)")).toHaveFocus();
       expect(rejectMutate).not.toHaveBeenCalled();
@@ -256,7 +262,7 @@ describe("AttestGrid", () => {
       render(<AttestGrid />);
 
       await openReview(user);
-      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
       await user.type(screen.getByLabelText("Anledning (valfritt)"), "Otillräckligt saldo");
       await user.click(screen.getByRole("button", { name: "Bekräfta avvisning" }));
 
@@ -274,7 +280,7 @@ describe("AttestGrid", () => {
       render(<AttestGrid />);
 
       await openReview(user);
-      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
       await user.click(screen.getByRole("button", { name: "Tillbaka" }));
 
       expect(screen.queryByLabelText("Anledning (valfritt)")).not.toBeInTheDocument();
@@ -291,7 +297,7 @@ describe("AttestGrid", () => {
       render(<AttestGrid />);
 
       await openReview(user);
-      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
       await user.type(screen.getByLabelText("Anledning (valfritt)"), "För lång");
       await user.click(screen.getByRole("button", { name: "Bekräfta avvisning" }));
 

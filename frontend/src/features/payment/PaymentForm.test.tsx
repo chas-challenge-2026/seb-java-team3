@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render as rtlRender, screen, waitFor } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getAccounts } from "../accounts/api";
@@ -44,6 +44,11 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
     "SE45 5000 0000 0583 9825 7466",
   );
   await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1000.00");
+}
+
+async function confirmPayment(user: ReturnType<typeof userEvent.setup>) {
+  const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+  await user.click(within(dialog).getByRole("button", { name: "Bekräfta och skicka betalning" }));
 }
 
 async function selectAccount(
@@ -190,6 +195,12 @@ describe("PaymentForm", () => {
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
 
+    const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+    expect(within(dialog).getByText(/^1\s000,00 SEK$/)).toBeInTheDocument();
+    expect(within(dialog).getByText("SE45 5000 0000 0583 9825 7466")).toBeInTheDocument();
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Bekräfta och skicka betalning" }));
+
     await waitFor(() => expect(mockedCreatePayment).toHaveBeenCalledTimes(1));
 
     expect(mockedCreatePayment).toHaveBeenCalledWith(
@@ -203,6 +214,21 @@ describe("PaymentForm", () => {
     expect(
       await screen.findByText("Betalningen har skickats"),
     ).toBeInTheDocument();
+  });
+
+  it("does not create a payment when the initiator cancels the confirmation", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Avbryt" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
   });
 
   it("accepts an amount written in Swedish format", async () => {
@@ -224,6 +250,7 @@ describe("PaymentForm", () => {
     );
     await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1 500,50");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
 
     await waitFor(() =>
       expect(mockedCreatePayment).toHaveBeenCalledWith(
@@ -247,6 +274,7 @@ describe("PaymentForm", () => {
     await user.clear(screen.getByLabelText(/^Belopp \(SEK\)/));
     await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "5000");
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
 
     expect(await screen.findByText("Väntar på attest")).toBeInTheDocument();
     expect(
@@ -271,6 +299,7 @@ describe("PaymentForm", () => {
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
 
     await waitFor(() =>
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ["audit"] }),
@@ -287,6 +316,7 @@ describe("PaymentForm", () => {
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Ingen attestant finns tillgänglig.",
@@ -302,6 +332,7 @@ describe("PaymentForm", () => {
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Kunde inte nå servern. Betalningen har inte skickats.");
@@ -317,6 +348,7 @@ describe("PaymentForm", () => {
 
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Kontrollera under Mina betalningar innan du försöker igen.",
@@ -331,6 +363,8 @@ describe("PaymentForm", () => {
     await fillValidForm(user);
     await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
 
-    expect(screen.getByRole("button", { name: /skickar/i })).toBeDisabled();
+    const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+    await user.click(within(dialog).getByRole("button", { name: "Bekräfta och skicka betalning" }));
+    expect(within(dialog).getByRole("button", { name: /skickar/i })).toBeDisabled();
   });
 });

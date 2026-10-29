@@ -128,11 +128,6 @@
 .reject:hover { background: #912018; }
 .reject:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
 .reject:disabled { cursor: wait; opacity: 0.65; }
-.approve { cursor: pointer; box-shadow: none; transition: box-shadow 160ms ease, background-color 160ms ease; }
-.approve:hover { background: var(--btn-primary-strong); box-shadow: 0 0.4rem 0.75rem rgba(0, 56, 36, 0.2); }
-.approve:focus-visible { outline: 3px solid var(--focus-attention); outline-offset: 2px; }
-.approve:disabled { cursor: wait; opacity: 0.65; transform: none; }
-
 .rejectForm { display: grid; gap: 1rem; }
 
 .footer { display: flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.25rem; background: var(--bg-muted); border-top: 1px solid var(--border-soft); color: var(--text-secondary); font-size: 0.8rem; }

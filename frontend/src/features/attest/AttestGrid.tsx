@@ -10,6 +10,7 @@ import LoadingMessage from "../../components/ui/feedback/LoadingMessage";
 import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
 import Modal from "../../components/ui/overlay/Modal";
+import PaymentConfirmationDialog from "../../components/ui/overlay/PaymentConfirmationDialog";
 import { formatDateTime } from "../../lib/dateTime";
 import { formatAmount } from "../audit/utils/formatters";
 import { isApiError } from "../../error/api.error";
@@ -231,60 +232,56 @@ export default function AttestGrid() {
     const rejectPending = reject.isPending && reject.variables?.stepId === step.id;
     const busy = approvePending || rejectPending;
 
-    reviewModal = (
-      <Modal
-        title={isRejecting ? "Avvisa betalning" : "Granska betalning"}
-        description={
-          isRejecting
-            ? "Betalningen genomförs inte. Initiatören ser anledningen i sin historik."
-            : "Kontrollera mottagare och belopp innan du fattar beslut."
-        }
-        onClose={closeReview}
-        dismissible={!busy}
-      >
-        <dl className={styles.reviewSummary}>
-          <div>
-            <dt>Belopp</dt>
-            <dd className={styles.reviewAmount}>{formatAmount(step.belopp, step.currency)}</dd>
-          </div>
-          <div>
-            <dt>Till</dt>
-            <dd className={styles.recipient}><strong>{step.mottagare}</strong></dd>
-          </div>
-          <div>
-            <dt>Från konto</dt>
-            <dd>{step.fromAccountName ?? "-"}</dd>
-          </div>
-          <div>
-            <dt>Saldo efter betalning</dt>
-            <dd>
-              {step.balanceAfterPayment == null
-                ? "Kan inte beräknas"
-                : formatAmount(step.balanceAfterPayment, step.currency)}
-            </dd>
-          </div>
-          <div>
-            <dt>Typ</dt>
-            <dd>{step.typ}</dd>
-          </div>
-          <div>
-            <dt>Skapad</dt>
-            <dd>{formatDateTime(step.createdAt)}{step.initiatorName ? ` av ${step.initiatorName}` : ""}</dd>
-          </div>
-          <div>
-            <dt>Referens</dt>
-            <dd>{step.reference || "–"}</dd>
-          </div>
-        </dl>
+    if (isRejecting) {
+      reviewModal = (
+        <Modal
+          title="Avvisa betalning"
+          description="Betalningen genomförs inte. Initiatören ser anledningen i sin historik."
+          onClose={closeReview}
+          dismissible={!busy}
+        >
+          <dl className={styles.reviewSummary}>
+            <div>
+              <dt>Belopp</dt>
+              <dd className={styles.reviewAmount}>{formatAmount(step.belopp, step.currency)}</dd>
+            </div>
+            <div>
+              <dt>Till</dt>
+              <dd className={styles.recipient}><strong>{step.mottagare}</strong></dd>
+            </div>
+            <div>
+              <dt>Från konto</dt>
+              <dd>{step.fromAccountName ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Saldo efter betalning</dt>
+              <dd>
+                {step.balanceAfterPayment == null
+                  ? "Kan inte beräknas"
+                  : formatAmount(step.balanceAfterPayment, step.currency)}
+              </dd>
+            </div>
+            <div>
+              <dt>Typ</dt>
+              <dd>{step.typ}</dd>
+            </div>
+            <div>
+              <dt>Skapad</dt>
+              <dd>{formatDateTime(step.createdAt)}{step.initiatorName ? ` av ${step.initiatorName}` : ""}</dd>
+            </div>
+            <div>
+              <dt>Referens</dt>
+              <dd>{step.reference || "–"}</dd>
+            </div>
+          </dl>
 
-        {showFeedbackInModal && feedback && (
-          <p className={`${styles.feedback} ${styles.feedbackError} ${styles.reviewError}`} role="alert">
-            <TriangleAlert size={18} aria-hidden="true" />
-            {feedback.text}
-          </p>
-        )}
+          {showFeedbackInModal && feedback && (
+            <p className={`${styles.feedback} ${styles.feedbackError} ${styles.reviewError}`} role="alert">
+              <TriangleAlert size={18} aria-hidden="true" />
+              {feedback.text}
+            </p>
+          )}
 
-        {isRejecting ? (
           <form
             className={styles.rejectForm}
             onSubmit={(event) => {
@@ -309,31 +306,56 @@ export default function AttestGrid() {
               </Button>
             </div>
           </form>
-        ) : (
-          <div className={styles.reviewActions}>
+        </Modal>
+      );
+    } else {
+      reviewModal = (
+        <PaymentConfirmationDialog
+          title="Granska betalning"
+          description="Kontrollera mottagare och belopp innan du fattar beslut."
+          details={[
+            { label: "Belopp", value: formatAmount(step.belopp, step.currency) },
+            { label: "Till", value: <strong>{step.mottagare}</strong> },
+            { label: "Från konto", value: step.fromAccountName ?? "-" },
+            {
+              label: "Saldo efter betalning",
+              value: step.balanceAfterPayment == null
+                ? "Kan inte beräknas"
+                : formatAmount(step.balanceAfterPayment, step.currency),
+            },
+            { label: "Typ", value: step.typ },
+            {
+              label: "Skapad",
+              value: `${formatDateTime(step.createdAt)}${step.initiatorName ? ` av ${step.initiatorName}` : ""}`,
+            },
+            { label: "Referens", value: step.reference || "–" },
+          ]}
+          confirmLabel={approvePending ? "Godkänner…" : `Godkänn ${formatAmount(step.belopp, step.currency)}`}
+          onConfirm={() => handleApprove(step)}
+          onCancel={closeReview}
+          isConfirming={approvePending}
+          confirmDisabled={busy}
+          error={showFeedbackInModal && feedback ? (
+            <p className={`${styles.feedback} ${styles.feedbackError} ${styles.reviewError}`} role="alert">
+              <TriangleAlert size={18} aria-hidden="true" />
+              {feedback.text}
+            </p>
+          ) : undefined}
+          secondaryAction={
             <Button
+              type="button"
               onClick={startReject}
               disabled={busy}
               className={styles.reject}
               buttonStyle="icon-text"
               icon="x"
             >
-              Avvisa betalningen
+              Avvisa betalning
             </Button>
-            <Button
-              onClick={() => handleApprove(step)}
-              disabled={busy}
-              className={styles.approve}
-              buttonStyle="icon-text"
-              icon="check"
-              variant="primary"
-            >
-              {approvePending ? "Godkänner…" : `Godkänn ${formatAmount(step.belopp, step.currency)}`}
-            </Button>
-          </div>
-        )}
-      </Modal>
-    );
+          }
+        />
+      );
+    }
   }
 
   return (

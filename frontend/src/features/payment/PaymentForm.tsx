@@ -13,8 +13,10 @@ import Container from "../../components/ui/layout/Container";
 import Button from "../../components/ui/buttons/Button";
 import Input from "../../components/ui/forms/Input";
 import Select from "../../components/ui/forms/Select";
+import PaymentConfirmationDialog from "../../components/ui/overlay/PaymentConfirmationDialog";
 
 import styles from "./PaymentForm.module.css";
+import { formatAmount } from "../audit/utils/formatters";
 
 import type {
   PaymentFormData,
@@ -58,6 +60,8 @@ function PaymentForm() {
   const [approvalThreshold, setApprovalThreshold] = useState<number | null>(null);
   const [completedPayment, setCompletedPayment] =
     useState<PaymentResponse | null>(null);
+  const [paymentConfirmation, setPaymentConfirmation] =
+    useState<PaymentFormData | null>(null);
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PaymentResponse | null>(null);
   const [cardDimensions, setCardDimensions] = useState<{
@@ -265,14 +269,23 @@ function PaymentForm() {
       return;
     }
     setErrors({});
-    setIsSubmitting(true);
+    setPaymentConfirmation(result.data);
+  };
 
+  const handleConfirmPayment = async () => {
+    if (!paymentConfirmation) {
+      return;
+    }
+
+    setSubmitError(null);
+    setIsSubmitting(true);
     try {
-      const payment = await createPayment(result.data);
+      const payment = await createPayment(paymentConfirmation);
       // Dashboarden har redan cachat Mina betalningar och saldot, och en ADMIN ser även attestkön
       void queryClient.invalidateQueries({ queryKey: ["audit"] });
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setPaymentConfirmation(null);
       setPendingConfirmation(payment);
     } catch (error) {
       console.error("Failed to create payment:", error);
@@ -280,6 +293,11 @@ function PaymentForm() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const cancelPaymentConfirmation = () => {
+    setPaymentConfirmation(null);
+    setSubmitError(null);
   };
 
   const handleCancel = () => {
@@ -501,7 +519,7 @@ function PaymentForm() {
               )}
 
           <div className={styles.paymentActions}>
-            {submitError && (
+            {submitError && !paymentConfirmation && (
               <p className={styles.submitError} role="alert">
                 {submitError}
               </p>
@@ -517,15 +535,39 @@ function PaymentForm() {
             <Button
               type="submit"
               variant="primary"
-              disabled={Boolean(pendingConfirmation) || isSubmitting || accountsPending || accountsError || accounts.length === 0 || exceedsBalance}
+              disabled={Boolean(pendingConfirmation) || Boolean(paymentConfirmation) || isSubmitting || accountsPending || accountsError || accounts.length === 0 || exceedsBalance}
               aria-busy={isSubmitting}
             >
-              {isSubmitting ? "Skickar…" : "Skicka betalning"}
+              Skicka betalning
             </Button>
           </div>
         </div>
         </form>
       </Container>
+      {paymentConfirmation && (
+        <PaymentConfirmationDialog
+          title="Bekräfta betalning"
+          description="Kontrollera betalningsuppgifterna innan betalningen skickas."
+          details={[
+            { label: "Belopp", value: formatAmount(Number(paymentConfirmation.amount), "SEK") },
+            {
+              label: "Från konto",
+              value: accounts.find((account) => String(account.id) === paymentConfirmation.account)?.name ?? "Konto",
+            },
+            { label: "Till IBAN", value: paymentConfirmation.recipientIban },
+            { label: "Referens", value: paymentConfirmation.reference || "–" },
+          ]}
+          confirmLabel={isSubmitting ? "Skickar…" : "Bekräfta och skicka betalning"}
+          onConfirm={handleConfirmPayment}
+          onCancel={cancelPaymentConfirmation}
+          isConfirming={isSubmitting}
+          error={submitError ? (
+            <p className={styles.submitError} role="alert">
+              {submitError}
+            </p>
+          ) : undefined}
+        />
+      )}
     </div>
   );
 }
