@@ -18,7 +18,12 @@ for (const comment of [reason, ""]) {
     await initiator.getByLabel("Belopp (SEK)").fill("7 500");
     await initiator.getByLabel("Referens", { exact: true }).fill(reference);
     await initiator.getByRole("button", { name: "Skicka betalning", exact: true }).click();
-    await expect(initiator.getByRole("heading", { name: "Betalningen har skickats" })).toBeVisible();
+    const paymentConfirmation = initiator.getByRole("dialog", { name: "Bekräfta betalning" });
+    await expect(paymentConfirmation).toBeVisible();
+    await paymentConfirmation.getByRole("button", { name: "Bekräfta och skicka betalning", exact: true }).click();
+    const paymentResult = initiator.getByRole("dialog", { name: "Betalningen har skickats" });
+    await expect(paymentResult).toBeVisible();
+    await paymentResult.getByRole("button", { name: "Gå till Översikt", exact: true }).click();
     await initiatorMenu.getByRole("link", { name: "Mina betalningar", exact: true }).click();
 
     const paymentRow = initiator.getByRole("row").filter({ hasText: reference });
@@ -30,7 +35,7 @@ for (const comment of [reason, ""]) {
       .getByRole("link", { name: /Attestera/ }).click();
     await attestant.getByRole("row").filter({ hasText: reference })
       .getByRole("button", { name: /Granska betalning/ }).click();
-    await attestant.getByRole("dialog").getByRole("button", { name: "Avvisa betalningen", exact: true }).click();
+    await attestant.getByRole("dialog").getByRole("button", { name: "Avvisa betalning", exact: true }).click();
     await attestant.getByLabel("Anledning (valfritt)", { exact: true }).fill(comment);
     const rejectionResponse = attestant.waitForResponse((response) =>
       response.url().includes("/api/approvals/") && response.url().endsWith("/reject")
