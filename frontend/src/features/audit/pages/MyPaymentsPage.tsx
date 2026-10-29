@@ -6,13 +6,7 @@ import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
-import {
-  formatAmount,
-  formatAttestant,
-  formatAuditStatus,
-  formatDateTime,
-  formatRejectionReason,
-} from "../utils/formatters";
+import MyPaymentRow from "../components/MyPaymentRow";
 import styles from "../components/AuditGrid.module.css";
 
 export default function MyPaymentsPage() {
@@ -71,33 +65,7 @@ export default function MyPaymentsPage() {
               </thead>
               <tbody>
                 {data.map((payment) => (
-                  <tr key={payment.paymentId}>
-                    <td data-label="Skapad" className={`${styles.date} ${styles.noWrap}`}>
-                      {formatDateTime(payment.createdAt)}
-                    </td>
-                    <td data-label="Referens" className={styles.reference}>
-                      {payment.reference?.trim() || "-"}
-                    </td>
-                    <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
-                      {formatAmount(payment.amount, payment.currency)}
-                    </td>
-                    <td data-label="Från konto" className={`${styles.date} ${styles.noWrap}`}>{payment.fromAccountName ?? "-"}</td>
-                    <td data-label="Mottagarkonto" className={`${styles.reference} ${styles.noWrap}`}>
-                      {payment.toIban ?? "-"}
-                    </td>
-                    <td data-label="Status" className={styles.noWrap}>
-                      <span className={styles.status}>{formatAuditStatus(payment.status)}</span>
-                    </td>
-                    <td data-label="Attestant" className={styles.date}>
-                      {formatAttestant(payment)}
-                      {formatRejectionReason(payment) && (
-                        <div className={styles.rejectionReason}>”{formatRejectionReason(payment)}”</div>
-                      )}
-                    </td>
-                    <td data-label="Utförd" className={`${styles.date} ${styles.noWrap}`}>
-                      {formatDateTime(payment.executedAt)}
-                    </td>
-                  </tr>
+                  <MyPaymentRow key={payment.paymentId} payment={payment} />
                 ))}
               </tbody>
             </table>
