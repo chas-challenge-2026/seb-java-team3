@@ -116,4 +116,19 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             """)
     Optional<Payment> findByApprovalStepIdForUpdate(
             @Param("approvalStepId") Long approvalStepId);
+
+    // Initiatorns betalningar där en attestant har fattat beslut (godkänt eller avvisat). Betalningar
+    // under tröskeln blir COMPLETED direkt utan atteststeg och räknas därför inte som "ändrade".
+    @Query("""
+            SELECT COUNT(p)
+            FROM Payment p
+            WHERE p.tenantId = :tenantId
+              AND p.createdBy = :createdBy
+              AND p.status IN (se.comerit.seb.domain.PaymentStatus.COMPLETED,
+                               se.comerit.seb.domain.PaymentStatus.REJECTED)
+              AND p.approvalSteps IS NOT EMPTY
+            """)
+    long countDecidedByInitiator(
+            @Param("tenantId") Long tenantId,
+            @Param("createdBy") Long createdBy);
 }
