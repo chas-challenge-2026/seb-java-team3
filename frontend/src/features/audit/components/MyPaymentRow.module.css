@@ -1,0 +1,44 @@
+.statusContent {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border-default);
+    border-radius: 0.4rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.toggle:hover {
+    background: var(--bg-subtle);
+}
+
+.toggle:focus-visible {
+    outline: 3px solid var(--focus-attention);
+    outline-offset: 2px;
+}
+
+.heading {
+    color: var(--text-heading);
+    font-size: 0.95rem;
+}
+
+.reason {
+    margin-top: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
