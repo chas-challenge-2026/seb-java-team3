@@ -194,6 +194,7 @@ public class AuditService {
                     userNamesById.getOrDefault(entry.getUserId(), SYSTEM_USER_NAME),
                     entry.getAction(),
                     entry.getDescription(),
+                    entry.getComment(),
                     null
             ));
         }
@@ -214,6 +215,7 @@ public class AuditService {
                         userNamesById.getOrDefault(step.getAttestantId(), SYSTEM_USER_NAME),
                         eventType,
                         description,
+                        step.getComment(),
                         step.getStepNumber()
                 ));
             }
@@ -233,6 +235,7 @@ public class AuditService {
                     event.actor(),
                     event.eventType(),
                     event.description(),
+                    event.comment(),
                     event.timestamp(),
                     event.stepNumber(),
                     payment.getStatus().name(),
@@ -297,6 +300,7 @@ public class AuditService {
             String actor,
             String eventType,
             String description,
+            String comment,
             Integer stepNumber
     ) {}
 }

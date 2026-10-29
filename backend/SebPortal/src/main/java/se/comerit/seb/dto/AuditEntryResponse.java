@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 // fromAccountName: kontot betalningen dras från (null om det inte går att slå upp inom företaget).
 // autoApproved: betalningen genomfördes utan atteststeg, eftersom beloppet låg under tröskeln.
+// comment: attestantens meddelande vid godkännande eller avvisning (#228), annars null.
 public record AuditEntryResponse(
         Long id,
         String action,
@@ -22,7 +23,8 @@ public record AuditEntryResponse(
         BigDecimal balanceBeforePayment,
         BigDecimal balanceAfterPayment,
         String fromAccountName,
-        boolean autoApproved
+        boolean autoApproved,
+        String comment
 ) {
     public static AuditEntryResponse from(
             AuditEntry entry,
@@ -51,7 +53,8 @@ public record AuditEntryResponse(
                 balanceBeforePayment,
                 balanceAfterPayment,
                 fromAccountName,
-                autoApproved
+                autoApproved,
+                entry.getComment()
         );
     }
 }

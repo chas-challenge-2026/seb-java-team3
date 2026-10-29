@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -36,11 +37,11 @@ class AuditControllerTest {
                 AuditEntryResponse createEvent = new AuditEntryResponse(
                                 1L, "CREATE_PAYMENT", "PAYMENT", 100L,
                                 "Betalning skapad", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin",
-                                null, null, "Driftkonto", false);
+                                null, null, "Driftkonto", false, null);
                 AuditEntryResponse approveEvent = new AuditEntryResponse(
                                 2L, "APPROVE_PAYMENT", "PAYMENT", 100L,
                                 "Betalning godkänd", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin",
-                                null, null, "Driftkonto", false);
+                                null, null, "Driftkonto", false, "Stämmer mot faktura");
 
                 when(jwtUserContext.requireAuthenticated()).thenReturn(admin);
                 when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, approveEvent));
@@ -48,6 +49,9 @@ class AuditControllerTest {
                 mockMvc.perform(get("/api/audit"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$[*].action",
-                                                containsInAnyOrder("CREATE_PAYMENT", "APPROVE_PAYMENT")));
+                                                containsInAnyOrder("CREATE_PAYMENT", "APPROVE_PAYMENT")))
+                                // #228: meddelandet följer med i JSON, och null när det saknas
+                                .andExpect(jsonPath("$[0].comment").value(nullValue()))
+                                .andExpect(jsonPath("$[1].comment").value("Stämmer mot faktura"));
         }
 }
