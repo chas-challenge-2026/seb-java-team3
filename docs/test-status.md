@@ -2,25 +2,25 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-28
+**Senast uppdaterad:** 2026-10-29
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 38 klasser, 258 tester | Gröna vid lokal körning 2026-10-28 i en Maven-container, även de två Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest`; fem hoppas över utan byggd `libauditsigner.so` |
+| Backend · JUnit | 39 klasser, 271 tester | Gröna vid lokal körning 2026-10-29 i en Maven-container, även Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest` och `TenantIsolationIntegrationTest`; fem hoppas över utan byggd `libauditsigner.so` |
 | Frontend · Vitest | 20 filer, 175 tester | Alla gröna vid lokal körning 2026-10-28 |
 | Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla gröna 2026-10-28 i en gcc-container med Check; sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-10-28 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna 2026-10-28 mot Vite dev-servern med backend i Docker, med granskningsrutan i attestkorgen |
 
-De 258 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-28. Fem tester i `AuditSignerNativeIntegrationTest` hoppas över när `libauditsigner.so` inte är byggd. `ApprovalServiceTransactionIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+De 271 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-29. Fem tester i `AuditSignerNativeIntegrationTest` hoppas över när `libauditsigner.so` inte är byggd. `ApprovalServiceTransactionIntegrationTest` och `TenantIsolationIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
 
-Backendens unit-tester använder mockade repositories. De verifierar servicelogik men inte transaktioner eller rollback mot en riktig databas. `AuthServiceInjectionTest`, `AccountRepositoryTenantTest`, `AccountServiceTest`, `AccountBalanceAfterApprovalTest`, `RefreshTokenRepositoryTest`, `RefreshTokenServiceTest` och `UserRepositoryLockTest` är undantagen: de kör mot H2 i minnet, så där körs SQL-frågorna på riktigt. `ApprovalServiceTransactionIntegrationTest` kör mot Postgres 12 och verifierar att saldo, status, attestssteg och audit antingen sparas tillsammans eller rullas tillbaka tillsammans vid ett godkännande (#193).
+Backendens unit-tester använder mockade repositories. De verifierar servicelogik men inte transaktioner eller rollback mot en riktig databas. `AuthServiceInjectionTest`, `AccountRepositoryTenantTest`, `AccountServiceTest`, `AccountBalanceAfterApprovalTest`, `RefreshTokenRepositoryTest`, `RefreshTokenServiceTest` och `UserRepositoryLockTest` är undantagen: de kör mot H2 i minnet, så där körs SQL-frågorna på riktigt. `ApprovalServiceTransactionIntegrationTest` kör mot Postgres 12 och verifierar att saldo, status, attestssteg och audit antingen sparas tillsammans eller rullas tillbaka tillsammans vid ett godkännande (#193). `TenantIsolationIntegrationTest` kör hela appen över HTTP mot Postgres 12 och verifierar att två företag inte kan se eller ändra varandras data (R-04).
 
 ## 2. MVP-flödet
 
@@ -132,7 +132,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Tidslinje visar aktör, händelse och tid i ordning | Int | Delvis | `AuditControllerTest`; `RoleAuthorizationTest` |
 | Skapande och godkännande skriver audit; nekad åtgärd gör det inte | Unit | Grön | `PaymentServiceTest.createPayment_shouldRecordAuditEntry`; `ApprovalServiceTest.finalApproval_*`; `ApprovalApiControllerOwnershipTest` |
 | Beslutshändelser skrivs atomärt (BUG-008, R-02) | Int | Delvis | `ApprovalServiceTransactionIntegrationTest` · 2 (godkännande mot Postgres 12); avvisning saknar test mot riktig databas |
-| Tenant-filtrering hindrar läckage (R-04) | Int | Delvis | `AccountRepositoryTenantTest` · 6 och `AccountServiceTest` · 5 (konton, H2). Audit, tidslinje, betalningar och attester saknar fortfarande test av faktisk filtrering |
+| Tenant-filtrering hindrar läckage (R-04) | Int | Grön | `TenantIsolationIntegrationTest` · 13 (hela appen över HTTP mot Postgres 12: konton, auditlogg, tidslinje, mina betalningar, attestkorg och antal, godkänn, avvisa, skapa betalning, användarnamn); `AccountRepositoryTenantTest` · 6 och `AccountServiceTest` · 5 (konton, H2) |
 | Ordningen är stabil vid samma tidsstämpel | Int | Ej testad | Inget sorteringstest |
 | Signerad granskningslogg: kedjan upptäcker ändrad, borttagen, ombytt eller förfalskad rad | Unit | Grön | `native/audit/audit_signer_test.c` · 39 Check-tester; `AuditSignerNativeIntegrationTest` · 5 mot det riktiga biblioteket (hoppas över om `libauditsigner.so` inte är byggd) |
 | Signerad rad skrivs först efter commit och aldrig vid rollback | Unit | Grön | `AuditServiceSigningTest` · 6 |
@@ -144,8 +144,11 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 
 - `AuditControllerTest` använder mockad service och `containsInAnyOrder`. Varken den faktiska sorteringen eller `AuditService.findPaymentEvents` verifieras.
 - Audit vid lyckad avvisning testas i `ApprovalServiceRejectCommentTest` med mockade repositories. Rollback mot riktig databas är testad för godkännande, inte för avvisning. Nekade åtgärder kontrolleras i ägarskapstesterna.
-- Frågorna filtrerar på `tenantId`, men inget negativt test verifierar åtkomst mellan kunder för audit, betalningar eller `my-payments`. `AuditControllerMyPaymentsTest.shouldReturnOnlyOwnPayments` mockar servicen och testar därför inte filtreringen.
-- Mina betalningar: attestantnamnen slås upp en gång för hela listan, och namn på användare och konton från andra företag visas aldrig (`AuditServiceMyPaymentsTest.aUserFromAnotherCompany_isNeverNamed`, `anAccountOutsideTheCompany_isNeverNamed`). Repositoryt är mockat, så frågan `findByTenantIdAndCreatedByWithApprovalSteps` (betalningar och steg i en fråga) är bara kontrollerad mot en riktig databas genom att Spring godkänner den vid uppstart i Testcontainers-testet och genom en manuell kontroll av `/api/my-payments` mot Docker 2026-10-15.
+- `TenantIsolationIntegrationTest` kör två företag mot varandra med riktiga JWT, utan mockar. Det har också rader som korsar företagsgränsen (en betalning hos B som skapats av A:s initiatör och väntar på A:s attestant, auditrader som pekar på det andra företagets betalning, och en auditrad med en användare från det andra företaget), så att det är tenant-villkoret som prövas och inte bara användar-id. Testet är kontrollerat med mutationsprov 2026-10-29: när vart och ett av tolv tenant-skydd togs bort föll minst ett test.
+- Två läckor rättades 2026-10-29, och testerna föll mot koden före rättelsen:
+  - Användarnamnen i auditloggen och tidslinjen slogs upp utan tenant-villkor. Nu namnges bara det egna företagets användare, och en användare från ett annat företag visas som "Systemet", på samma sätt som en okänd användare (`AuditService.userNamesInTenant`).
+  - Godkänn och avvisa kontrollerade betalningens status före företaget, så ett annat företags steg gav 403 om det väntade och 409 om det var behandlat. Nu kontrolleras företaget först, och ett annat företags steg ger samma 400 som ett steg som inte finns (`ApprovalService.findPaymentOfStepForUpdate`).
+- Mina betalningar: attestantnamnen slås upp en gång för hela listan, och namn på användare och konton från andra företag visas aldrig (`AuditServiceMyPaymentsTest.aUserFromAnotherCompany_isNeverNamed`, `anAccountOutsideTheCompany_isNeverNamed`). Repositoryt är mockat där; frågan `findByTenantIdAndCreatedByWithApprovalSteps` (betalningar och steg i en fråga) körs mot Postgres i `TenantIsolationIntegrationTest`.
 - `findPaymentEvents` sorterar på `createdAt, id`, men lika tidsstämplar är inte testade. Även namnet `getMyPaymentStatuses_shouldReturnOnlyOwnPayments` beskriver inte tydligt vad testet verifierar.
 
 ### Servering av frontend (SPA-routing)
@@ -185,7 +188,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | --- | --- | --- |
 | 1 | Kör E2E i CI. | E2E-testet körs bara manuellt mot en app som är igång. |
 | 2 | Checka in och kör samtidighetstestet mot Postgres med Testcontainers. | Låsning vid samtidiga godkännanden (R-01) är inte verifierad i repot. |
-| 3 | Testa tenant-gränser för audit, tidslinje, betalningar och attester (konton är klara) samt behörighet för `/api/my-payments`. | Filtrering mellan företag och åtkomst till `/api/my-payments` behöver verifieras. |
+| 3 | Testa behörighet för `/api/my-payments`. | Tenant-gränserna är testade (`TenantIsolationIntegrationTest`), men rollbehörigheten för `/api/my-payments` saknar test. |
 | 4 | Testa omdirigeringen i skyddade routes; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
 | 5 | Rätta de två missvisande testnamnen. | Testnamnen ska spegla vad som faktiskt testas. |
 
