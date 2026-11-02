@@ -26,6 +26,24 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-11-02 — Användaradministration för admin (frontend, mockdata) och sidtitlar Marcus
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att bygga frontend-delen av användaradministrationen för admin innan backend finns, med mockdata som ska bytas mot riktiga anrop senare. AI:n läste först hur appen är uppbyggd (router, sidomeny, betalningsformuläret, auditloggens tabell, `Modal`, `Select` och Zod-scheman) och byggde sedan ovanpå det så att sidan följer resten av designen. Jag styrde sedan resultatet i flera steg: från listan och formuläret bredvid varandra till en lista med en modal för att skapa användare, rollbyte, borttagning, smalare layout och sidtitlar. Därefter bad jag AI:n skriva tester och den här loggposten.
+- **Genererades:**
+  - Ny route `/admin/users` som begränsas till ADMIN med `requireRole`, och menylänken "Användare" som bara visas för admin (`router.tsx`, `SideBar.tsx`, `SideBarItem.tsx`).
+  - `src/features/users/`: `UsersPage`, `UserList` (tabell med laddning, fel och tom lista), `UserRoleCell` (rollbyte), `CreateUserModal` (formulär med Zod-validering, backendfel vid e-postfältet, låst knapp medan anropet pågår och bekräftelsevy efter skapande), `DeleteUserModal` (bekräftelse om att borttagningen är permanent), `schema.ts`, `roles.ts`, `usersQueryOptions.ts` och CSS.
+  - `api.ts` med mockad `listUsers`, `createUser`, `updateUserRole` och `deleteUser`. Mocken har samma signaturer som de riktiga anropen ska få, så vid kopplingen byts bara innehållet ut. Sökvägarna i kommentaren (`/api/admin/users` m.fl.) är AI:ns gissningar och måste stämmas av mot backend.
+  - Små ändringar i befintlig kod: `Select` fick `compact` och `ariaLabel` för att fungera i en tabellcell, och sidtitlar (`<h1>`) lades till på Historik och Ny betalning. Titeln på Mina betalningar ändrades från "Historik" till "Mina betalningar".
+  - 36 nya tester (228 totalt): schema, mock-API, lista, rollbyte, skapa-modal och menylänkens synlighet, samt nya fall i `requireRole.test.ts` för en route som bara släpper in ADMIN.
+  - Verifiering: `tsc`, ESLint och hela Vitest-sviten gröna. Testerna hittade ett fel i AI:ns egen kod: `createUser` anropades med ett extra argument eftersom TanStack Query v5 skickar med kontext till `mutationFn`. Det hade blivit ett problem först när anropet kopplas mot riktig backend.
+- **Hur jag granskade/ändrade:** Jag gick igenom varje version av sidan och gav ändringar utifrån hur den såg ut. Första versionen hade listan och formuläret som två kort bredvid varandra, och jag bad om att listan skulle vara det primära med en "Skapa användare"-knapp och en modal som matchar attest- och betalningsmodalerna. Jag bad om att dropdownen skulle använda vår egen `Select` i stället för en vanlig `<select>`, att sidan skulle göras smalare, att gapet mellan dropdown och ta bort-knapp skulle minskas och att listans höjd skulle anpassa sig efter antalet användare. Jag la också märke till att rubriken på Ny betalning låg högre upp än på de andra sidorna, och den justerades. Jag bad AI:n skriva testerna efter att ha frågat om de behövdes. [Fyll i här vad du själv kontrollerat, t.ex. att du provat flödet i webbläsaren och ändrat något i koden för att se testerna bli röda.]
+- **Valde bort (om något):**
+  - Att låta admin skapa nya admin-konton och att ändra eller ta bort adminkontot. Det finns bara ett, och det skyddas i formuläret, i rollcellen och i mocken. Backend måste ändå upprätthålla regeln, eftersom frontend inte kan garantera den.
+  - En vanlig `<select>` för rollbyte i tabellen. Den ersattes av vår egen `Select` för att det ska vara enhetligt.
+  - En ny titel på Översikt och Attestera. `Översikt` har en bortkommenterad h1 och en hälsning, och Attestera heter "Attestkorg" men menylänken "Attestera". Ingen av dem ändrades.
+- **Spår:** Branch `feature/improved-admin`, commitat. Issue #243
+
+
 ### 2026-10-29 — Test av tenant-isolering och två rättade läckor (R-04) Pontus Ingenius
 - **Verktyg:** Claude Code
 - **Använde AI till:** Att täcka bristen "Isoleringen mellan företag saknar heltäckande tester" (R-04 i `docs/test-status.md`, där bara konton hade test av faktisk filtrering). AI:n gick igenom alla endpoints som bär företagsdata och hur varje fråga filtrerar på `tenantId`, skrev testet, körde det och kontrollerade med mutationsprov att det fångar fel. Testet hittade två läckor, och efter att jag bett om det rättade AI:n dem.
