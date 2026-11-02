@@ -17,6 +17,9 @@ interface SelectProps {
   name?: string;
   disabled?: boolean;
   required?: boolean;
+  // Låg variant utan marginaler, för t.ex. tabellceller. Använd ariaLabel när label saknas
+  compact?: boolean;
+  ariaLabel?: string;
   ref?: React.Ref<HTMLButtonElement>;
 }
 
@@ -30,6 +33,8 @@ export default function Select({
   name,
   disabled = false,
   required = false,
+  compact = false,
+  ariaLabel,
   ref,
 }: SelectProps) {
   const generatedId = useId();
@@ -92,7 +97,7 @@ export default function Select({
   };
 
   return (
-    <div className={styles.wrapper} ref={rootRef}>
+    <div className={`${styles.wrapper}${compact ? ` ${styles.compact}` : ""}`} ref={rootRef}>
       {label && (
         <label className={styles.selectLabel} htmlFor={selectId}>
           {label}
@@ -110,6 +115,7 @@ export default function Select({
         aria-controls={listboxId}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
+        aria-label={ariaLabel}
         aria-required={required || undefined}
         aria-activedescendant={isOpen ? `${selectId}-option-${highlightedIndex}` : undefined}
         disabled={disabled}

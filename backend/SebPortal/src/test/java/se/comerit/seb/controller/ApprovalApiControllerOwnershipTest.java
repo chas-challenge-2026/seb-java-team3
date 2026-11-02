@@ -102,6 +102,21 @@ class ApprovalApiControllerOwnershipTest {
     }
 
     @Test
+    void reject_withAControlCharacterInTheMessage_returns400AndChangesNothing() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"Fel\\u0000konto\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Kommentaren innehåller ogiltiga tecken."));
+
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(step.getComment());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
+    @Test
     void reject_asAttestantWhoDoesNotOwnTheStep_returns403AndChangesNothing() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_B_ID))
