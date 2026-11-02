@@ -4,8 +4,8 @@ import type { MyPaymentStatus } from "../schema";
 import {
   formatAmount,
   formatAttestant,
-  formatAuditStatus,
   formatDateTime,
+  formatMyPaymentStatus,
   formatRejectionReason,
 } from "../utils/formatters";
 import styles from "./AuditGrid.module.css";
@@ -38,7 +38,7 @@ export default function MyPaymentRow({ payment }: { payment: MyPaymentStatus }) 
         </td>
         <td data-label="Status" className={styles.noWrap}>
           <div className={rowStyles.statusContent}>
-            <span className={styles.status}>{formatAuditStatus(payment.status)}</span>
+            <span className={styles.status}>{formatMyPaymentStatus(payment)}</span>
             {isRejected && (
               <button
                 type="button"

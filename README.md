@@ -21,7 +21,7 @@ Det här är v2, en ombyggnad av det avsiktligt trasiga v1-systemet. Backend är
 | Godkänna eller avvisa betalning, badge visar antal väntande | attestant, admin | `/attest` |
 | Granskningslogg och tidslinje per betalning | attestant, admin | `/audit` |
 
-Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest. Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg.
+Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest, och betalningar över `payment.approval.two-attestant-threshold` (50 000 kr) kräver två olika attestanter i tur och ordning (ADR 0016). Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg.
 
 ---
 
@@ -45,6 +45,7 @@ Seed-användare (skapas av Flyway, alla tillhör samma företag):
 |------|--------|---------|
 | Initiator | lisa@malmobygg.se | password123 |
 | Attestant | johan@malmobygg.se | password123 |
+| Attestant 2 | eva@malmobygg.se | password123 |
 | Admin | sara@malmobygg.se | password123 |
 
 Kom ihåg att seed-datans IBAN:er inte klarar MOD97, utom `SE4550000000058398257466`. Använd t.ex. `DE89370400440532013000` som mottagare när du provar.
@@ -220,7 +221,7 @@ Det här är medvetet inte byggt i MVP (ADR 0003, [docs/mvp.md](docs/mvp.md)):
 
 - Batch/CSV-uppladdning med allt-eller-inget (parsern finns, endpointen och vyn saknas)
 - Påminnelser via e-post med kö och retry
-- Dubbel attest, attestant 2 (VD) och tröskeltrappa (datamodellen stöder flera steg)
+- Särskilt VD-steg och fler trösklar än dubbel attest över 50 000 kr (datamodellen stöder flera steg)
 - Förfallodatum på betalningar (ADR 0013)
 - Compliance-export, 2FA och valutaomvandling (allt hanteras i SEK)
 

@@ -84,8 +84,8 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Obehörigt godkännande, bryter 'rätt person i rätt ordning', brott i reglerat system
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Ägarskapskontroll ur security context; negativt 403-test för fel attestant
-- **Bevis:** `ApprovalApiControllerOwnershipTest` (9/9 gröna 2026-11-02)
-- **Kvar:** En admin kan både skapa en betalning och godkänna den. Admin får skapa betalningar och hoppar över ägarkontrollen, och `ApprovalService` jämför inte beslutsfattaren med skaparen. Provkört 2026-11-02 mot Postgres: en betalning på 6 000 kr genomfördes med admin som både skapare och beslutsfattare. Se `docs/accessmatris.md`. Neka fallet och lägg till ett negativt test. Admins rätt att godkänna andras steg är avsiktlig och kan vara kvar
+- **Bevis:** `ApprovalApiControllerOwnershipTest` (9/9 gröna 2026-11-02), `DualApprovalIntegrationTest` (dubbel attest)
+- **Kvar:** En admin kan både skapa en betalning med ett atteststeg och godkänna den; vid dubbel attest är det stoppat (ADR 0016). Admin får skapa betalningar och hoppar över ägarkontrollen, och `ApprovalService` jämför inte beslutsfattaren med skaparen. Provkört 2026-11-02 mot Postgres: en betalning på 6 000 kr genomfördes med admin som både skapare och beslutsfattare. Se `docs/accessmatris.md`. Neka fallet och lägg till ett negativt test. Admins rätt att godkänna andras steg är avsiktlig och kan vara kvar
 - **Ansvarig:** Backend
 - **Status:** In progress
 
@@ -121,8 +121,8 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Stora belopp släpps utan attest, själva kärnlöftet brutet
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** En enda tröskeldefinition som frontend hämtar från backend; utförandegrind; gränsfall-test; strikt `>` enligt ADR 0015
-- **Bevis:** `PaymentServiceTest.amountEqualToThreshold_shouldCompleteImmediately`, `PaymentServiceTest.amountJustOverThreshold_shouldRequireAttestant`, `ApprovalServiceTest`
-- **Kvar:** Dubbel attest är avgränsad (ADR 0003, ADR 0013), så även mycket stora belopp har ett atteststeg. Flera betalningar under tröskeln stoppas inte (ADR 0015)
+- **Bevis:** `PaymentServiceTest.amountEqualToThreshold_shouldCompleteImmediately`, `PaymentServiceTest.amountJustOverThreshold_shouldRequireAttestant`, `PaymentServiceTest.amountJustOverTwoAttestantThreshold_shouldRequireTwoDifferentAttestantsInOrder`, `ApprovalServiceTest`, `DualApprovalIntegrationTest`
+- **Kvar:** Betalningar som redan väntade på attest när dubbel attest infördes behåller sitt enda steg, även över 50 000 kr (ADR 0016). Flera betalningar under trösklarna stoppas inte (ADR 0015)
 - **Ansvarig:** Backend
 - **Status:** Mitigated
 

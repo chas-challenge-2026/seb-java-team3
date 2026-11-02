@@ -21,7 +21,7 @@ De identifierade områdena är:
 
 Vi väljer att avgränsa MVP enligt följande:
 
-1. **Attestflöde:** Vi implementerar inte stöd för flera attestanter eller visning av exempelvis "Väntar attest 1 av 2". Stöd för två attestanter betraktas som en utökning utanför MVP.
+1. **Attestflöde:** Vi implementerar inte stöd för flera attestanter eller visning av exempelvis "Väntar attest 1 av 2". Stöd för två attestanter betraktas som en utökning utanför MVP. (Byggt efter MVP, se [ADR 0016](0016-dubbel-attest-over-50000.md).)
 2. **Förfallodatum:** Vi inkluderar inte förfallodatum på betalningar i MVP på grund av tidsbegränsningar.
 3. **E-postnotifieringar:** Vi inkluderar inte e-postnotifieringar i MVP på grund av tidsbegränsningar.
 

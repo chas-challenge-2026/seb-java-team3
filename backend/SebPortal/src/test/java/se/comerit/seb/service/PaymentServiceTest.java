@@ -1,6 +1,8 @@
 package se.comerit.seb.service;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.domain.*;
 import se.comerit.seb.dto.CreatePaymentRequest;
@@ -61,7 +63,7 @@ class PaymentServiceTest {
         verify(paymentRepo).save(argThat(payment ->
                 new BigDecimal("20000.00").equals(payment.getBalanceBeforePayment())
                         && new BigDecimal("17000.00").equals(payment.getBalanceAfterPayment())));
-        verify(userRepo, never()).findByTenantIdAndRole(any(), any());
+        verify(userRepo, never()).findByTenantIdAndRoleOrderByIdAsc(any(), any());
         // ^ vi ska ALDRIG slå upp en attestant för ett belopp under tröskeln
     }
 
@@ -92,7 +94,7 @@ class PaymentServiceTest {
         //  tenant 1 och ATTESTANT, ge tillbaka en lista med vår
         //  låtsas-attestant" - vi testar inte den riktiga databasen,
         //  bara att PaymentService använder svaret rätt.
-        when(userRepo.findByTenantIdAndRole(1L, Role.ATTESTANT))
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
                 .thenReturn(List.of(attestant));
 
         when(paymentRepo.save(any(Payment.class)))
@@ -206,7 +208,7 @@ class PaymentServiceTest {
 
         User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
 
-        when(userRepo.findByTenantIdAndRole(1L, Role.ATTESTANT))
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
                 .thenReturn(List.of(attestant));
 
         when(paymentRepo.save(any(Payment.class)))
@@ -227,7 +229,7 @@ class PaymentServiceTest {
         assertEquals(PaymentStatus.COMPLETED, response.status());
         verify(account).setBalance(new BigDecimal("15000.00"));
         verify(accountRepo).findByIdAndTenantIdForUpdate(1, 1L);
-        verify(userRepo, never()).findByTenantIdAndRole(any(), any());
+        verify(userRepo, never()).findByTenantIdAndRoleOrderByIdAsc(any(), any());
     }
 
     @Test
@@ -252,7 +254,7 @@ class PaymentServiceTest {
 
         User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
 
-        when(userRepo.findByTenantIdAndRole(1L, Role.ATTESTANT))
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
                 .thenReturn(List.of(attestant));
 
         when(paymentRepo.save(any(Payment.class)))
@@ -273,7 +275,7 @@ class PaymentServiceTest {
         assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
         verify(account, never()).setBalance(any());
         verify(accountRepo).findByIdAndTenantIdForUpdate(1, 1L);
-        verify(userRepo, times(1)).findByTenantIdAndRole(1L, Role.ATTESTANT);
+        verify(userRepo, times(1)).findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT);
     }
 
     @Test
@@ -490,6 +492,76 @@ class PaymentServiceTest {
         assertEquals(PaymentStatus.COMPLETED, response.status());
     }
 
+    // ADR 0016: samma regel som för den första tröskeln, strikt över. Exakt tröskelbeloppet räcker med en attestant.
+    @Test
+    void amountEqualToTwoAttestantThreshold_shouldRequireOneAttestant() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                mock(AuditService.class), "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(21L), attestant(22L)));
+
+        service.createPayment(paymentOf("50000"));
+
+        List<ApprovalStep> steps = savedSteps(paymentRepo);
+        assertEquals(1, steps.size());
+        assertEquals(21L, steps.get(0).getAttestantId());
+    }
+
+    @Test
+    void amountJustOverTwoAttestantThreshold_shouldRequireTwoDifferentAttestantsInOrder() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                mock(AuditService.class), "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(21L), attestant(22L), attestant(23L)));
+
+        PaymentResponse response = service.createPayment(paymentOf("50000.01"));
+
+        assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
+        List<ApprovalStep> steps = savedSteps(paymentRepo);
+        assertEquals(2, steps.size());
+        assertEquals(21L, steps.get(0).getAttestantId());
+        assertEquals(1, steps.get(0).getStepNumber());
+        assertEquals(22L, steps.get(1).getAttestantId());
+        assertEquals(2, steps.get(1).getStepNumber());
+    }
+
+    // Annars hade betalningen reserverat pengarna i väntan på ett andra godkännande som ingen kan ge
+    @Test
+    void tooFewAttestantsForTwoSteps_shouldRejectBeforeSavingOrAuditing() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                auditService, "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(21L)));
+
+        assertThrows(NoAttestantAvailableException.class, () -> service.createPayment(paymentOf("50000.01")));
+
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService);
+    }
+
+    private static CreatePaymentRequest paymentOf(String amount) {
+        return new CreatePaymentRequest(1L, 1L, "SE8550000000054910000003", new BigDecimal(amount), "Test", 1L);
+    }
+
+    private static User attestant(Long id) {
+        User attestant = new User(1L, "Attestant " + id, id + "@example.com", "hash", Role.ATTESTANT);
+        ReflectionTestUtils.setField(attestant, "id", id);
+        return attestant;
+    }
+
+    private static List<ApprovalStep> savedSteps(PaymentRepository paymentRepo) {
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepo).save(saved.capture());
+        return saved.getValue().getApprovalSteps();
+    }
+
     private static PaymentService serviceWithBalance(PaymentRepository paymentRepo, UserRepository userRepo,
                                                      AccountRepository accountRepo, AuditService auditService,
                                                      String balance) {
@@ -501,9 +573,11 @@ class PaymentServiceTest {
         when(account.getBalance()).thenReturn(new BigDecimal(balance));
         when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
         User attestant = new User(1L, "Johan Berg", "johan@example.com", "hash", Role.ATTESTANT);
-        when(userRepo.findByTenantIdAndRole(1L, Role.ATTESTANT)).thenReturn(List.of(attestant));
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT)).thenReturn(List.of(attestant));
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         ApprovalThresholds thresholds = new ApprovalThresholds();
         thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("50000"));
         return new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
     }
 }

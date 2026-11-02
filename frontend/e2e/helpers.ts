@@ -4,6 +4,8 @@ import { expect, type Browser, type Page } from "@playwright/test";
 export const USERS = {
   initiator: { name: "Lisa Persson", email: "lisa@malmobygg.se" },
   attestant: { name: "Johan Berg", email: "johan@malmobygg.se" },
+  // Attest 2 vid dubbel attest (backend: V13__add_second_seed_attestant.sql)
+  secondAttestant: { name: "Eva Holm", email: "eva@malmobygg.se" },
 } as const;
 
 const SEED_PASSWORD = "password123";

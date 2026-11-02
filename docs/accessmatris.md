@@ -7,7 +7,7 @@ Vilka roller som får göra vad i systemet, och om det går att eskalera sin beh
 - Tre roller finns: `INITIATOR`, `ATTESTANT` och `ADMIN`. Varje användare har en roll och tillhör ett företag.
 - Backend avgör all åtkomst. Frontendens spärrar styr bara vad som visas.
 - Roll, användar-id och företag läses från den signerade JWT:n, aldrig från anropet.
-- **Ett eskaleringshål är öppet:** en admin kan skapa en betalning över tröskeln och godkänna den själv, se [Permission escalation](#permission-escalation).
+- **Ett eskaleringshål är öppet:** en admin kan skapa en betalning med ett atteststeg (över 5 000 kr och upp till 50 000 kr) och godkänna den själv, se [Permission escalation](#permission-escalation). Betalningar över 50 000 kr kräver två olika attestanter, och skaparen kan inte vara en av dem (ADR 0016).
 
 ## Roller
 
@@ -27,6 +27,7 @@ Allt under `/api/**` kräver giltig JWT, utom de tre öppna auth-endpointsen. Sa
 - **Tilldelade:** bara steg som är tilldelade den inloggade attestanten.
 - **Egna:** bara det som den inloggade användaren själv har skapat.
 - **Företaget:** allt inom det egna företaget.
+- **På tur:** vid dubbel attest gäller listor och beslut bara steget som är på tur. Steg 2 syns och kan hanteras först när steg 1 är godkänt.
 
 ### Inloggning och session
 
@@ -42,7 +43,7 @@ Allt under `/api/**` kräver giltig JWT, utom de tre öppna auth-endpointsen. Sa
 | Åtgärd | Endpoint | Initiatör | Attestant | Admin | Teststöd |
 |---|---|---|---|---|---|
 | Läsa konton och saldon | `GET /api/accounts` | Företaget | Företaget | Företaget | `AccountControllerSecurityTest`, `TenantIsolationIntegrationTest` |
-| Läsa tröskelvärdet | `GET /api/payments/config` | Ja | Nej | Ja | **Saknas** |
+| Läsa tröskelvärdena | `GET /api/payments/config` | Ja | Nej | Ja | `DualApprovalIntegrationTest` (bara initiatören; nekad attestant saknar test) |
 | Skapa betalning | `POST /api/payments` | Från företagets konton | Nej | Från företagets konton | `RoleAuthorizationTest`, `TenantIsolationIntegrationTest` |
 | Läsa mina betalningar | `GET /api/my-payments` | Egna | Nej | Egna | `RoleAuthorizationTest`, `AuditServiceMyPaymentsTest` |
 | Räkna mina ändrade betalningar | `GET /api/payments/changed-count` | Egna | Nej | Egna | **Saknas** |
@@ -51,10 +52,10 @@ Allt under `/api/**` kräver giltig JWT, utom de tre öppna auth-endpointsen. Sa
 
 | Åtgärd | Endpoint | Initiatör | Attestant | Admin | Teststöd |
 |---|---|---|---|---|---|
-| Läsa attestkorgen | `GET /api/approvals` | Nej | Tilldelade | Företaget | `RoleAuthorizationTest`, `TenantIsolationIntegrationTest` |
-| Räkna väntande steg | `GET /api/approvals/count` | Nej | Tilldelade | Företaget | `RoleAuthorizationTest`, `ApprovalApiControllerCountTest` |
-| Godkänna | `POST /api/approvals/{stepId}/approve` | Nej | Tilldelade | Företaget, även egna betalningar | `RoleAuthorizationTest`, `ApprovalApiControllerOwnershipTest` |
-| Avvisa | `POST /api/approvals/{stepId}/reject` | Nej | Tilldelade | Företaget, även egna betalningar | `RoleAuthorizationTest`, `ApprovalApiControllerOwnershipTest` |
+| Läsa attestkorgen | `GET /api/approvals` | Nej | Tilldelade, på tur | Företaget, på tur, utom steg som admin ändå skulle nekas att godkänna | `RoleAuthorizationTest`, `TenantIsolationIntegrationTest`, `DualApprovalIntegrationTest` |
+| Räkna väntande steg | `GET /api/approvals/count` | Nej | Tilldelade, på tur | Som attestkorgen | `RoleAuthorizationTest`, `ApprovalApiControllerCountTest`, `DualApprovalIntegrationTest` |
+| Godkänna | `POST /api/approvals/{stepId}/approve` | Nej | Tilldelade, på tur | Företaget, på tur. Egna betalningar bara om de har ett steg. Vid dubbel attest högst ett av stegen | `RoleAuthorizationTest`, `ApprovalApiControllerOwnershipTest`, `DualApprovalIntegrationTest` |
+| Avvisa | `POST /api/approvals/{stepId}/reject` | Nej | Tilldelade, på tur | Företaget, på tur, även egna betalningar | `RoleAuthorizationTest`, `ApprovalApiControllerOwnershipTest`, `DualApprovalIntegrationTest` |
 
 ### Audit
 
@@ -76,7 +77,7 @@ Det finns ingen endpoint som låter någon roll göra följande:
 
 - skapa användare eller ändra roller
 - ändra eller ta bort en betalning, ett atteststeg eller en auditrad
-- ändra saldo eller tröskelvärde direkt
+- ändra saldo eller tröskelvärden direkt
 
 ## Frontendens vyer
 
@@ -100,7 +101,8 @@ Spärrarna i `frontend/src/router.tsx` styr bara navigeringen. Skyddet ligger i 
 
 | Försök | Resultat | Bevis |
 |---|---|---|
-| **Admin godkänner sin egen betalning** | **Öppet hål.** Betalningen genomförs utan en andra person (R-03). | Provkört 2026-11-02 mot Postgres: admin skapade en betalning på 6 000 kr och godkände den, och status blev `completed`. |
+| **Admin godkänner sin egen betalning med ett steg** | **Öppet hål.** Betalningen genomförs utan en andra person (R-03). | Provkört 2026-11-02 mot Postgres: admin skapade en betalning på 6 000 kr och godkände den, och status blev `completed`. |
+| Admin godkänner båda stegen, eller sin egen betalning, vid dubbel attest | Nekas med 403, och betalningen genomförs inte (ADR 0016). | `DualApprovalIntegrationTest` |
 | Initiatör attesterar, eller attestant skapar en betalning | Nekas med 403. | `RoleAuthorizationTest` |
 | Förfalska en token med högre roll | Nekas. Nyckeln finns varken i repot eller i konfigurationen (R-17). | `JwtServiceTest` |
 | Ändra sin egen roll | Går inte. Det finns ingen sådan endpoint. | Genomgång av alla controllers |
@@ -111,6 +113,7 @@ Spärrarna i `frontend/src/router.tsx` styr bara navigeringen. Skyddet ligger i 
 | Försök | Resultat | Bevis |
 |---|---|---|
 | Attestant hanterar en annan attestants steg | Nekas med 403, och inget ändras (R-03). | `ApprovalApiControllerOwnershipTest` |
+| Attestant 2 hoppar före attestant 1 | Nekas med 409, både vid godkännande och avvisning (ADR 0016). | `DualApprovalIntegrationTest` |
 | Komma åt ett annat företags data | Syns inte. Ett annat företags steg ger samma 400 som ett steg som inte finns (R-04). | `TenantIsolationIntegrationTest` |
 | Skicka ett annat företag eller en annan skapare i anropet | Ignoreras. Värdena hämtas från JWT:n. | `TenantIsolationIntegrationTest`, `NewPaymentController` |
 | Betala från ett annat företags konto | Nekas med 400, både när betalningen skapas och när den godkänns (R-04). | `PaymentServiceTest`, `ApprovalServiceTest`, `TenantIsolationIntegrationTest` |
@@ -118,8 +121,8 @@ Spärrarna i `frontend/src/router.tsx` styr bara navigeringen. Skyddet ligger i 
 
 ## Öppna punkter
 
-1. **Stoppa att admin godkänner sin egen betalning (R-03).** Admins rätt att godkänna andras steg är avsiktlig och testad, men en betalning bör inte kunna godkännas av den som skapade den.
-2. **Lägg till rolltester** för `/api/payments/config` och `/api/payments/changed-count`, och ett nekat-test för initiatören på tidslinjen.
+1. **Stoppa att admin godkänner sin egen betalning med ett steg (R-03).** Admins rätt att godkänna andras steg är avsiktlig och testad, men en betalning bör inte kunna godkännas av den som skapade den. Vid dubbel attest är det redan stoppat (ADR 0016).
+2. **Lägg till rolltester** för nekad attestant på `/api/payments/config`, för `/api/payments/changed-count`, och ett nekat-test för initiatören på tidslinjen.
 3. **Ta bort `approve(stepId, actorId)` och `reject(stepId, actorId, comment)` i `ApprovalService`.** De saknar företags- och ägarkontroll för inloggad användare. Ingen controller anropar dem, så de går inte att nå via API:t.
 4. **Ta bort `/uitest`** från produktionsbygget. Alla inloggade kan öppna testsidan.
 5. **Ta ställning till attestantens läsrätt.** En attestant kan läsa alla företagets konton, saldon och betalningshändelser, inte bara sina egna steg. Det kan vara rimligt för uppgiften, men det är bredare än minsta möjliga behörighet.

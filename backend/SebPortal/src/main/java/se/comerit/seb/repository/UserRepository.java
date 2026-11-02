@@ -17,7 +17,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
-    List<User> findByTenantIdAndRole(Long tenantId, Role role);
+    // Sorterad, så att tilldelningen av attestanter inte beror på i vilken ordning databasen råkar ge raderna.
+    List<User> findByTenantIdAndRoleOrderByIdAsc(Long tenantId, Role role);
 
     // Låser användarens rad (SELECT ... FOR UPDATE) tills transaktionen är klar. Används som ett
     // lås per användare: RefreshTokenService tar det först i inloggning, förnyelse och utloggning,
