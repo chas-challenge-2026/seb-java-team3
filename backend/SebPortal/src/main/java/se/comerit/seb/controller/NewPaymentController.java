@@ -36,13 +36,14 @@ public class NewPaymentController {
 
     public record PaymentConfigResponse(BigDecimal approvalThreshold) {}
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    // Bara INITIATOR skapar betalningar. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0015).
+    @PreAuthorize("hasRole('INITIATOR')")
     @GetMapping("/config")
     public PaymentConfigResponse getPaymentConfig() {
         return new PaymentConfigResponse(approvalThresholds.getNoAttestantThreshold());
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasRole('INITIATOR')")
     @PostMapping
     public ResponseEntity<?> createPayment(@RequestBody CreatePaymentRequest request) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
@@ -60,7 +61,7 @@ public class NewPaymentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasRole('INITIATOR')")
     @GetMapping("/changed-count")
     public ResponseEntity<Map<String, Integer>> changedCount() {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();

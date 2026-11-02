@@ -112,7 +112,8 @@ public class PaymentService {
         return attestants.get(0);
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    // Bara INITIATOR. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0015).
+    @PreAuthorize("hasRole('INITIATOR')")
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 
@@ -182,7 +183,7 @@ public class PaymentService {
 
     // Badge för initiatorn: samma mönster som ApprovalService.countPendingByAttestant, men databasen
     // räknar. Användare och företag kommer från JWT, aldrig från anropet.
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasRole('INITIATOR')")
     @Transactional(readOnly = true)
     public int countChangedForInitiator(AuthenticatedUserContext user) {
         return (int) paymentRepository.countDecidedByInitiator(user.tenantId(), user.userId());

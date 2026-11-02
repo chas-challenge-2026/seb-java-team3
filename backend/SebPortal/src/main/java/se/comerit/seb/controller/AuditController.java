@@ -40,7 +40,8 @@ public class AuditController {
         return auditService.getPaymentAuditTimeline(user, paymentId);
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    // Initiatorns egna betalningar. ADMIN skapar inga betalningar och ser i stället allt via /api/audit.
+    @PreAuthorize("hasRole('INITIATOR')")
     @GetMapping("/api/my-payments")
     public List<MyPaymentStatusResponse> getMyPaymentStatuses() {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();

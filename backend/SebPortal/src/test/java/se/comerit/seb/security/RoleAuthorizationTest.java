@@ -202,12 +202,10 @@ class RoleAuthorizationTest {
     }
 
     @Test
-    void adminCanViewMyPayments() throws Exception {
-        when(auditService.getMyPaymentStatuses(any())).thenReturn(List.of());
-
+    void adminCannotViewMyPayments() throws Exception {
         mockMvc.perform(get("/api/my-payments")
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -234,12 +232,27 @@ class RoleAuthorizationTest {
                 .andExpect(status().isCreated());
     }
 
+    // ADR 0015: admin är en administrativ roll och flyttar inga pengar.
     @Test
-    void adminCanCreatePayment() throws Exception {
+    void adminCannotCreatePayment() throws Exception {
         mockMvc.perform(post("/api/payments")
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN))
                         .contentType(APPLICATION_JSON)
                         .content(PAYMENT_REQUEST_JSON))
-                .andExpect(status().isCreated());
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCannotReadPaymentConfig() throws Exception {
+        mockMvc.perform(get("/api/payments/config")
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCannotViewChangedPaymentCount() throws Exception {
+        mockMvc.perform(get("/api/payments/changed-count")
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isForbidden());
     }
 }
