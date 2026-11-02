@@ -12,7 +12,7 @@ import { isApiError, NETWORK_ERROR_STATUS } from "../../error/api.error";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import { createUser } from "./api";
 import { CREATABLE_ROLE_OPTIONS, ROLE_LABELS } from "./roles";
-import { createUserFormSchema } from "./schema";
+import { createUserFormSchema, type CreateUserInput } from "./schema";
 import { usersQueryKey } from "./usersQueryOptions";
 import type { CreateUserFormData, CreateUserFormErrors, UserResponse } from "./types";
 
@@ -62,7 +62,7 @@ export default function CreateUserModal({ onClose }: CreateUserModalProps) {
   }, [errors]);
 
   const mutation = useMutation({
-    mutationFn: createUser,
+    mutationFn: (input: CreateUserInput) => createUser(input),
     onSuccess: (user) => {
       void queryClient.invalidateQueries({ queryKey: usersQueryKey });
       setCreatedUser(user);
