@@ -34,12 +34,14 @@ public class NewPaymentController {
         this.approvalThresholds = approvalThresholds;
     }
 
-    public record PaymentConfigResponse(BigDecimal approvalThreshold) {}
+    public record PaymentConfigResponse(BigDecimal approvalThreshold, BigDecimal twoAttestantThreshold) {}
 
     @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @GetMapping("/config")
     public PaymentConfigResponse getPaymentConfig() {
-        return new PaymentConfigResponse(approvalThresholds.getNoAttestantThreshold());
+        return new PaymentConfigResponse(
+                approvalThresholds.getNoAttestantThreshold(),
+                approvalThresholds.getTwoAttestantThreshold());
     }
 
     @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")

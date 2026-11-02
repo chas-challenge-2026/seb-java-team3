@@ -82,14 +82,22 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             @Param("paymentId") Long paymentId,
             @Param("tenantId") Long tenantId);
 
+    // Attestkorgen: villkoret på stegen ligger i EXISTS och inte på den hämtade samlingen. Ett villkor på
+    // JOIN FETCH hade gett betalningar med bara de matchande stegen, och ApprovalService behöver alla steg
+    // för att veta vilket steg som är på tur och vem som redan har godkänt.
     @Query("""
             SELECT DISTINCT p
             FROM Payment p
-            JOIN FETCH p.approvalSteps step
+            JOIN FETCH p.approvalSteps
             WHERE p.tenantId = :tenantId
               AND p.status = se.comerit.seb.domain.PaymentStatus.PENDING_APPROVAL
-              AND step.attestantId = :attestantId
-              AND step.status = se.comerit.seb.domain.ApprovalStepStatus.PENDING
+              AND EXISTS (
+                  SELECT step.id
+                  FROM ApprovalStep step
+                  WHERE step.payment = p
+                    AND step.attestantId = :attestantId
+                    AND step.status = se.comerit.seb.domain.ApprovalStepStatus.PENDING
+              )
             ORDER BY p.createdAt ASC
             """)
     List<Payment> findPendingApprovalsForAttestant(
@@ -99,10 +107,15 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("""
             SELECT DISTINCT p
             FROM Payment p
-            JOIN FETCH p.approvalSteps step
+            JOIN FETCH p.approvalSteps
             WHERE p.tenantId = :tenantId
               AND p.status = se.comerit.seb.domain.PaymentStatus.PENDING_APPROVAL
-              AND step.status = se.comerit.seb.domain.ApprovalStepStatus.PENDING
+              AND EXISTS (
+                  SELECT step.id
+                  FROM ApprovalStep step
+                  WHERE step.payment = p
+                    AND step.status = se.comerit.seb.domain.ApprovalStepStatus.PENDING
+              )
             ORDER BY p.createdAt ASC
             """)
     List<Payment> findPendingApprovalsForTenant(@Param("tenantId") Long tenantId);

@@ -30,6 +30,9 @@ const step: AttestSteg = {
   fromAccountName: "Driftkonto",
   balanceAfterPayment: 87500,
   initiatorName: "Lisa Persson",
+  stepNumber: 1,
+  totalSteps: 1,
+  previousApprovals: [],
 };
 
 // Godkänn-knappen visar beloppet som godkänns
@@ -103,6 +106,97 @@ describe("AttestGrid", () => {
     expect(
       screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00 SEK är godkänd\./),
     ).toBeInTheDocument();
+  });
+
+  describe("dubbel attest", () => {
+    const firstOfTwo: AttestSteg = { ...step, totalSteps: 2 };
+
+    it("shows which attest in the chain the step is", async () => {
+      mockApprovals(vi.fn(), { data: [firstOfTwo] });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+      expect(within(row).getByText("Attest 1 av 2")).toBeInTheDocument();
+
+      await openReview(user);
+      expect(within(screen.getByRole("dialog")).getByText("1 av 2")).toBeInTheDocument();
+    });
+
+    describe("vem som redan har godkänt", () => {
+      const secondOfTwo: AttestSteg = {
+        ...step,
+        stepNumber: 2,
+        totalSteps: 2,
+        previousApprovals: [{ stepNumber: 1, approverName: "Johan Berg" }],
+      };
+
+      it("shows who approved the earlier attest in the review", async () => {
+        mockApprovals(vi.fn(), { data: [secondOfTwo] });
+        const user = userEvent.setup();
+        render(<AttestGrid />);
+
+        await openReview(user);
+
+        const dialog = within(screen.getByRole("dialog"));
+        expect(dialog.getByText("Attest 1 godkänd av")).toBeInTheDocument();
+        expect(dialog.getByText("Johan Berg")).toBeInTheDocument();
+      });
+
+      it("shows it when rejecting too", async () => {
+        mockApprovals(vi.fn(), { data: [secondOfTwo] });
+        const user = userEvent.setup();
+        render(<AttestGrid />);
+
+        await openReview(user);
+        await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
+
+        expect(within(screen.getByRole("dialog")).getByText("Johan Berg")).toBeInTheDocument();
+      });
+
+      it("shows nothing on the first attest", async () => {
+        mockApprovals(vi.fn(), { data: [firstOfTwo] });
+        const user = userEvent.setup();
+        render(<AttestGrid />);
+
+        await openReview(user);
+
+        expect(screen.queryByText(/godkänd av/)).not.toBeInTheDocument();
+      });
+    });
+
+    it("does not show a chain for a single attest", () => {
+      mockApprovals(vi.fn());
+      render(<AttestGrid />);
+
+      expect(screen.queryByText(/Attest 1 av 1/)).not.toBeInTheDocument();
+    });
+
+    // Den första attestanten ska inte tro att pengarna redan har gått iväg
+    it("says that the payment is not executed until the next attest is done", async () => {
+      mockApprovals((_id, options) => options.onSuccess?.(), { data: [firstOfTwo] });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      expect(screen.getByText(/Den genomförs först när attest 2 av 2 är klar\./)).toBeInTheDocument();
+      expect(screen.queryByText(/är godkänd\./)).not.toBeInTheDocument();
+    });
+
+    it("confirms the payment as approved on the last attest", async () => {
+      mockApprovals((_id, options) => options.onSuccess?.(), {
+        data: [{ ...step, stepNumber: 2, totalSteps: 2 }],
+      });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      expect(screen.getByText(/är godkänd\./)).toBeInTheDocument();
+    });
   });
 
   it("shows why an approval failed", async () => {

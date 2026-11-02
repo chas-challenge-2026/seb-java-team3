@@ -17,6 +17,14 @@ export const attestStegSchema = z.object({
   fromAccountName: z.string().nullable().default(null),
   balanceAfterPayment: z.number().nullable().default(null),
   initiatorName: z.string().nullable().default(null),
+  // Var i kedjan steget ligger. Betalningen genomförs först när sista steget är godkänt.
+  stepNumber: z.number(),
+  totalSteps: z.number(),
+  // Vem som redan har godkänt, så att nästa attestant vet vem som granskat betalningen före
+  previousApprovals: z.array(z.object({
+    stepNumber: z.number(),
+    approverName: z.string(),
+  })),
 });
 
 export const attestStegListSchema = z.array(attestStegSchema);

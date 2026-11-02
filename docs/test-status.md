@@ -189,7 +189,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | --- | --- | --- |
 | Avvisa betalning med kommentar | Grön | Byggt i #226: avvisa med valfri anledning, som sparas och syns i audit och Mina betalningar. Görs nu i granskningsrutan i attestkorgen. Utvidgat i #228: meddelandet (högst 255 tecken) sparas på steget och på auditraden i samma transaktion och visas i Historik. Godkännande tar inget meddelande, enligt teamets beslut 2026-11-02. Se "Betalning och godkännande". |
 | Påminnelse via e-post med kö och retry | Ej testad | Inte byggt. |
-| Dubbel attest / attestant 2, till exempel VD | Ej testad | Datamodellen stöder flera steg, men hela flödet för attestant 2 är inte byggt. |
+| Dubbel attest över 50 000 kr | Grön | ADR 0016. Tröskeln, ordningen, spärren mot att samma person godkänner två gånger, avvisning och reservation körs mot Postgres i `DualApprovalIntegrationTest`. Gränsfallen ligger i `PaymentServiceTest`, och hela flödet i webbläsaren i `frontend/e2e/dual-approval.spec.ts`. |
 | Batch/CSV enligt RFC 4180 med allt-eller-inget | Delvis | Native-parsern i `native/csv` har 37 Check-tester, som inte körs i CI. Endpoint, vy och allt-eller-inget är inte byggda. |
 
 ## 5. Nästa testinsatser

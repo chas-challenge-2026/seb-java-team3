@@ -22,7 +22,7 @@ public class GlobalExceptionHandler {
 
     // Fasta texter för de fel vars undantag innehåller interna id:n (R-18). Detaljerna går till serverloggen.
     static final String NO_ATTESTANT_MESSAGE =
-            "Det finns ingen attestant som kan ta emot betalningen. Kontakta er administratör.";
+            "Det finns inte tillräckligt många attestanter för att ta emot betalningen. Kontakta er administratör.";
     static final String ACCESS_DENIED_MESSAGE = "Du har inte behörighet att hantera det här atteststeget.";
     static final String UNEXPECTED_ERROR_MESSAGE = "Något gick fel på servern. Försök igen om en stund.";
 

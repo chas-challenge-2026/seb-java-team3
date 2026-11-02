@@ -18,10 +18,13 @@ import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class ApprovalService {
@@ -51,8 +54,8 @@ public class ApprovalService {
     }
 
     // Attestkorgen: väntande steg för den inloggade attestanten (en ADMIN ser hela företagets).
-    // Kontonamn och initiatörens namn slås upp en gång för hela listan, och bara inom företaget,
-    // så att ett annat företags konton eller användare aldrig namnges (R-04).
+    // Kontonamn och namnen på initiatören och tidigare attestanter slås upp en gång för hela listan, och
+    // bara inom företaget, så att ett annat företags konton eller användare aldrig namnges (R-04).
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional(readOnly = true)
     public List<PendingApprovalResponse> getPendingApprovals(AuthenticatedUserContext user) {
@@ -63,25 +66,59 @@ public class ApprovalService {
         Map<Long, Account> accountsById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
                 .collect(Collectors.toMap(account -> account.getId().longValue(), account -> account));
 
-        List<Long> initiatorIds = payments.stream()
-                .map(Payment::getCreatedBy)
+        List<Long> userIds = payments.stream()
+                .flatMap(payment -> Stream.concat(
+                        Stream.of(payment.getCreatedBy()),
+                        payment.getApprovalSteps().stream().map(ApprovalStep::getDecidedBy)))
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        Map<Long, String> initiatorNamesById = userRepository.findAllById(initiatorIds).stream()
-                .filter(initiator -> user.tenantId().equals(initiator.getTenantId()))
+        Map<Long, String> userNamesById = userRepository.findAllById(userIds).stream()
+                .filter(candidate -> user.tenantId().equals(candidate.getTenantId()))
                 .collect(Collectors.toMap(User::getId, User::getName));
 
         return payments.stream()
-                .flatMap(payment -> payment.getApprovalSteps().stream()
-                        .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                        .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                .flatMap(payment -> stepUserCanDecide(payment, user).stream()
                         .map(step -> PendingApprovalResponse.from(
                                 payment,
                                 step,
                                 accountsById.get(payment.getFromAccountId()),
-                                initiatorNamesById.get(payment.getCreatedBy()))))
+                                userNamesById)))
                 .toList();
+    }
+
+    // Det som visas i attestkorgen och räknas i badgen: steget som är på tur, om användaren får besluta om
+    // det. Attest 2 syns alltså inte förrän attest 1 är klar, och en admin ser inte ett steg som hen ändå
+    // skulle nekas att godkänna.
+    private static Optional<ApprovalStep> stepUserCanDecide(Payment payment, AuthenticatedUserContext user) {
+        return payment.getApprovalSteps().stream()
+                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
+                .min(Comparator.comparing(ApprovalStep::getStepNumber))
+                .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                .filter(step -> !breaksDualControl(payment, user.userId()));
+    }
+
+    // Dubbel attest ska vara två av varandra oberoende personer (ADR 0016): den som har skapat betalningen
+    // eller redan godkänt ett av stegen får inte godkänna fler. Kontrollen behövs för admin, som får besluta
+    // om alla företagets steg. En betalning med ett steg berörs inte.
+    private static boolean breaksDualControl(Payment payment, Long actorId) {
+        List<ApprovalStep> steps = payment.getApprovalSteps();
+        if (steps.size() < 2) {
+            return false;
+        }
+        return Objects.equals(payment.getCreatedBy(), actorId)
+                || steps.stream().anyMatch(step -> step.getStatus() == ApprovalStepStatus.APPROVED
+                        && Objects.equals(step.getDecidedBy(), actorId));
+    }
+
+    private static void requireNoEarlierStepPending(Payment payment, ApprovalStep approvalStep) {
+        boolean earlierStepPending = payment.getApprovalSteps().stream()
+                .anyMatch(step -> step.getStepNumber() < approvalStep.getStepNumber()
+                        && step.getStatus() == ApprovalStepStatus.PENDING);
+
+        if (earlierStepPending) {
+            throw new ApprovalNotPendingException("Ett tidigare atteststeg måste godkännas först.");
+        }
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
@@ -125,21 +162,36 @@ public class ApprovalService {
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
 
-        boolean earlierStepPending = payment.getApprovalSteps().stream()
-                .anyMatch(step -> step.getStepNumber() < approvalStep.getStepNumber()
-                        && step.getStatus() == ApprovalStepStatus.PENDING);
+        requireNoEarlierStepPending(payment, approvalStep);
 
-        if (earlierStepPending) {
-            throw new ApprovalNotPendingException("Ett tidigare atteststeg måste godkännas först.");
+        if (breaksDualControl(payment, actorId)) {
+            throw new ApprovalStepAccessDeniedException(
+                    "Actor " + actorId + " has created or already approved the payment of approval step " + approvalStepId);
         }
 
         approvalStep.setStatus(ApprovalStepStatus.APPROVED);
         approvalStep.setDecidedAt(LocalDateTime.now());
+        approvalStep.setDecidedBy(actorId);
 
         boolean allApproved = payment.getApprovalSteps().stream()
                 .allMatch(step -> step.getStatus() == ApprovalStepStatus.APPROVED);
 
-        if (allApproved) {
+        if (!allApproved) {
+            // Varje godkännande ska gå att följa i loggen, även det som inte genomför betalningen.
+            auditService.record(
+                    payment.getTenantId(),
+                    actorId,
+                    "APPROVE_STEP",
+                    "PAYMENT",
+                    payment.getId(),
+                    "Attest %d av %d godkänd: %s %s till %s".formatted(
+                            approvalStep.getStepNumber(),
+                            payment.getApprovalSteps().size(),
+                            payment.getAmount(),
+                            payment.getCurrency(),
+                            payment.getToIban())
+            );
+        } else {
             Account account = findAndLockAccountOfPaymentTenant(payment);
 
             if (account.getBalance() == null) {
@@ -235,8 +287,11 @@ public class ApprovalService {
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
 
+        requireNoEarlierStepPending(payment, approvalStep);
+
         approvalStep.setStatus(ApprovalStepStatus.REJECTED);
         approvalStep.setDecidedAt(LocalDateTime.now());
+        approvalStep.setDecidedBy(actorId);
         approvalStep.setComment(comment);
 
         payment.getApprovalSteps().stream()
@@ -286,9 +341,7 @@ public class ApprovalService {
                 : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
         return (int) payments
                 .stream()
-                .flatMap(payment -> payment.getApprovalSteps().stream())
-                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                .filter(payment -> stepUserCanDecide(payment, user).isPresent())
                 .count();
     }
 

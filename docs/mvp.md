@@ -36,7 +36,7 @@ Inte oviktigt, utan för att en stabil kärna slår fem halvfärdiga flöden. By
 
 - Avvisa betalning med kommentar (byggt efter MVP i #226 och #228: avvisningen tar emot ett valfritt meddelande, som sparas atomärt med beslutet och visas i Historik; godkännande tar inget meddelande)
 - Påminnelser via e-post (kö, retry)
-- Dubbel attest / attestant 2 (VD) och tröskeltrappa
+- Dubbel attest / attestant 2 (VD) och tröskeltrappa (dubbel attest över 50 000 kr byggt efter MVP, se ADR 0016; ett särskilt VD-steg och fler trösklar är inte byggda)
 - Batch/CSV-uppladdning
 - Native C/C++-moduler (CSV-parser, audit-signering)
 - Kontoöversikt/dashboard som egen vy (v1 har den redan, låg prioritet)

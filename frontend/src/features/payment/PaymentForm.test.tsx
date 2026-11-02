@@ -109,14 +109,14 @@ describe("PaymentForm", () => {
     vi.mocked(getAccounts).mockResolvedValue([{ id: 42, name: "Driftkonto", iban: "SE4550000000058398257466", balance: 10000, currency: "SEK" }]);
     mockedCreatePayment.mockReset();
     mockedGetPaymentConfig.mockReset();
-    mockedGetPaymentConfig.mockResolvedValue({ approvalThreshold: 5000 });
+    mockedGetPaymentConfig.mockResolvedValue({ approvalThreshold: 5000, twoAttestantThreshold: 50000 });
   });
 
-  it("shows the approval threshold loaded from the backend", async () => {
+  it("shows the approval thresholds loaded from the backend", async () => {
     renderForm();
 
     expect(
-      await screen.findByText(/betalningar över 5 000 kr behöver attesteras/i),
+      await screen.findByText(/betalningar över 5 000 kr behöver attesteras,\s+och över 50 000 kr av två attestanter/i),
     ).toBeInTheDocument();
   });
 

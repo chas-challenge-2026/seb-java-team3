@@ -39,5 +39,5 @@ Vi kräver attest när beloppet är strikt större än tröskeln (`>`). En betal
 ## Uppföljning
 
 - Bekräfta tröskelvärdet och regeln på exakt belopp med kunden.
-- `payment.approval.two-attestant-threshold` används inte ännu, och kommentaren i `application.properties` skriver `>= 10000`. Om dubbel attest byggs (ADR 0013) ska samma regel gälla, eller så krävs en ny ADR.
+- Dubbel attest är byggd med samma strikta regel, se [ADR 0016](0016-dubbel-attest-over-50000.md).
 - Omvärdera om kunden vill begränsa summan av flera betalningar under tröskeln.

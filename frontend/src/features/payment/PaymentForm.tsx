@@ -24,6 +24,7 @@ import type {
 } from "./types";
 
 import { paymentFormSchema, paymentAmountSchema } from "./schema";
+import type { PaymentConfig } from "./schema";
 import { zodIssuesToFieldErrors } from "../../lib/zodErrors";
 import { createPayment, getPaymentConfig } from "./api";
 import {
@@ -56,7 +57,7 @@ function PaymentForm() {
   const [errors, setErrors] = useState<PaymentFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [approvalThreshold, setApprovalThreshold] = useState<number | null>(null);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [completedPayment, setCompletedPayment] =
     useState<PaymentResponse | null>(null);
   const [paymentConfirmation, setPaymentConfirmation] =
@@ -94,7 +95,7 @@ function PaymentForm() {
     getPaymentConfig()
       .then((config) => {
         if (isActive) {
-          setApprovalThreshold(config.approvalThreshold);
+          setPaymentConfig(config);
         }
       })
       .catch((error) => {
@@ -282,10 +283,11 @@ function PaymentForm() {
               error={errors.reference}
               />
           </div>
-              {approvalThreshold !== null && (
+              {paymentConfig !== null && (
                 <p className={styles.thresholdInfo}>
                   <Info size={17} aria-hidden="true" />
-                  Betalningar över {formatSek(approvalThreshold)} behöver attesteras.
+                  Betalningar över {formatSek(paymentConfig.approvalThreshold)} behöver attesteras,
+                  och över {formatSek(paymentConfig.twoAttestantThreshold)} av två attestanter.
                 </p>
               )}
 

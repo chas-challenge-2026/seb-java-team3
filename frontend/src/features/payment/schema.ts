@@ -77,6 +77,7 @@ export type PaymentResponse = z.infer<typeof paymentResponseSchema>;
 
 export const paymentConfigSchema = z.object({
   approvalThreshold: z.number().positive(),
+  twoAttestantThreshold: z.number().positive(),
 });
 
 export type PaymentConfig = z.infer<typeof paymentConfigSchema>;

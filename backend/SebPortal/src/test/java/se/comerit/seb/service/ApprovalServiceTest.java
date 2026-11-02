@@ -23,11 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -257,8 +260,11 @@ class ApprovalServiceTest {
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
         assertNull(payment.getExecutedAt());
 
-        // Saldot ska vara orört och ingen "godkänd betalning"-audit får ha skrivits
-        verifyNoInteractions(accountRepository, auditService);
+        // Saldot ska vara orört. Godkännandet loggas, men inte som en godkänd betalning.
+        verifyNoInteractions(accountRepository);
+        verify(auditService).record(eq(1L), eq(actorId), eq("APPROVE_STEP"), eq("PAYMENT"), eq(100L),
+                contains("Attest 1 av 2"));
+        verifyNoMoreInteractions(auditService);
     }
 
     @Test

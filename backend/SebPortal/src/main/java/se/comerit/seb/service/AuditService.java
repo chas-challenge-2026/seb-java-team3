@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class AuditService {
@@ -38,6 +39,7 @@ public class AuditService {
     private static final String SYSTEM_USER_NAME = "Systemet";
     private static final List<String> ATTESTANT_VISIBLE_ACTIONS = List.of(
             "CREATE_PAYMENT",
+            "APPROVE_STEP",
             "APPROVE_PAYMENT",
             "REJECT_PAYMENT"
     );
@@ -176,7 +178,7 @@ public class AuditService {
 
         if (user.isAdmin()) {
             payment.getApprovalSteps().stream()
-                    .map(ApprovalStep::getAttestantId)
+                    .flatMap(step -> Stream.of(step.getAttestantId(), step.getDecidedBy()))
                     .filter(id -> id != null)
                     .forEach(userIds::add);
         }
@@ -212,7 +214,7 @@ public class AuditService {
                         2,
                         step.getId(),
                         "APPROVAL_STEP-" + step.getId(),
-                        userNamesById.getOrDefault(step.getAttestantId(), SYSTEM_USER_NAME),
+                        userNamesById.getOrDefault(stepActorId(payment, step), SYSTEM_USER_NAME),
                         eventType,
                         description,
                         step.getComment(),
@@ -257,7 +259,7 @@ public class AuditService {
 
         List<Long> attestantIds = payments.stream()
                 .flatMap(payment -> payment.getApprovalSteps().stream())
-                .map(ApprovalStep::getAttestantId)
+                .flatMap(step -> Stream.of(step.getAttestantId(), step.getDecidedBy()))
                 .filter(id -> id != null)
                 .distinct()
                 .collect(Collectors.toList());
@@ -284,6 +286,17 @@ public class AuditService {
     private Map<Long, String> accountNamesForTenant(Long tenantId) {
         return accountRepository.findByTenantIdOrderByIdAsc(tenantId).stream()
                 .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+    }
+
+    // Den som beslutade om steget, annars den som steget väntar på. Null (Systemet) för ett senare steg som
+    // stängdes när ett tidigare steg avvisades: den tilldelade attestanten beslutade ingenting. Ett ensamt
+    // steg utan beslutsfattare är från före V12 och visas som tidigare, med den tilldelade attestanten.
+    private static Long stepActorId(Payment payment, ApprovalStep step) {
+        if (step.getDecidedBy() != null) {
+            return step.getDecidedBy();
+        }
+        boolean closedByEarlierStep = step.getDecidedAt() != null && payment.getApprovalSteps().size() > 1;
+        return closedByEarlierStep ? null : step.getAttestantId();
     }
 
     // Genomförd utan atteststeg: beloppet låg under tröskeln, så betalningen godkändes automatiskt

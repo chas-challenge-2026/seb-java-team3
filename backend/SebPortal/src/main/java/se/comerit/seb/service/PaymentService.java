@@ -99,17 +99,25 @@ public class PaymentService {
         }
     }
 
-    private User findAttestant(Long tenantId) {
-        List<User> attestants = userRepository.findByTenantIdAndRole(tenantId, Role.ATTESTANT);
+    // Samma regel som för den första tröskeln (ADR 0015): strikt över, så exakt tröskelbeloppet räcker
+    // med en attestant (ADR 0016).
+    private int requiredAttestants(BigDecimal amount) {
+        return amount.compareTo(thresholds.getTwoAttestantThreshold()) > 0 ? 2 : 1;
+    }
 
-        if (attestants.isEmpty()) {
+    private List<User> findAttestants(Long tenantId, int required) {
+        List<User> attestants = userRepository.findByTenantIdAndRoleOrderByIdAsc(tenantId, Role.ATTESTANT);
+
+        // Betalningen stoppas redan här. Annars hade den reserverat pengar i väntan på ett godkännande som
+        // ingen kan ge.
+        if (attestants.size() < required) {
             throw new NoAttestantAvailableException(tenantId);
         }
 
-        // MVP-regel: ta den första hittade attestanten.
+        // MVP-regel: ta de första attestanterna, i id-ordning.
         // Dokumenterad avgränsning - riktig urvalslogik (t.ex.
         // arbetsbelastning, roterande tilldelning) är inte MVP.
-        return attestants.get(0);
+        return attestants.subList(0, required);
     }
 
     @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
@@ -153,13 +161,13 @@ public class PaymentService {
             payment.setExecutedAt(LocalDateTime.now());
 
         } else {
-            // Över tröskeln: skapa minst ett godkännandesteg.
-            // OBS: belopp över two-attestant-threshold hanteras just nu likadant som 1-attestant-
-            // fallet - riktig 2-attestant-kedja är avgränsad från #43.
-            User attestant = findAttestant(request.tenantId());
+            // Över tröskeln: ett godkännandesteg per attestant som krävs, i tur och ordning.
+            List<User> attestants = findAttestants(request.tenantId(), requiredAttestants(request.amount()));
 
-            ApprovalStep step = new ApprovalStep(attestant.getId(), 1);
-            payment.addApprovalStep(step);
+            int stepNumber = 1;
+            for (User attestant : attestants) {
+                payment.addApprovalStep(new ApprovalStep(attestant.getId(), stepNumber++));
+            }
             // status är redan PENDING_APPROVAL som default i Payment
         }
 

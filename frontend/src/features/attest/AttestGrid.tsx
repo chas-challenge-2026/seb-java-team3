@@ -24,6 +24,26 @@ type ApprovalFeedback = {
   text: string;
 };
 
+// Med ett enda steg finns ingen kedja att visa
+function formatStepProgress(step: AttestSteg): string | null {
+  return step.totalSteps > 1 ? `${step.stepNumber} av ${step.totalSteps}` : null;
+}
+
+function previousApprovalDetails(step: AttestSteg) {
+  return step.previousApprovals.map((approval) => ({
+    label: `Attest ${approval.stepNumber} godkänd av`,
+    value: approval.approverName,
+  }));
+}
+
+function approvedText(step: AttestSteg): string {
+  const amount = formatAmount(step.belopp, step.currency);
+
+  return step.stepNumber < step.totalSteps
+    ? `Du har godkänt betalningen till ${step.mottagare} på ${amount}. Den genomförs först när attest ${step.stepNumber + 1} av ${step.totalSteps} är klar.`
+    : `Betalningen till ${step.mottagare} på ${amount} är godkänd.`;
+}
+
 export default function AttestGrid() {
   const { data, isLoading, isError, isFetching, refetch, approve, reject } = useApprovals();
   const [feedback, setFeedback] = useState<ApprovalFeedback | null>(null);
@@ -85,10 +105,7 @@ export default function AttestGrid() {
     approve.mutate(step.id, {
       onSuccess: () => {
         closeReview();
-        setFeedback({
-          type: "success",
-          text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är godkänd.`,
-        });
+        setFeedback({ type: "success", text: approvedText(step) });
       },
       onError: (error) => {
         setFeedback({
@@ -181,7 +198,12 @@ export default function AttestGrid() {
                           : formatAmount(m.balanceAfterPayment, m.currency)}
                       </span>
                     </td>
-                    <td data-label="Typ" className={styles.noWrap}><span className={styles.type}>{m.typ}</span></td>
+                    <td data-label="Typ" className={styles.noWrap}>
+                      <span className={styles.type}>{m.typ}</span>
+                      {formatStepProgress(m) && (
+                        <span className={styles.stepProgress}>Attest {formatStepProgress(m)}</span>
+                      )}
+                    </td>
                     <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
                       {formatAmount(m.belopp, m.currency)}
                     </td>
@@ -265,6 +287,18 @@ export default function AttestGrid() {
               <dt>Typ</dt>
               <dd>{step.typ}</dd>
             </div>
+            {formatStepProgress(step) && (
+              <div>
+                <dt>Attest</dt>
+                <dd>{formatStepProgress(step)}</dd>
+              </div>
+            )}
+            {previousApprovalDetails(step).map((detail) => (
+              <div key={detail.label}>
+                <dt>{detail.label}</dt>
+                <dd>{detail.value}</dd>
+              </div>
+            ))}
             <div>
               <dt>Skapad</dt>
               <dd>{formatDateTime(step.createdAt)}{step.initiatorName ? ` av ${step.initiatorName}` : ""}</dd>
@@ -324,6 +358,8 @@ export default function AttestGrid() {
                 : formatAmount(step.balanceAfterPayment, step.currency),
             },
             { label: "Typ", value: step.typ },
+            ...(formatStepProgress(step) ? [{ label: "Attest", value: formatStepProgress(step) }] : []),
+            ...previousApprovalDetails(step),
             {
               label: "Skapad",
               value: `${formatDateTime(step.createdAt)}${step.initiatorName ? ` av ${step.initiatorName}` : ""}`,

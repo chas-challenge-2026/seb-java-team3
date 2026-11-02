@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatAttestant, formatRejectionReason, formatTimelineComment } from "./formatters";
+import {
+  formatAttestant,
+  formatEventType,
+  formatMyPaymentStatus,
+  formatRejectionReason,
+  formatTimelineComment,
+} from "./formatters";
 import type { MyPaymentApprovalStep, MyPaymentStatus, PaymentAuditTimelineEntry } from "../schema";
 
 function payment(status: string, approvalSteps: MyPaymentApprovalStep[]): MyPaymentStatus {
@@ -20,6 +26,35 @@ function payment(status: string, approvalSteps: MyPaymentApprovalStep[]): MyPaym
 function step(stepNumber: number, attestantName: string, status: string): MyPaymentApprovalStep {
   return { stepNumber, attestantName, status, decidedAt: null, comment: null };
 }
+
+describe("formatMyPaymentStatus", () => {
+  it("shows which attest a payment with two attests is waiting for", () => {
+    expect(formatMyPaymentStatus(payment("PENDING_APPROVAL", [
+      step(2, "Eva Holm", "PENDING"),
+      step(1, "Johan Berg", "PENDING"),
+    ]))).toBe("Väntar attest 1 av 2");
+
+    expect(formatMyPaymentStatus(payment("PENDING_APPROVAL", [
+      step(1, "Johan Berg", "APPROVED"),
+      step(2, "Eva Holm", "PENDING"),
+    ]))).toBe("Väntar attest 2 av 2");
+  });
+
+  it("shows only the status for a single attest and for a decided payment", () => {
+    expect(formatMyPaymentStatus(payment("PENDING_APPROVAL", [step(1, "Johan Berg", "PENDING")])))
+      .toBe("Väntar attest");
+    expect(formatMyPaymentStatus(payment("COMPLETED", [
+      step(1, "Johan Berg", "APPROVED"),
+      step(2, "Eva Holm", "APPROVED"),
+    ]))).toBe("Genomförd");
+  });
+});
+
+describe("formatEventType", () => {
+  it("names the approval that does not yet complete the payment", () => {
+    expect(formatEventType("APPROVE_STEP")).toBe("Attest godkänd");
+  });
+});
 
 describe("formatAttestant", () => {
   it("names the attestant a pending payment is waiting for", () => {
