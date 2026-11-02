@@ -248,10 +248,8 @@ class TenantIsolationIntegrationTest {
         // B:s väntande steg, B:s steg som är tilldelat A:s attestant, och B:s redan godkända steg: ingen
         // av dem får gå att skilja från ett steg som inte finns, oavsett status
         for (long stepOfB : List.of(b.pendingStep, crossStep, b.decidedStep)) {
-            for (String token : List.of(a.adminToken, a.attestantToken)) {
-                for (String action : List.of("approve", "reject")) {
-                    assertLooksLikeMissingStep(stepOfB, action, token);
-                }
+            for (String action : List.of("approve", "reject")) {
+                assertLooksLikeMissingStep(stepOfB, action, a.attestantToken);
             }
         }
 
@@ -264,6 +262,21 @@ class TenantIsolationIntegrationTest {
         // Kontroll: A:s attestant kan godkänna sitt eget steg
         assertEquals(204, perform(post("/api/approvals/" + a.pendingStep + "/approve"), a.attestantToken).status());
         assertEquals("completed", paymentStatus(a.pendingPayment));
+        assertUntouched(b.pendingPayment, b.pendingStep, b.account);
+    }
+
+    // ADR 0015: admin är en administrativ roll. Admin nekas att fatta beslut redan i controllern, oavsett
+    // om steget finns i det egna företaget eller inte, och inget ändras.
+    @Test
+    void admin_cannotApproveOrReject_inTheOwnCompanyOrAnother() throws Exception {
+        for (long step : List.of(a.pendingStep, b.pendingStep)) {
+            for (String action : List.of("approve", "reject")) {
+                assertEquals(403, perform(post("/api/approvals/" + step + "/" + action), a.adminToken).status(),
+                        () -> action + " " + step);
+            }
+        }
+
+        assertUntouched(a.pendingPayment, a.pendingStep, a.account);
         assertUntouched(b.pendingPayment, b.pendingStep, b.account);
     }
 

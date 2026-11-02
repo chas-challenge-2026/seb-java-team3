@@ -80,8 +80,9 @@ class ApprovalConcurrencyIntegrationTest {
 
     private Long tenantId;
     private Long accountId;
+    private AuthenticatedUserContext initiator;
     private AuthenticatedUserContext attestant;
-    private AuthenticatedUserContext admin;
+    private AuthenticatedUserContext secondAttestant;
 
     @BeforeEach
     void createFixture() {
@@ -89,8 +90,9 @@ class ApprovalConcurrencyIntegrationTest {
         tenantId = jdbcTemplate.queryForObject(
                 "INSERT INTO tenants (name) VALUES (?) RETURNING id",
                 Long.class, "Issue 235 concurrency tenant");
-        attestant = createUser(Role.ATTESTANT);
-        admin = createUser(Role.ADMIN);
+        initiator = createUser(Role.INITIATOR, "initiator");
+        attestant = createUser(Role.ATTESTANT, "attestant");
+        secondAttestant = createUser(Role.ATTESTANT, "attestant2");
         accountId = jdbcTemplate.queryForObject("""
                 INSERT INTO accounts (tenant_id, account_name, iban, balance, currency)
                 VALUES (?, ?, ?, ?, 'SEK') RETURNING id
@@ -114,12 +116,13 @@ class ApprovalConcurrencyIntegrationTest {
         }
     }
 
+    // Samma attestant godkänner samma steg två gånger samtidigt (dubbelklick, två flikar).
     @RepeatedTest(REPETITIONS)
-    void sameStepApprovedByAttestantAndAdmin_debitsOnlyOnce() throws Exception {
-        PaymentFixture payment = createPayment(FIRST_AMOUNT);
+    void sameStepApprovedTwiceByTheAssignedAttestant_debitsOnlyOnce() throws Exception {
+        PaymentFixture payment = createPayment(FIRST_AMOUNT, attestant);
 
         List<Outcome> outcomes = race("SELECT id FROM payments WHERE id = ? FOR UPDATE", payment.id(),
-                approve(payment, attestant), approve(payment, admin));
+                approve(payment, attestant), approve(payment, attestant));
 
         Outcome winner = assertSingleDecision(outcomes);
         assertEquals(STARTING_BALANCE.subtract(FIRST_AMOUNT), readBalance());
@@ -127,21 +130,23 @@ class ApprovalConcurrencyIntegrationTest {
         assertEquals(STARTING_BALANCE, state.balanceBefore());
     }
 
+    // Den tilldelade attestanten godkänner och avvisar samma betalning samtidigt (två flikar).
     @RepeatedTest(REPETITIONS)
     void approveAndRejectSamePayment_onlyOneConsistentDecision() throws Exception {
-        PaymentFixture payment = createPayment(FIRST_AMOUNT);
+        PaymentFixture payment = createPayment(FIRST_AMOUNT, attestant);
 
         List<Outcome> outcomes = race("SELECT id FROM payments WHERE id = ? FOR UPDATE", payment.id(),
                 approve(payment, attestant),
-                new Decision(admin, () -> approvalService.rejectForUser(payment.stepId(), admin, REJECTION_COMMENT)));
+                new Decision(attestant, "reject",
+                        () -> approvalService.rejectForUser(payment.stepId(), attestant, REJECTION_COMMENT)));
 
         Outcome winner = assertSingleDecision(outcomes);
-        if (winner.actorId().equals(attestant.userId())) {
+        if (winner.kind().equals("approve")) {
             assertEquals(STARTING_BALANCE.subtract(FIRST_AMOUNT), readBalance());
             PaymentState state = assertCompleted(payment, attestant.userId());
             assertEquals(STARTING_BALANCE, state.balanceBefore());
         } else {
-            assertEquals(admin.userId(), winner.actorId());
+            assertEquals("reject", winner.kind());
             assertEquals(STARTING_BALANCE, readBalance());
             PaymentState state = readPayment(payment);
             assertEquals("rejected", state.paymentStatus());
@@ -151,23 +156,23 @@ class ApprovalConcurrencyIntegrationTest {
             assertEquals(REJECTION_COMMENT, state.comment());
             assertNull(state.balanceBefore());
             assertNull(state.balanceAfter());
-            assertAudit(payment, "REJECT_PAYMENT", admin.userId());
+            assertAudit(payment, "REJECT_PAYMENT", attestant.userId());
         }
     }
 
     @RepeatedTest(REPETITIONS)
     void differentPaymentsFromSameAccount_preserveBothDebits() throws Exception {
-        PaymentFixture first = createPayment(FIRST_AMOUNT);
-        PaymentFixture second = createPayment(SECOND_AMOUNT);
+        PaymentFixture first = createPayment(FIRST_AMOUNT, attestant);
+        PaymentFixture second = createPayment(SECOND_AMOUNT, secondAttestant);
 
         List<Outcome> outcomes = race("SELECT id FROM accounts WHERE id = ? FOR UPDATE", accountId,
-                approve(first, attestant), approve(second, admin));
+                approve(first, attestant), approve(second, secondAttestant));
 
         outcomes.forEach(outcome -> assertNull(outcome.failure(), () -> "Decision failed: " + outcome.failure()));
         BigDecimal finalBalance = STARTING_BALANCE.subtract(FIRST_AMOUNT).subtract(SECOND_AMOUNT);
         assertEquals(finalBalance, readBalance());
         PaymentState firstState = assertCompleted(first, attestant.userId());
-        PaymentState secondState = assertCompleted(second, admin.userId());
+        PaymentState secondState = assertCompleted(second, secondAttestant.userId());
         // Either payment may win the account lock, but the receipts must form one debit chain.
         PaymentState earlier = firstState.balanceBefore().equals(STARTING_BALANCE) ? firstState : secondState;
         PaymentState later = earlier == firstState ? secondState : firstState;
@@ -176,32 +181,33 @@ class ApprovalConcurrencyIntegrationTest {
         assertEquals(finalBalance, later.balanceAfter());
     }
 
-    private AuthenticatedUserContext createUser(Role role) {
+    private AuthenticatedUserContext createUser(Role role, String label) {
         Long id = jdbcTemplate.queryForObject("""
                 INSERT INTO users (tenant_id, name, email, password_hash, role)
                 VALUES (?, ?, ?, ?, ?) RETURNING id
-                """, Long.class, tenantId, "Issue 235 " + role,
-                "issue235-" + role + "-" + tenantId + "@seb.test",
+                """, Long.class, tenantId, "Issue 235 " + label,
+                "issue235-" + label + "-" + tenantId + "@seb.test",
                 "unused-test-password-hash", role.name().toLowerCase(Locale.ROOT));
         return new AuthenticatedUserContext(id, tenantId, role);
     }
 
-    private PaymentFixture createPayment(BigDecimal amount) {
+    // Skapad av initiatorn och tilldelad den attestant som ska fatta beslutet.
+    private PaymentFixture createPayment(BigDecimal amount, AuthenticatedUserContext assignedAttestant) {
         Long paymentId = jdbcTemplate.queryForObject("""
                 INSERT INTO payments
                     (tenant_id, from_account_id, to_iban, amount, currency, reference, status, created_by)
                 VALUES (?, ?, ?, ?, 'SEK', ?, 'pending_approval', ?) RETURNING id
                 """, Long.class, tenantId, accountId, "SE8550000000054910000003", amount,
-                "Issue 235 concurrency test", attestant.userId());
+                "Issue 235 concurrency test", initiator.userId());
         Long stepId = jdbcTemplate.queryForObject("""
                 INSERT INTO approval_steps (payment_id, attestant_id, step_number, status)
                 VALUES (?, ?, 1, 'pending') RETURNING id
-                """, Long.class, paymentId, attestant.userId());
+                """, Long.class, paymentId, assignedAttestant.userId());
         return new PaymentFixture(paymentId, stepId, amount);
     }
 
     private Decision approve(PaymentFixture payment, AuthenticatedUserContext user) {
-        return new Decision(user, () -> approvalService.approveForUser(payment.stepId(), user));
+        return new Decision(user, "approve", () -> approvalService.approveForUser(payment.stepId(), user));
     }
 
     private List<Outcome> race(String gateSql, Long gateId, Decision first, Decision second) throws Exception {
@@ -271,10 +277,10 @@ class ApprovalConcurrencyIntegrationTest {
                     awaitStart(start);
                     decision.action().run();
                 });
-                return new Outcome(decision.user().userId(), null);
+                return new Outcome(decision.user().userId(), decision.kind(), null);
             } catch (RuntimeException failure) {
                 // Catch outside the transaction so even a rejected decision has finished rolling back.
-                return new Outcome(decision.user().userId(), failure);
+                return new Outcome(decision.user().userId(), decision.kind(), failure);
             } finally {
                 SecurityContextHolder.clearContext();
             }
@@ -354,8 +360,8 @@ class ApprovalConcurrencyIntegrationTest {
     }
 
     private record PaymentFixture(Long id, Long stepId, BigDecimal amount) {}
-    private record Decision(AuthenticatedUserContext user, Runnable action) {}
-    private record Outcome(Long actorId, RuntimeException failure) {}
+    private record Decision(AuthenticatedUserContext user, String kind, Runnable action) {}
+    private record Outcome(Long actorId, String kind, RuntimeException failure) {}
     private record DatabaseSession(int pid, long transactionId) {}
     private record AuditState(String action, Long actorId) {}
     private record PaymentState(String paymentStatus, String stepStatus, Timestamp executedAt,

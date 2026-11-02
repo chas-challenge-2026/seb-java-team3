@@ -183,44 +183,17 @@ class ApprovalApiControllerOwnershipTest {
         return jwtService.generateToken(new AuthenticatedUserContext(userId, TENANT_ID, Role.ATTESTANT));
     }
 
+    // ADR 0015: admin fattar inga beslut om betalningar, varken i sitt eget företag eller i ett annat.
+    // Spärren sitter i controllern, så varken steg, saldo eller audit berörs.
     @Test
-    void admin_canApproveAnotherAttestantsStepInTheirCompany() throws Exception {
-        Account account = mock(Account.class);
-        when(account.getBalance()).thenReturn(new BigDecimal("1000.00"));
-        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
-                .thenReturn(Optional.of(account));
-        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
-        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNoContent());
-        assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
-        org.mockito.Mockito.verify(account).setBalance(new BigDecimal("800.00"));
-        org.mockito.Mockito.verify(auditService).record(org.mockito.ArgumentMatchers.eq(TENANT_ID),
-                org.mockito.ArgumentMatchers.eq(99L), org.mockito.ArgumentMatchers.eq("APPROVE_PAYMENT"),
-                org.mockito.ArgumentMatchers.eq("PAYMENT"), org.mockito.ArgumentMatchers.eq(PAYMENT_ID),
-                org.mockito.ArgumentMatchers.anyString());
-    }
-
-    @Test
-    void admin_canRejectAnotherAttestantsStepInTheirCompany() throws Exception {
-        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
-        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNoContent());
-        assertEquals(PaymentStatus.REJECTED, payment.getStatus());
-        verifyNoInteractions(accountRepository);
-    }
-
-    // Ett annat företags steg ser ut som ett steg som inte finns (400), så att steg-id hos andra kunder
-    // inte går att kartlägga (R-04)
-    @Test
-    void admin_cannotApproveOrRejectAnotherCompanysStep() throws Exception {
-        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID + 1, Role.ADMIN));
-        for (String action : new String[] {"approve", "reject"}) {
-            mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
-                            .header("Authorization", "Bearer " + token))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Approval step not found: " + STEP_ID));
+    void admin_cannotApproveOrRejectAnyStep() throws Exception {
+        for (long adminTenant : new long[] {TENANT_ID, TENANT_ID + 1}) {
+            String token = jwtService.generateToken(new AuthenticatedUserContext(99L, adminTenant, Role.ADMIN));
+            for (String action : new String[] {"approve", "reject"}) {
+                mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
+                                .header("Authorization", "Bearer " + token))
+                        .andExpect(status().isForbidden());
+            }
         }
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());

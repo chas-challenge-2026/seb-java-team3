@@ -136,10 +136,25 @@ class RoleAuthorizationTest {
     }
 
     @Test
-    void adminCanRejectPayments() throws Exception {
+    void attestantCanRejectPayments() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", 10L)
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
+                .andExpect(status().isNoContent());
+    }
+
+    // ADR 0015: admin är en administrativ roll och fattar inga beslut om betalningar.
+    @Test
+    void adminCannotApprovePayments() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", 10L)
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCannotRejectPayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/reject", 10L)
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isForbidden());
     }
 
     @Test

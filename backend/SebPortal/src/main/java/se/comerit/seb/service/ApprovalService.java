@@ -81,13 +81,14 @@ public class ApprovalService {
                 .toList();
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    // Bara ATTESTANT fattar beslut. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0015).
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void approveForUser(Long approvalStepId, AuthenticatedUserContext user) {
         approveInternal(approvalStepId, user.userId(), user);
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void approve(Long approvalStepId, Long actorId) {
         approveInternal(approvalStepId, actorId, null);
@@ -117,7 +118,7 @@ public class ApprovalService {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
-        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
@@ -171,13 +172,13 @@ public class ApprovalService {
         }
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void rejectForUser(Long approvalStepId, AuthenticatedUserContext user, String comment) {
         rejectInternal(approvalStepId, user.userId(), comment, user);
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void reject(Long approvalStepId, Long actorId, String comment) {
         rejectInternal(approvalStepId, actorId, comment, null);
@@ -217,7 +218,7 @@ public class ApprovalService {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
-        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
