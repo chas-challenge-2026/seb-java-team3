@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -117,18 +118,21 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByApprovalStepIdForUpdate(
             @Param("approvalStepId") Long approvalStepId);
 
-    // Initiatorns betalningar där en attestant har fattat beslut (godkänt eller avvisat). Betalningar
-    // under tröskeln blir COMPLETED direkt utan atteststeg och räknas därför inte som "ändrade".
+    // Initiatorns betalningar där en attestant har fattat beslut (godkänt eller avvisat) efter att
+    // användaren senast markerade sina betalningar som sedda (seenAt). Betalningar under tröskeln
+    // blir COMPLETED direkt utan atteststeg och räknas därför inte som "ändrade".
     @Query("""
-            SELECT COUNT(p)
+            SELECT COUNT(DISTINCT p)
             FROM Payment p
+            JOIN p.approvalSteps step
             WHERE p.tenantId = :tenantId
               AND p.createdBy = :createdBy
               AND p.status IN (se.comerit.seb.domain.PaymentStatus.COMPLETED,
                                se.comerit.seb.domain.PaymentStatus.REJECTED)
-              AND p.approvalSteps IS NOT EMPTY
+              AND step.decidedAt > :seenAt
             """)
     long countDecidedByInitiator(
             @Param("tenantId") Long tenantId,
-            @Param("createdBy") Long createdBy);
+            @Param("createdBy") Long createdBy,
+            @Param("seenAt") LocalDateTime seenAt);
 }

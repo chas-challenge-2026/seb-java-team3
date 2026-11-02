@@ -2,6 +2,8 @@ package se.comerit.seb.domain;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "users")
 public class User {
@@ -26,6 +28,9 @@ public class User {
     @Column(name = "role", length = 20)
     private Role role;
 
+    @Column(name = "payments_seen_at")
+    private LocalDateTime paymentsSeenAt;
+
     // JPA kräver en tom konstruktor. Hibernate använder den internt
     // (via reflection) för att bygga objekt från databasrader -
     // du kommer aldrig anropa den själv.
@@ -47,4 +52,5 @@ public class User {
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
+    public LocalDateTime getPaymentsSeenAt() { return paymentsSeenAt; }
 }
