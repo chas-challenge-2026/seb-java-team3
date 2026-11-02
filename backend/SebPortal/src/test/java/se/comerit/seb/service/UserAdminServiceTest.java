@@ -5,22 +5,30 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import se.comerit.seb.config.PasswordEncoderConfig;
+import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
+import se.comerit.seb.dto.ChangeUserRoleRequest;
 import se.comerit.seb.dto.CreateUserRequest;
 import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.exception.EmailAlreadyInUseException;
+import se.comerit.seb.exception.RoleChangeConflictException;
+import se.comerit.seb.exception.UserAdminRefusedException;
+import se.comerit.seb.exception.UserNotFoundException;
 import se.comerit.seb.repository.ApprovalStepRepository;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -146,9 +154,9 @@ class UserAdminServiceTest {
                 Arguments.of("A", "a@x.se", valid, " ", "Roll måste anges."),
                 Arguments.of("A", "a@x.se", valid, "CHEF", "Okänd roll. Välj INITIATOR eller ATTESTANT."),
                 Arguments.of("A", "a@x.se", valid, "ADMIN",
-                        "Rollen ADMIN kan inte skapas här. Välj INITIATOR eller ATTESTANT."),
+                        "Rollen ADMIN kan inte tilldelas här. Välj INITIATOR eller ATTESTANT."),
                 Arguments.of("A", "a@x.se", valid, "admin",
-                        "Rollen ADMIN kan inte skapas här. Välj INITIATOR eller ATTESTANT.")
+                        "Rollen ADMIN kan inte tilldelas här. Välj INITIATOR eller ATTESTANT.")
         );
     }
 
@@ -195,6 +203,133 @@ class UserAdminServiceTest {
         assertThrows(AccessDeniedException.class, () -> service.listUsers(withoutCompany));
         assertThrows(AccessDeniedException.class,
                 () -> service.createUser(withoutCompany, request("A", "a@x.se", PASSWORD, "INITIATOR")));
+
+        verifyNoInteractions(userRepository, auditService);
+    }
+
+    // --- Byta roll -----------------------------------------------------------------------------------
+
+    private static User userWithId(Long id, Role role) {
+        User user = new User(TENANT, "Lisa Persson", "lisa@malmobygg.se", "hash", role);
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
+    }
+
+    private void givenInTheAdminsCompany(User user) {
+        when(userRepository.findByIdAndTenantIdForUpdate(user.getId(), TENANT)).thenReturn(Optional.of(user));
+    }
+
+    @Test
+    void changeRole_changesTheRole_andWritesAnAuditRow() {
+        User lisa = userWithId(5L, Role.INITIATOR);
+        givenInTheAdminsCompany(lisa);
+
+        UserResponse response = service.changeRole(admin, 5L, new ChangeUserRoleRequest("ATTESTANT"));
+
+        assertEquals(Role.ATTESTANT, lisa.getRole());
+        assertEquals(new UserResponse(5L, "Lisa Persson", "lisa@malmobygg.se", Role.ATTESTANT), response);
+        verify(auditService).record(TENANT, 99L, "UPDATE_USER_ROLE", "USER", 5L,
+                "Roll ändrad för Lisa Persson (lisa@malmobygg.se): initiator till attestant");
+        // En initiator har inga atteststeg att ta hänsyn till
+        verifyNoInteractions(approvalStepRepository);
+    }
+
+    @Test
+    void changeRole_attestantToInitiator_isAllowedWhenNoStepsWait() {
+        User johan = userWithId(6L, Role.ATTESTANT);
+        givenInTheAdminsCompany(johan);
+        when(approvalStepRepository.existsByAttestantIdAndStatus(6L, ApprovalStepStatus.PENDING)).thenReturn(false);
+
+        UserResponse response = service.changeRole(admin, 6L, new ChangeUserRoleRequest(" initiator "));
+
+        assertEquals(Role.INITIATOR, johan.getRole());
+        assertEquals(Role.INITIATOR, response.role());
+        verify(auditService).record(eq(TENANT), eq(99L), eq("UPDATE_USER_ROLE"), eq("USER"), eq(6L),
+                eq("Roll ändrad för Lisa Persson (lisa@malmobygg.se): attestant till initiator"));
+    }
+
+    @Test
+    void changeRole_attestantWithWaitingSteps_isRefusedWith409_andChangesNothing() {
+        User johan = userWithId(6L, Role.ATTESTANT);
+        givenInTheAdminsCompany(johan);
+        when(approvalStepRepository.existsByAttestantIdAndStatus(6L, ApprovalStepStatus.PENDING)).thenReturn(true);
+
+        RoleChangeConflictException refused = assertThrows(RoleChangeConflictException.class,
+                () -> service.changeRole(admin, 6L, new ChangeUserRoleRequest("INITIATOR")));
+
+        assertEquals("Attestanten har väntande atteststeg. Låt dem godkännas eller avvisas innan rollen ändras.",
+                refused.getMessage());
+        assertEquals(Role.ATTESTANT, johan.getRole());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void changeRole_toTheSameRole_succeedsWithoutChangeOrAudit() {
+        User johan = userWithId(6L, Role.ATTESTANT);
+        givenInTheAdminsCompany(johan);
+
+        UserResponse response = service.changeRole(admin, 6L, new ChangeUserRoleRequest("ATTESTANT"));
+
+        assertEquals(Role.ATTESTANT, response.role());
+        assertEquals(Role.ATTESTANT, johan.getRole());
+        verifyNoInteractions(auditService, approvalStepRepository);
+    }
+
+    // En administratörs roll ändras aldrig här, inte heller admins egen: ingen ska kunna ge sig själv eller
+    // någon annan mer makt, eller ta bort den sista administratören.
+    @Test
+    void changeRole_ofAnAdministrator_isRefused_includingTheAdminsOwn() {
+        User otherAdmin = userWithId(7L, Role.ADMIN);
+        User theAdminThemselves = userWithId(99L, Role.ADMIN);
+        givenInTheAdminsCompany(otherAdmin);
+        givenInTheAdminsCompany(theAdminThemselves);
+
+        for (User administrator : List.of(otherAdmin, theAdminThemselves)) {
+            for (String newRole : List.of("INITIATOR", "ATTESTANT")) {
+                UserAdminRefusedException refused = assertThrows(UserAdminRefusedException.class,
+                        () -> service.changeRole(admin, administrator.getId(), new ChangeUserRoleRequest(newRole)));
+                assertEquals("Rollen för en administratör kan inte ändras här.", refused.getMessage());
+            }
+            assertEquals(Role.ADMIN, administrator.getRole());
+        }
+        verifyNoInteractions(auditService, approvalStepRepository);
+    }
+
+    // Ett annat företags användare hittas inte av frågan, och ser därför ut som en som inte finns
+    @Test
+    void changeRole_ofAUserNotInTheAdminsCompany_looksLikeAMissingUser() {
+        assertThrows(UserNotFoundException.class,
+                () -> service.changeRole(admin, 5L, new ChangeUserRoleRequest("ATTESTANT")));
+
+        verify(userRepository).findByIdAndTenantIdForUpdate(5L, TENANT);
+        verify(userRepository, never()).findById(any());
+        verifyNoInteractions(auditService, approvalStepRepository);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "  ", "CHEF", "ADMIN", "admin"})
+    void changeRole_withAnInvalidRole_isRefusedBeforeAnythingIsLookedUp(String role) {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.changeRole(admin, 5L, new ChangeUserRoleRequest(role)));
+
+        verifyNoInteractions(userRepository, approvalStepRepository, auditService);
+    }
+
+    @Test
+    void changeRole_withoutARequestBody_isRefusedAsAMissingRole() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> service.changeRole(admin, 5L, null));
+
+        assertEquals("Roll måste anges.", refused.getMessage());
+    }
+
+    @Test
+    void changeRole_anAdminWithoutACompany_isRefused() {
+        AuthenticatedUserContext withoutCompany = new AuthenticatedUserContext(1L, null, Role.ADMIN);
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.changeRole(withoutCompany, 5L, new ChangeUserRoleRequest("ATTESTANT")));
 
         verifyNoInteractions(userRepository, auditService);
     }

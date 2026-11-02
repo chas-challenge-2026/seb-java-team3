@@ -218,7 +218,7 @@ public class UserAdminService {
         }
 
         if (!ASSIGNABLE_ROLES.contains(role)) {
-            throw new IllegalArgumentException("Rollen " + role.name() + " kan inte skapas här. Välj INITIATOR eller ATTESTANT.");
+            throw new IllegalArgumentException("Rollen " + role.name() + " kan inte tilldelas här. Välj INITIATOR eller ATTESTANT.");
         }
         return role;
     }

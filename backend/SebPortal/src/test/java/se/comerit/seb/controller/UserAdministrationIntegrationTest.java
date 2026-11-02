@@ -10,12 +10,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import se.comerit.seb.domain.ApprovalStep;
+import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
+import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -63,6 +68,9 @@ class UserAdministrationIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private PaymentRepository paymentRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -75,6 +83,8 @@ class UserAdministrationIntegrationTest {
 
     @BeforeEach
     void seedTwoCompanies() {
+        jdbc.update("DELETE FROM approval_steps");
+        jdbc.update("DELETE FROM payments");
         jdbc.update("DELETE FROM refresh_tokens");
         jdbc.update("DELETE FROM audit_entries");
         jdbc.update("DELETE FROM users");
@@ -235,7 +245,7 @@ class UserAdministrationIntegrationTest {
     void invalidInput_isRefusedWith400AndAMessage_andChangesNothing() throws Exception {
         Map<String, String> bodyToMessage = Map.of(
                 newUser("nils@malmobygg.se", "ADMIN"),
-                "Rollen ADMIN kan inte skapas här. Välj INITIATOR eller ATTESTANT.",
+                "Rollen ADMIN kan inte tilldelas här. Välj INITIATOR eller ATTESTANT.",
                 newUser("nils@malmobygg.se", "CHEF"),
                 "Okänd roll. Välj INITIATOR eller ATTESTANT.",
                 newUser("inte-en-adress", "ATTESTANT"),
@@ -288,5 +298,145 @@ class UserAdministrationIntegrationTest {
         String otherCompanyLog = mockMvc.perform(get("/api/audit").header("Authorization", bearer(adminB)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(UTF_8);
         assertTrue(JsonPath.<List<Object>>read(otherCompanyLog, "$[?(@.action=='CREATE_USER')]").isEmpty());
+    }
+
+    // --- Byta roll -----------------------------------------------------------------------------------
+
+    private ResultActions changeRoleAs(User actor, Number userId, String role) throws Exception {
+        return mockMvc.perform(patch("/api/admin/users/{userId}/role", userId)
+                .header("Authorization", bearer(actor))
+                .contentType(APPLICATION_JSON)
+                .content("{\"role\":\"%s\"}".formatted(role)));
+    }
+
+    private String roleInDatabase(User user) {
+        return jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, user.getId());
+    }
+
+    private long auditCount(String action) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM audit_entries WHERE action = ?", Long.class, action);
+    }
+
+    @Test
+    void changingARole_updatesTheUser_logsIt_andFollowsTheUserToTheNextLogin() throws Exception {
+        changeRoleAs(adminA, initiatorA.getId(), "ATTESTANT")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(initiatorA.getId().intValue()))
+                .andExpect(jsonPath("$.role").value("ATTESTANT"))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+
+        assertEquals("attestant", roleInDatabase(initiatorA));
+
+        String adminLog = mockMvc.perform(get("/api/audit").header("Authorization", bearer(adminA)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(UTF_8);
+        List<Map<String, Object>> entries = JsonPath.read(adminLog, "$[?(@.action=='UPDATE_USER_ROLE')]");
+        assertEquals(1, entries.size());
+        assertEquals("USER", entries.get(0).get("entityType"));
+        assertEquals(initiatorA.getId().intValue(), ((Number) entries.get(0).get("entityId")).intValue());
+        assertEquals("Sara Ek", entries.get(0).get("userName"));
+        assertEquals("Roll ändrad för Lisa Persson (lisa@malmobygg.se): initiator till attestant",
+                entries.get(0).get("description"));
+
+        // Attestanten ser inte administratörens handlingar
+        String attestantLog = mockMvc.perform(get("/api/audit").header("Authorization", bearer(attestantA)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(UTF_8);
+        assertTrue(JsonPath.<List<Object>>read(attestantLog, "$[?(@.action=='UPDATE_USER_ROLE')]").isEmpty());
+
+        // Rollen följer med vid nästa inloggning
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"lisa@malmobygg.se\",\"password\":\"%s\"}".formatted(PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("ATTESTANT"));
+    }
+
+    @Test
+    void aUserOfAnotherCompany_looksExactlyLikeAMissingUser_andIsLeftAlone() throws Exception {
+        long erikId = jdbc.queryForObject("SELECT id FROM users WHERE email = 'erik@lundskonsult.se'", Long.class);
+
+        String other = changeRoleAs(adminA, erikId, "ATTESTANT")
+                .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString(UTF_8);
+        String missing = changeRoleAs(adminA, 999_999, "ATTESTANT")
+                .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString(UTF_8);
+
+        assertEquals("Användaren finns inte.", JsonPath.<String>read(other, "$.message"));
+        assertEquals(JsonPath.<String>read(missing, "$.message"), JsonPath.<String>read(other, "$.message"));
+        assertEquals("initiator", jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, erikId));
+        assertEquals(0, auditCount("UPDATE_USER_ROLE"));
+    }
+
+    // Ingen kan ge sig själv eller någon annan mer makt, eller ta bort den sista administratören
+    @Test
+    void anAdministratorsRole_cannotBeChanged_notEvenTheAdminsOwn() throws Exception {
+        User secondAdmin = save(COMPANY_A, "Nora Ek", "nora@malmobygg.se", Role.ADMIN);
+
+        for (User target : List.of(adminA, secondAdmin)) {
+            changeRoleAs(adminA, target.getId(), "INITIATOR")
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.message").value("Rollen för en administratör kan inte ändras här."));
+            assertEquals("admin", roleInDatabase(target));
+        }
+        assertEquals(0, auditCount("UPDATE_USER_ROLE"));
+    }
+
+    @Test
+    void theAdminRole_cannotBeHandedOut_andAnUnknownRoleIsRefused() throws Exception {
+        changeRoleAs(adminA, initiatorA.getId(), "ADMIN")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message")
+                        .value("Rollen ADMIN kan inte tilldelas här. Välj INITIATOR eller ATTESTANT."));
+        changeRoleAs(adminA, initiatorA.getId(), "CHEF")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Okänd roll. Välj INITIATOR eller ATTESTANT."));
+
+        assertEquals("initiator", roleInDatabase(initiatorA));
+        assertEquals(0, auditCount("UPDATE_USER_ROLE"));
+    }
+
+    @Test
+    void anAttestantWithWaitingSteps_cannotBecomeAnInitiator_untilTheyAreDecided() throws Exception {
+        Payment payment = new Payment(COMPANY_A, 1L, "SE8550000000054910000003",
+                new BigDecimal("7500.00"), "Faktura", initiatorA.getId());
+        payment.addApprovalStep(new ApprovalStep(attestantA.getId(), 1));
+        paymentRepository.saveAndFlush(payment);
+
+        changeRoleAs(adminA, attestantA.getId(), "INITIATOR")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Attestanten har väntande atteststeg. Låt dem godkännas eller avvisas innan rollen ändras."));
+        assertEquals("attestant", roleInDatabase(attestantA));
+        assertEquals(0, auditCount("UPDATE_USER_ROLE"));
+
+        // När steget är avgjort går rolländringen igenom
+        jdbc.update("UPDATE approval_steps SET status = 'approved'");
+        changeRoleAs(adminA, attestantA.getId(), "INITIATOR")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("INITIATOR"));
+        assertEquals("initiator", roleInDatabase(attestantA));
+        assertEquals(1, auditCount("UPDATE_USER_ROLE"));
+    }
+
+    @Test
+    void theSameRole_isANoOp_withoutAnAuditRow() throws Exception {
+        changeRoleAs(adminA, attestantA.getId(), "ATTESTANT")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("ATTESTANT"));
+
+        assertEquals("attestant", roleInDatabase(attestantA));
+        assertEquals(0, auditCount("UPDATE_USER_ROLE"));
+    }
+
+    @Test
+    void onlyAnAdmin_mayChangeARole() throws Exception {
+        for (User notAdmin : List.of(attestantA, initiatorA)) {
+            changeRoleAs(notAdmin, initiatorA.getId(), "ATTESTANT").andExpect(status().isForbidden());
+        }
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", initiatorA.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"role\":\"ATTESTANT\"}"))
+                .andExpect(status().isUnauthorized());
+
+        assertEquals("initiator", roleInDatabase(initiatorA));
+        assertEquals(0, auditCount("UPDATE_USER_ROLE"));
     }
 }

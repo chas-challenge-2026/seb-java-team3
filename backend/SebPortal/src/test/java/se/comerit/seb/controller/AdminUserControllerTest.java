@@ -11,9 +11,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import se.comerit.seb.config.JwtSecurityConfig;
 import se.comerit.seb.domain.Role;
+import se.comerit.seb.dto.ChangeUserRoleRequest;
 import se.comerit.seb.dto.CreateUserRequest;
 import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.exception.EmailAlreadyInUseException;
+import se.comerit.seb.exception.RoleChangeConflictException;
+import se.comerit.seb.exception.UserAdminRefusedException;
+import se.comerit.seb.exception.UserNotFoundException;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
 import se.comerit.seb.security.JwtUserContext;
@@ -24,11 +28,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -166,6 +172,122 @@ class AdminUserControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.message").value("E-postadressen används redan."));
+    }
+
+    // --- Byta roll -----------------------------------------------------------------------------------
+
+    private static final String ROLE_BODY = "{\"role\":\"ATTESTANT\"}";
+
+    @Test
+    void changeRole_asAdmin_returns200WithTheUser_andPassesTheIdTheRequestAndTheCompany() throws Exception {
+        when(userAdminService.changeRole(any(), any(), any()))
+                .thenReturn(new UserResponse(5L, "Lisa Persson", "lisa@malmobygg.se", Role.ATTESTANT));
+
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .header("Authorization", bearer(Role.ADMIN))
+                        .contentType(APPLICATION_JSON)
+                        .content(ROLE_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.role").value("ATTESTANT"))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+
+        ArgumentCaptor<AuthenticatedUserContext> admin = ArgumentCaptor.forClass(AuthenticatedUserContext.class);
+        ArgumentCaptor<ChangeUserRoleRequest> request = ArgumentCaptor.forClass(ChangeUserRoleRequest.class);
+        verify(userAdminService).changeRole(admin.capture(), eq(5L), request.capture());
+        assertEquals(new AuthenticatedUserContext(ADMIN_ID, TENANT, Role.ADMIN), admin.getValue());
+        assertEquals(new ChangeUserRoleRequest("ATTESTANT"), request.getValue());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"INITIATOR", "ATTESTANT"})
+    void changeRole_asAnyOtherRole_returns403_andNeverReachesTheService(Role role) throws Exception {
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .header("Authorization", bearer(role))
+                        .contentType(APPLICATION_JSON)
+                        .content(ROLE_BODY))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(userAdminService);
+    }
+
+    @Test
+    void changeRole_withoutAToken_returns401() throws Exception {
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .contentType(APPLICATION_JSON)
+                        .content(ROLE_BODY))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userAdminService);
+    }
+
+    @Test
+    void changeRole_whenTheUserIsNotInTheCompany_returns404() throws Exception {
+        when(userAdminService.changeRole(any(), any(), any())).thenThrow(new UserNotFoundException());
+
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .header("Authorization", bearer(Role.ADMIN))
+                        .contentType(APPLICATION_JSON)
+                        .content(ROLE_BODY))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Användaren finns inte."));
+    }
+
+    @Test
+    void changeRole_whenTheTargetIsAnAdministrator_returns403WithTheMessage() throws Exception {
+        when(userAdminService.changeRole(any(), any(), any()))
+                .thenThrow(new UserAdminRefusedException("Rollen för en administratör kan inte ändras här."));
+
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .header("Authorization", bearer(Role.ADMIN))
+                        .contentType(APPLICATION_JSON)
+                        .content(ROLE_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("Rollen för en administratör kan inte ändras här."));
+    }
+
+    @Test
+    void changeRole_whenAnAttestantHasWaitingSteps_returns409WithTheMessage() throws Exception {
+        when(userAdminService.changeRole(any(), any(), any()))
+                .thenThrow(new RoleChangeConflictException("Attestanten har väntande atteststeg."));
+
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .header("Authorization", bearer(Role.ADMIN))
+                        .contentType(APPLICATION_JSON)
+                        .content(ROLE_BODY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Attestanten har väntande atteststeg."));
+    }
+
+    @Test
+    void changeRole_whenTheServiceRefusesTheRole_returns400WithTheMessage() throws Exception {
+        when(userAdminService.changeRole(any(), any(), any()))
+                .thenThrow(new IllegalArgumentException("Okänd roll. Välj INITIATOR eller ATTESTANT."));
+
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .header("Authorization", bearer(Role.ADMIN))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"role\":\"CHEF\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Okänd roll. Välj INITIATOR eller ATTESTANT."));
+    }
+
+    @Test
+    void changeRole_withANonNumericId_orNoBody_returns400_andNeverReachesTheService() throws Exception {
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", "abc")
+                        .header("Authorization", bearer(Role.ADMIN))
+                        .contentType(APPLICATION_JSON)
+                        .content(ROLE_BODY))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
+                        .header("Authorization", bearer(Role.ADMIN))
+                        .contentType(APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(userAdminService);
     }
 
     @Test
