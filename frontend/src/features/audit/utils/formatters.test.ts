@@ -89,8 +89,8 @@ function timelineEntry(eventType: string, comment: string | null): PaymentAuditT
 }
 
 describe("formatTimelineComment", () => {
-  it.each(["APPROVE_PAYMENT", "REJECT_PAYMENT"])("shows the attestant's message on %s", (eventType) => {
-    expect(formatTimelineComment(timelineEntry(eventType, "  Stämmer mot avtalet  "))).toBe("Stämmer mot avtalet");
+  it("shows the attestant's message on a rejection", () => {
+    expect(formatTimelineComment(timelineEntry("REJECT_PAYMENT", "  Fel konto  "))).toBe("Fel konto");
   });
 
   it("has no message when the attestant wrote none", () => {
@@ -99,7 +99,7 @@ describe("formatTimelineComment", () => {
   });
 
   // Admin får en rad per atteststeg som bär samma meddelande som beslutet; det ska inte stå två gånger
-  it.each(["APPROVAL_STEP_APPROVED", "APPROVAL_STEP_REJECTED"])("hides the message on the %s row", (eventType) => {
-    expect(formatTimelineComment(timelineEntry(eventType, "Stämmer mot avtalet"))).toBeNull();
+  it("hides the message on the approval step row", () => {
+    expect(formatTimelineComment(timelineEntry("APPROVAL_STEP_REJECTED", "Fel konto"))).toBeNull();
   });
 });

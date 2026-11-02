@@ -66,7 +66,7 @@ public class AuditService {
         return record(tenantId, userId, action, entityType, entityId, description, null);
     }
 
-    // comment: attestantens meddelande vid godkännande eller avvisning (#228). MANDATORY gör att raden
+    // comment: attestantens meddelande vid avvisning (#228). MANDATORY gör att raden
     // bara kan skrivas inuti beslutets transaktion, så meddelandet sparas med beslutet eller inte alls.
     @Transactional(propagation = Propagation.MANDATORY)
     public AuditEntry record(Long tenantId, Long userId, String action,

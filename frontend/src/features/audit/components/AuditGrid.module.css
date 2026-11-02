@@ -364,7 +364,7 @@
     line-height: 1.35;
 }
 
-/* Attestantens meddelande på ett godkännande eller en avvisning. Texten kommer från en användare, så den
+/* Attestantens meddelande på en avvisning. Texten kommer från en användare, så den
    bryts var som helst och radbrytningar i den bevaras. */
 .comment {
     margin: 0.5rem 0 0;

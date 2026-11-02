@@ -85,14 +85,14 @@ class AccountBalanceAfterApprovalTest {
 
     @Test
     void balanceIsReducedByTheAmountAfterApproval() {
-        approvalService.approve(approvalStepId, ATTESTANT_ID, null);
+        approvalService.approve(approvalStepId, ATTESTANT_ID);
 
         assertEquals(0, new BigDecimal("750.00").compareTo(balanceOfOnlyAccount()));
     }
 
     @Test
     void auditKeepsHistoricalBalancesAfterTheAccountBalanceChanges() {
-        approvalService.approve(approvalStepId, ATTESTANT_ID, null);
+        approvalService.approve(approvalStepId, ATTESTANT_ID);
         entityManager.flush();
         entityManager.clear();
         jdbc.update("update accounts set balance = 500.00 where id = ?", accountId);

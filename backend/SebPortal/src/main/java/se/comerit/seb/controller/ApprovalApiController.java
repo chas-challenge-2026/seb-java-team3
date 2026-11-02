@@ -48,28 +48,23 @@ public class ApprovalApiController {
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @PostMapping("/{stepId}/approve")
-    public ResponseEntity<?> approve(@PathVariable Long stepId,
-                                     @RequestBody(required = false) ApprovalDecisionRequest request) {
+    public ResponseEntity<?> approve(@PathVariable Long stepId) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
-        approvalService.approveForUser(stepId, user, commentOf(request));
+        approvalService.approveForUser(stepId, user);
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @PostMapping("/{stepId}/reject")
     public ResponseEntity<?> reject(@PathVariable Long stepId,
-                                    @RequestBody(required = false) ApprovalDecisionRequest request) {
+                                    @RequestBody(required = false) RejectApprovalRequest request) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
-        approvalService.rejectForUser(stepId, user, commentOf(request));
+        String comment = request == null ? null : request.comment();
+        approvalService.rejectForUser(stepId, user, comment);
         return ResponseEntity.noContent().build();
     }
 
-    private static String commentOf(ApprovalDecisionRequest request) {
-        return request == null ? null : request.comment();
-    }
-
-    // Body är frivillig för både godkänn och avvisa: utan body, eller utan comment, blir det inget meddelande.
-    public record ApprovalDecisionRequest(String comment) {}
+    public record RejectApprovalRequest(String comment) {}
 }

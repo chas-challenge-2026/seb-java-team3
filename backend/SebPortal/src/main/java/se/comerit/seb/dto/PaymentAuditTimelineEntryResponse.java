@@ -3,7 +3,7 @@ package se.comerit.seb.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// comment: attestantens meddelande vid godkännande eller avvisning (#228). Null för övriga händelser och
+// comment: attestantens meddelande vid avvisning (#228). Null för övriga händelser och
 // när attestanten inte skrev något.
 public record PaymentAuditTimelineEntryResponse(
         int order,

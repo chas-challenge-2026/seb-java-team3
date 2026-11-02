@@ -30,7 +30,7 @@ public class AuditEntry {
     @Column(name = "description")
     private String description;
 
-    // Attestantens meddelande vid godkännande eller avvisning (#228, V10). Null för övriga händelser.
+    // Attestantens meddelande vid avvisning (#228, V10). Null för övriga händelser.
     @Column(name = "comment", length = 255)
     private String comment;
 

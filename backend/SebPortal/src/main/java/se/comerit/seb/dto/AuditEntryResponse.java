@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 // fromAccountName: kontot betalningen dras från (null om det inte går att slå upp inom företaget).
 // autoApproved: betalningen genomfördes utan atteststeg, eftersom beloppet låg under tröskeln.
-// comment: attestantens meddelande vid godkännande eller avvisning (#228), annars null.
+// comment: attestantens meddelande vid avvisning (#228), annars null.
 public record AuditEntryResponse(
         Long id,
         String action,

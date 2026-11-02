@@ -18,7 +18,7 @@ export const auditApiEntrySchema = z.object({
   fromAccountName: z.string().nullable().default(null),
   // Genomförd utan atteststeg, eftersom beloppet låg under tröskeln
   autoApproved: z.boolean().default(false),
-  // Attestantens meddelande när händelsen är ett godkännande eller en avvisning
+  // Attestantens meddelande när händelsen är en avvisning
   comment: z.string().nullable().default(null),
 });
 

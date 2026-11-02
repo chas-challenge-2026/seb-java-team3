@@ -35,13 +35,6 @@ describe("PaymentAuditStep", () => {
     expect(screen.getByText("Fel konto")).toBeInTheDocument();
   });
 
-  it("shows a message left when approving too", () => {
-    renderStep({ eventType: "APPROVE_PAYMENT", status: "COMPLETED", comment: "Stämmer mot avtalet" });
-
-    expect(screen.getByRole("heading", { name: "Betalning godkänd" })).toBeInTheDocument();
-    expect(screen.getByText("Stämmer mot avtalet")).toBeInTheDocument();
-  });
-
   it("shows no message section when the attestant wrote none", () => {
     renderStep({ comment: null });
 

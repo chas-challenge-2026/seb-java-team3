@@ -77,8 +77,7 @@ class AuditServiceTimelineTest {
         assertNull(event(timeline, "CREATE_PAYMENT").comment());
     }
 
-    // En admin ser också atteststegen. Steget som avvisade bär samma meddelande, så att det inte tappas om
-    // en betalning med flera steg avvisas eller godkänns i ett steg som inte skriver någon auditrad.
+    // En admin ser också atteststegen. Steget som avvisade bär samma meddelande som beslutet.
     @Test
     void admin_seesTheMessageOnTheStepThatDecided() {
         List<PaymentAuditTimelineEntryResponse> timeline = auditService.getPaymentAuditTimeline(

@@ -34,7 +34,7 @@ class ApprovalServiceTransactionIntegrationTest {
     private static final String TO_IBAN = "SE8550000000054910000003";
     private static final String FAILURE_MARKER = "issue193_failure_after_all_database_writes";
     // Inga citattecken: texten läggs in som SQL-literal i triggern nedan
-    private static final String COMMENT = "Stämmer mot avtalet";
+    private static final String COMMENT = "Fel mottagare";
 
     @Container
     private static final PostgreSQLContainer<?> POSTGRES =
@@ -140,7 +140,7 @@ class ApprovalServiceTransactionIntegrationTest {
 
         RuntimeException failure = assertThrows(
                 RuntimeException.class,
-                () -> approvalService.approve(approvalStepId, actorId, null));
+                () -> approvalService.approve(approvalStepId, actorId));
 
         SQLException databaseFailure = findSqlException(failure);
         assertEquals("P0001", databaseFailure.getSQLState());
@@ -159,7 +159,7 @@ class ApprovalServiceTransactionIntegrationTest {
 
     @Test
     void commits_balance_and_audit_on_success() {
-        approvalService.approve(approvalStepId, actorId, null);
+        approvalService.approve(approvalStepId, actorId);
 
         // Returning from the Spring proxy includes committing the service transaction.
         ApprovalState state = readApprovalState();
@@ -182,24 +182,6 @@ class ApprovalServiceTransactionIntegrationTest {
         assertEquals("Betalning godkänd: 200.00 SEK till " + TO_IBAN, audit.description());
         assertNull(audit.comment());
         assertNotNull(audit.createdAt());
-    }
-
-    // #228: meddelandet vid godkännande hamnar på steget och på auditraden, och står kvar i beskrivningen
-    // som den signerade loggen får. Mellanslag i kanterna tas bort.
-    @Test
-    void commits_approval_message_on_the_step_and_the_audit_row() {
-        approvalService.approve(approvalStepId, actorId, "  " + COMMENT + "  ");
-
-        ApprovalState state = readApprovalState();
-        assertEquals("approved", state.stepStatus());
-        assertEquals(COMMENT, state.comment());
-        assertEquals(1L, state.auditCount());
-
-        AuditSnapshot audit = readAudit();
-        assertEquals("APPROVE_PAYMENT", audit.action());
-        assertEquals(COMMENT, audit.comment());
-        assertEquals("Betalning godkänd: 200.00 SEK till " + TO_IBAN + ". Kommentar: " + COMMENT,
-                audit.description());
     }
 
     @Test
@@ -229,25 +211,6 @@ class ApprovalServiceTransactionIntegrationTest {
     // issue193_expected_database_writes_missing, så ett test som når spärrmeddelandet bevisar att allt
     // skrevs i samma transaktion. Därefter ska allt, meddelandet inräknat, vara bortrullat.
     @Test
-    void rollback_removes_the_approval_message_together_with_the_decision() {
-        installLateDatabaseFailure(true, COMMENT);
-
-        RuntimeException failure = assertThrows(
-                RuntimeException.class,
-                () -> approvalService.approve(approvalStepId, actorId, COMMENT));
-
-        assertTrue(findSqlException(failure).getMessage().contains(FAILURE_MARKER), failure::getMessage);
-
-        ApprovalState state = readApprovalState();
-        assertEquals(STARTING_BALANCE, state.balance());
-        assertEquals("pending_approval", state.paymentStatus());
-        assertEquals("pending", state.stepStatus());
-        assertNull(state.decidedAt());
-        assertNull(state.comment());
-        assertEquals(0L, state.auditCount());
-    }
-
-    @Test
     void rollback_removes_the_rejection_message_together_with_the_decision() {
         installLateDatabaseFailure(false, COMMENT);
 
@@ -269,7 +232,7 @@ class ApprovalServiceTransactionIntegrationTest {
     // AuditEntry uses IDENTITY, so its INSERT occurs before JPA flushes dirty account/payment/step
     // updates. A deferred trigger checks every database write of the decision at commit before forcing
     // failure: payment, step, audit row and (for approvals) the debited account, including the message on
-    // the step and on the audit row (comment is null when the attestant wrote none).
+    // the step and on the audit row (comment is null when there is none, as on an approval).
     private void installLateDatabaseFailure(boolean approving, String comment) {
         String commentLiteral = comment == null ? "NULL" : "'" + comment + "'";
         jdbcTemplate.execute("""

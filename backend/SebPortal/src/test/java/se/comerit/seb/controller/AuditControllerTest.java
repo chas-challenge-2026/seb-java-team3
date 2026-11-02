@@ -38,20 +38,20 @@ class AuditControllerTest {
                                 1L, "CREATE_PAYMENT", "PAYMENT", 100L,
                                 "Betalning skapad", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin",
                                 null, null, "Driftkonto", false, null);
-                AuditEntryResponse approveEvent = new AuditEntryResponse(
-                                2L, "APPROVE_PAYMENT", "PAYMENT", 100L,
-                                "Betalning godkänd", "COMPLETED", "Testbetalning", null, "SEK", now, "Admin",
-                                null, null, "Driftkonto", false, "Stämmer mot faktura");
+                AuditEntryResponse rejectEvent = new AuditEntryResponse(
+                                2L, "REJECT_PAYMENT", "PAYMENT", 100L,
+                                "Betalning avvisad", "REJECTED", "Testbetalning", null, "SEK", now, "Admin",
+                                null, null, "Driftkonto", false, "Fel konto");
 
                 when(jwtUserContext.requireAuthenticated()).thenReturn(admin);
-                when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, approveEvent));
+                when(auditService.getAuditEntries(admin)).thenReturn(List.of(createEvent, rejectEvent));
 
                 mockMvc.perform(get("/api/audit"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$[*].action",
-                                                containsInAnyOrder("CREATE_PAYMENT", "APPROVE_PAYMENT")))
+                                                containsInAnyOrder("CREATE_PAYMENT", "REJECT_PAYMENT")))
                                 // #228: meddelandet följer med i JSON, och null när det saknas
                                 .andExpect(jsonPath("$[0].comment").value(nullValue()))
-                                .andExpect(jsonPath("$[1].comment").value("Stämmer mot faktura"));
+                                .andExpect(jsonPath("$[1].comment").value("Fel konto"));
         }
 }

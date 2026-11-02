@@ -3,9 +3,7 @@ import type { MyPaymentStatus, PaymentAuditTimelineEntry } from "../schema";
 export { formatDateTime, getDateTimeSortValue } from "../../../lib/dateTime";
 
 // Admin får också en rad per atteststeg ("Atteststeg avvisat"), och steget bär samma meddelande som beslutet.
-// Meddelandet visas bara på beslutet, annars står samma text två gånger. Följden är att ett meddelande på
-// ett steg som inte skrivit någon auditrad inte syns; det händer först med dubbel attest, som ligger
-// utanför MVP.
+// Meddelandet visas bara på beslutet, annars står samma text två gånger.
 export function formatTimelineComment(entry: PaymentAuditTimelineEntry): string | null {
   if (entry.eventType.startsWith("APPROVAL_STEP_")) {
     return null;
