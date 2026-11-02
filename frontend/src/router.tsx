@@ -14,6 +14,7 @@ import { NewPayment } from "./features/payment/NewPayment"
 import AuditPage from "./features/audit/pages/AuditPage"
 import MyPaymentsPage from "./features/audit/pages/MyPaymentsPage";
 import AttestPage from "./pages/AttestPage";
+import UsersPage from "./features/users/UsersPage";
 
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -84,6 +85,13 @@ const attestRoute = createRoute({
   component: AttestPage,
 })
 
+const adminUsersRoute = createRoute({
+  getParentRoute: () => authRoute,
+  path: "/admin/users",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ADMIN"]),
+  component: UsersPage,
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
 
@@ -94,6 +102,7 @@ const routeTree = rootRoute.addChildren([
     auditRoute,
     myPaymentsRoute,
     attestRoute,
+    adminUsersRoute,
   ]),
 ]);
 
