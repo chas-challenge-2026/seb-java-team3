@@ -40,7 +40,9 @@ Inte oviktigt, utan för att en stabil kärna slår fem halvfärdiga flöden. By
 - Batch/CSV-uppladdning
 - Native C/C++-moduler (CSV-parser, audit-signering)
 - Kontoöversikt/dashboard som egen vy (v1 har den redan, låg prioritet)
-- Compliance-export, refresh-token-rotation, 2FA, valutaomvandling
+- Compliance-export, 2FA, valutaomvandling
+
+Refresh-token-rotation låg tidigare på den här listan men är nu byggd (ADR 0012).
 
 ## Utanför scope helt
 

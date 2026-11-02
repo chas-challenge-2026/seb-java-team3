@@ -11,6 +11,8 @@ Det här är kartan över all vår dokumentation. Vet du inte var något ska lig
 | docs/backlog.md | Epics → User Stories → Tasks. Vår nedbrytning av arbetet. | Varje sprint |
 | docs/ways-of-working.md | Hur vi jobbar: ScrumBan-tavla, DoR, DoD, roller, mötesrytm. | Vid behov |
 | docs/decisions/ | Beslutslogg (ADR:er). Ett viktigt vägval = en fil. Varför, inte bara vad. | Vid varje beslut |
+| docs/accessmatris.md | Roller, vad varje roll får göra och analys av permission escalation. | När en endpoint eller roll ändras |
+| docs/cto/Risk_register.md | Riskregistret: risker, åtgärder, bevis och status. | När en risk ändrar status |
 | docs/test-status.md | Teststatus: vad som testas, vad som är grönt/rött, täckning i grova drag. | Löpande |
 | docs/ai-usage.md | Dokumenterad AI-användning. Hur AI påverkat kod/beslut/analys. | Löpande |
 | docs/sprints | Dokumentation över våra sprintmål och sprint reviews. | Löpande |

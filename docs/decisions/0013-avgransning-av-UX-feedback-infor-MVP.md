@@ -1,8 +1,8 @@
 # ADR 0013 — Avgränsning av UX-feedback inför MVP
 
-- **Status:** Föreslagen
+- **Status:** Accepterad
 - **Datum:** 2026-10-15
-- **Deltagare:** Pontus (drivande)
+- **Deltagare:** Team SEB 3 · drivande: Pontus Ingenius
 - **Berör:** UX / MVP / Betalningar och attestflöde
 - **Relaterade issues:** Ej specificerade
 
@@ -28,7 +28,7 @@ Vi väljer att avgränsa MVP enligt följande:
 ## Alternativ vi övervägde
 
 - **Alternativ A – Implementera samtliga identifierade UX-förbättringar:** Valdes bort eftersom det skulle utöka omfattningen och riskera att försena MVP.
-- **Alternativ B – Avgränsa funktionaliteten till MVP:s grundbehov:** Föreslaget alternativ. Vi prioriterar ett enklare attestflöde och skjuter upp förfallodatum och e-postnotifieringar.
+- **Alternativ B – Avgränsa funktionaliteten till MVP:s grundbehov:** Valdes. Vi prioriterar ett enklare attestflöde och skjuter upp förfallodatum och e-postnotifieringar.
 
 ## Konsekvenser
 

@@ -32,6 +32,9 @@ public class ApprovalService {
     private static final String FROM_ACCOUNT_NOT_AVAILABLE =
             "Från-kontot finns inte eller tillhör inte ditt företag";
 
+    // Samma text för ett steg som inte finns och ett annat företags steg, utan id:t i svaret (R-04, R-18).
+    private static final String APPROVAL_STEP_NOT_FOUND = "Atteststeget hittades inte.";
+
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final AuditService auditService;
@@ -111,7 +114,7 @@ public class ApprovalService {
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
                 .filter(step -> Objects.equals(step.getId(), approvalStepId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -221,7 +224,7 @@ public class ApprovalService {
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
                 .filter(step -> Objects.equals(step.getId(), approvalStepId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -273,7 +276,7 @@ public class ApprovalService {
         return paymentRepository.findByApprovalStepIdForUpdate(approvalStepId)
                 .filter(payment -> user == null
                         || (user.tenantId() != null && Objects.equals(payment.getTenantId(), user.tenantId())))
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)

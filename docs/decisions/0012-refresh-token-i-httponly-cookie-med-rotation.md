@@ -1,19 +1,19 @@
 # ADR 0012 — Refresh token i HttpOnly-cookie med rotation, access-token i minnet
 
-- **Status:** Föreslagen
+- **Status:** Accepterad
 - **Datum:** 2026-10-07
-- **Deltagare:** Jonathan Isaksson (författare). Övriga fylls i när teamet har gått igenom förslaget · drivande: Jonathan Isaksson
+- **Deltagare:** Jonathan Isaksson (författare), Team SEB 3 · drivande: Jonathan Isaksson
 - **Berör:** Auth & behörighet, backend, frontend
 - **Relaterade issues:** #194, #195
-- **Ersätter delvis:** [ADR 0009](0009-jwt-i-localstorage-ersatter-httponly-cookie.md) (var token lagras). ADR 0009 får status "Delvis ersatt av ADR 0012" när den här ADR:n är Accepterad.
+- **Ersätter delvis:** [ADR 0009](0009-jwt-i-localstorage-ersatter-httponly-cookie.md) (var token lagras). ADR 0009 har status "Delvis ersatt av ADR 0012".
 - **Relaterat:** [ADR 0011](0011-jwt-signeringsnyckeln-slumpas-vid-start.md), [ADR 0003](0003-mvp-scope-och-avgransningar.md), CTO-feedbacken i `docs/Risk-feedfoward.md` (punkt 8)
 
 ## Kontext
 
-Idag har vi en enda JWT (ADR 0009). Den gäller i 1 timme, är stateless, ligger i `localStorage` och skickas som `Authorization: Bearer`. Det ger fyra problem:
+När ADR:n skrevs hade vi en enda JWT (ADR 0009). Den gäller i 1 timme, är stateless, ligger i `localStorage` och skickas som `Authorization: Bearer`. Det ger fyra problem:
 
 - **Den går inte att återkalla.** Servern slår inte upp token i någon databas. "Logga ut" raderar bara token i webbläsaren, och en kopierad token fungerar tills den går ut.
-- **Den kan läsas av JavaScript.** En lyckad XSS-attack kan stjäla den (R-13, accepterad i ADR 0009, som själv pekar ut refresh token som uppföljning).
+- **Den kan läsas av JavaScript.** En lyckad XSS-attack kan stjäla den (R-12, accepterad i ADR 0009, som själv pekar ut refresh token som uppföljning).
 - **Det finns ingen bra livslängd.** Kort ger ständiga utloggningar, och lång ger en stulen token längre användbarhet.
 - **Varje omstart loggar ut alla** sedan ADR 0011 slumpar signeringsnyckeln vid start.
 
@@ -62,7 +62,7 @@ Regler:
 - En stulen access-token gäller högst 15 minuter i stället för 1 timme.
 - Sessioner går att återkalla på riktigt, och logout spärrar den långlivade token på servern.
 - Stöld av refresh-token upptäcks genom rotationen.
-- Den långlivade token är oläsbar för JavaScript, och `localStorage` håller ingen token längre. R-13 minskar.
+- Den långlivade token är oläsbar för JavaScript, och `localStorage` håller ingen token längre. R-12 är stängd, och den XSS-risk som finns kvar följs i R-22.
 - Omstarter märks inte för användarna (ADR 0011): efter en omstart nekas access-token, frontend förnyar tyst, och servern ger en ny access-token signerad med den nya nyckeln.
 - Roll- och användarändringar slår igenom inom ungefär 15 minuter.
 
@@ -80,7 +80,8 @@ Regler:
 
 ## Uppföljning
 
-- Verifiera live före merge: migrationen V8 mot riktig Postgres, cookie-attributen, rotation, att återanvändning spärrar familjen, och ett E2E-scenario där sidan laddas om och användaren förblir inloggad. Racet från granskningen (en gammal token och den aktuella används samtidigt) är reproducerat mot Postgres 12 före och efter låset, i båda ordningarna. Det är körningar för hand, inte incheckade tester; de kräver en riktig databas i sviten (Testcontainers, #193).
-- När ADR:n är Accepterad: sätt ADR 0009 till "Delvis ersatt av ADR 0012", uppdatera R-13 i riskregistret (#201), och uppdatera `docs/mvp.md`, `docs/kravtolkning.md` och ADR 0003 där refresh-token-rotation står som breddning.
+- Klart: migrationen V8 mot riktig Postgres, cookie-attributen, rotation och att återanvändning spärrar familjen är verifierade live. Ett E2E-scenario där sidan laddas om och användaren förblir inloggad finns i `frontend/e2e/session.spec.ts`. Racet från granskningen (en gammal token och den aktuella används samtidigt) är reproducerat mot Postgres 12 före och efter låset, i båda ordningarna. Racet och flödet mot Postgres är körningar för hand, inte incheckade tester. Testcontainers finns nu i sviten (#193), så de kan checkas in.
+- Återstår: verifiering på stage (se punkt 8 i `docs/Risk-feedfoward.md`).
+- Klart: ADR 0009 har status "Delvis ersatt av ADR 0012", R-12 är uppdaterad i riskregistret (`docs/cto/Risk_register.md`), och `docs/mvp.md`, `docs/kravtolkning.md` och ADR 0003 anger att refresh-token-rotation är byggd.
 - Omvärdera vid behov: nådetid vid återanvändning, absolut tak för sessionen, ett städjobb för utgångna rader, och "logga ut överallt".
-- Ratebegränsning av login och refresh ingår inte här och ligger kvar som separat punkt.
+- Ratebegränsning av login och refresh ingår inte här och följs upp som R-15 i riskregistret.

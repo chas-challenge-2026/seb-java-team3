@@ -92,7 +92,9 @@ class ApprovalApiControllerOwnershipTest {
     void approve_asAttestantWhoDoesNotOwnTheStep_returns403AndChangesNothing() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_B_ID)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                // R-18: svaret lämnar inte ut steg- eller användar-id
+                .andExpect(jsonPath("$.message").value("Du har inte behörighet att hantera det här atteststeget."));
 
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
@@ -235,7 +237,7 @@ class ApprovalApiControllerOwnershipTest {
             mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
                             .header("Authorization", "Bearer " + token))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Approval step not found: " + STEP_ID));
+                    .andExpect(jsonPath("$.message").value("Atteststeget hittades inte."));
         }
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());

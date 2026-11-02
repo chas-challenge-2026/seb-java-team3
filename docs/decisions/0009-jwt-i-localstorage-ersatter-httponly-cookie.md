@@ -1,11 +1,12 @@
 # ADR 0009 — JWT i Authorization-header och localStorage ersätter HttpOnly-cookie
 
-- **Status:** Accepterad (ersätter ADR 0008)
+- **Status:** Delvis ersatt av ADR 0012
 - **Datum:** 2026-09-21
 - **Deltagare:** Jonathan Isaksson, Adnan, Marcus Johansson, Pontus Ingenius, Samuel · drivande: Jonathan Isaksson
 - **Berör:** Auth & behörighet, frontend
 - **Relaterade issues:** #29, #33
-- **Ersätter:** [ADR 0008 - Lagring av token i HttpOnly-cookie](0008-Lagring%20av%20token%20i%20HttpOnly-cookie)
+- **Ersätter:** [ADR 0008 - Lagring av token i HttpOnly-cookie](0008-Lagring%20av%20token%20i%20HttpOnly-cookie.md)
+- **Delvis ersatt av:** [ADR 0012](0012-refresh-token-i-httponly-cookie-med-rotation.md) (var token lagras och hur länge den gäller). JWT i `Authorization`-headern gäller fortfarande.
 
 ## Kontext
 
@@ -39,14 +40,14 @@ Vi lagrar JWT i `localStorage` och skickar den i `Authorization`-headern. ADR 00
 - Ingen cookie-konfiguration mellan origins att underhålla.
 
 **Negativa / risker**
-- Token kan läsas av JavaScript, så en lyckad XSS-attack kan stjäla den (registrerad som R-13, status Accepted, ägare Frontend).
+- Token kan läsas av JavaScript, så en lyckad XSS-attack kan stjäla den (R-12 i riskregistret, ägare Frontend. Accepterad vid det här beslutet och stängd efter ADR 0012).
   **Kompenserande kontroller som finns:** token gäller 1 timme (`jwt.expiration-ms=3600000`), frontend använder inte `dangerouslySetInnerHTML` och React escapar output som standard, backend kontrollerar signatur, utgång och roll vid varje anrop.
-  **Saknas:** Content-Security-Policy.
+  **Saknas:** Content-Security-Policy (R-22).
 - Ingen refresh-token betyder att användaren måste logga in på nytt när token gått ut.
 
 ## Uppföljning
 
-- Lägg till Content-Security-Policy (frontend/deploy) för att minska XSS-risken.
-- Omvärdera beslutet om refresh-token byggs efter MVP; då kan refresh-token i HttpOnly-cookie kombineras med en kortlivad access-token i minnet.
-- Håll R-13 i riskregistret uppdaterat.
-- Kontrollera vid slutleverans att ingen kod gör `dangerouslySetInnerHTML` eller liknande med användardata.
+- Lägg till Content-Security-Policy (frontend/deploy) för att minska XSS-risken. Följs upp i R-22.
+- Klart: beslutet är omvärderat. Refresh-token i HttpOnly-cookie kombineras nu med en kortlivad access-token i minnet (ADR 0012).
+- Klart: R-12 är stängd i riskregistret (`docs/cto/Risk_register.md`).
+- Kontrollerat 2026-11-02: frontendkoden använder inte `dangerouslySetInnerHTML` eller `innerHTML`. Kontrollera igen vid slutleverans.
