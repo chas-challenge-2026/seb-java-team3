@@ -89,6 +89,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
+    @ExceptionHandler(UserDeleteConflictException.class)
+    public ResponseEntity<ErrorResponse> handleUserDeleteConflict(UserDeleteConflictException ex) {
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(RoleChangeConflictException.class)
     public ResponseEntity<ErrorResponse> handleRoleChangeConflict(RoleChangeConflictException ex) {
         ErrorResponse body = new ErrorResponse(

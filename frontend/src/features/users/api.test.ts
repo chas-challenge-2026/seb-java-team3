@@ -1,73 +1,51 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../lib/api";
 import { createUser, deleteUser, listUsers, updateUserRole } from "./api";
-import { ApiError } from "../../error/api.error";
 
-// Mock-API:t har en fördröjning och delat tillstånd mellan anrop, så varje test använder egna användare
-async function settled<T>(promise: Promise<T>): Promise<T> {
-  await vi.advanceTimersByTimeAsync(1000);
-  return promise;
-}
+vi.mock("../../lib/api", () => ({ api: vi.fn() }));
 
-describe("users mock api", () => {
+describe("users api", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.mocked(api).mockReset();
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  it("lists users from the admin endpoint", async () => {
+    await listUsers();
+
+    expect(api).toHaveBeenCalledWith("/api/admin/users", {}, expect.anything());
   });
 
-  it("creates a user that then shows up in the list", async () => {
-    const created = await settled(
-      createUser({ name: "  Nina Ny ", email: "Nina.Ny@foretag.se", role: "ATTESTANT", password: "hemligt123" }),
+  it("creates a user with exactly the fields the backend accepts, and no company id", async () => {
+    await createUser({ name: "Kalle Kula", email: "kalle@foretag.se", role: "INITIATOR", password: "hemligt-lösen-123" });
+
+    expect(api).toHaveBeenCalledWith(
+      "/api/admin/users",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Kalle Kula",
+          email: "kalle@foretag.se",
+          role: "INITIATOR",
+          password: "hemligt-lösen-123",
+        }),
+      },
+      expect.anything(),
     );
-
-    expect(created).toMatchObject({ name: "Nina Ny", email: "nina.ny@foretag.se", role: "ATTESTANT" });
-    expect(await settled(listUsers())).toContainEqual(created);
   });
 
-  it("rejects a duplicate email with 409, ignoring case", async () => {
-    await settled(createUser({ name: "Först", email: "dubblett@foretag.se", role: "INITIATOR", password: "hemligt123" }));
+  it("deletes a user with DELETE on the user's path", async () => {
+    await deleteUser(7);
 
-    const second = createUser({ name: "Andra", email: "DUBBLETT@foretag.se", role: "INITIATOR", password: "hemligt123" });
-    const assertion = expect(second).rejects.toMatchObject({ status: 409 });
-    await vi.advanceTimersByTimeAsync(1000);
-    await assertion;
+    expect(api).toHaveBeenCalledWith("/api/admin/users/7", { method: "DELETE" });
   });
 
-  it("changes the role of a non-admin user", async () => {
-    const created = await settled(
-      createUser({ name: "Rolf Roll", email: "rolf@foretag.se", role: "INITIATOR", password: "hemligt123" }),
+  it("changes a role with PATCH on the user's role path", async () => {
+    await updateUserRole(7, "ATTESTANT");
+
+    expect(api).toHaveBeenCalledWith(
+      "/api/admin/users/7/role",
+      { method: "PATCH", body: JSON.stringify({ role: "ATTESTANT" }) },
+      expect.anything(),
     );
-
-    const updated = await settled(updateUserRole(created.id, "ATTESTANT"));
-
-    expect(updated.role).toBe("ATTESTANT");
-    expect((await settled(listUsers())).find((user) => user.id === created.id)?.role).toBe("ATTESTANT");
-  });
-
-  it("never changes or deletes the admin account", async () => {
-    const adminUser = (await settled(listUsers())).find((user) => user.role === "ADMIN");
-    expect(adminUser).toBeDefined();
-
-    const roleChange = updateUserRole(adminUser!.id, "INITIATOR");
-    const roleAssertion = expect(roleChange).rejects.toBeInstanceOf(ApiError);
-    await vi.advanceTimersByTimeAsync(1000);
-    await roleAssertion;
-
-    const removal = deleteUser(adminUser!.id);
-    const removalAssertion = expect(removal).rejects.toMatchObject({ status: 403 });
-    await vi.advanceTimersByTimeAsync(1000);
-    await removalAssertion;
-  });
-
-  it("deletes a user permanently", async () => {
-    const created = await settled(
-      createUser({ name: "Dan Delete", email: "dan@foretag.se", role: "INITIATOR", password: "hemligt123" }),
-    );
-
-    await settled(deleteUser(created.id));
-
-    expect((await settled(listUsers())).some((user) => user.id === created.id)).toBe(false);
   });
 });

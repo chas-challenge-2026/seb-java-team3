@@ -15,8 +15,11 @@ import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.exception.EmailAlreadyInUseException;
 import se.comerit.seb.exception.RoleChangeConflictException;
 import se.comerit.seb.exception.UserAdminRefusedException;
+import se.comerit.seb.exception.UserDeleteConflictException;
 import se.comerit.seb.exception.UserNotFoundException;
 import se.comerit.seb.repository.ApprovalStepRepository;
+import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.RefreshTokenRepository;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
@@ -43,19 +46,29 @@ public class UserAdminService {
     // annan mer makt genom ett anrop.
     private static final Set<Role> ASSIGNABLE_ROLES = EnumSet.of(Role.INITIATOR, Role.ATTESTANT);
 
+    static final String DELETE_BLOCKED_BY_HISTORY =
+            "Användaren har betalningar eller atteststeg kopplade till sig och kan inte tas bort, "
+                    + "eftersom historiken måste bevaras.";
+
     private static final Pattern EMAIL_FORMAT = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final UserRepository userRepository;
     private final ApprovalStepRepository approvalStepRepository;
+    private final PaymentRepository paymentRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
 
     public UserAdminService(UserRepository userRepository,
                             ApprovalStepRepository approvalStepRepository,
+                            PaymentRepository paymentRepository,
+                            RefreshTokenRepository refreshTokenRepository,
                             PasswordEncoder passwordEncoder,
                             AuditService auditService) {
         this.userRepository = userRepository;
         this.approvalStepRepository = approvalStepRepository;
+        this.paymentRepository = paymentRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
     }
@@ -155,6 +168,58 @@ public class UserAdminService {
                         newRole.name().toLowerCase(Locale.ROOT)));
 
         return UserResponse.from(user);
+    }
+
+    // Tar bort en användare permanent, i admins företag.
+    //  - Användarens rad låses medan det pågår, och ett annat företags användare ser ut som en som inte finns (404).
+    //  - En administratör tas aldrig bort här (403), inte heller admin själv: ingen ska kunna ta bort den sista
+    //    administratören eller låsa ut sig.
+    //  - En användare som skapat betalningar, fått atteststeg tilldelade eller fattat beslut kan inte tas bort (409).
+    //    Betalningarna och stegen pekar på användaren, och historiken (vem som skapade och godkände vad) måste
+    //    bevaras. Därför går det bara att ta bort en användare som aldrig gjort något, till exempel ett konto som
+    //    skapats av misstag.
+    //  - Användarens refresh-token tas bort först, så att hen inte kan förnya sin inloggning. Ett redan utfärdat
+    //    access-token gäller ändå tills det går ut, högst 15 minuter (ADR 0012).
+    //  - Borttagningen loggas i audit med namn och e-post, eftersom raden i users är borta efteråt.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public void deleteUser(AuthenticatedUserContext admin, Long userId) {
+        Long tenantId = requireTenant(admin);
+
+        User user = userRepository.findByIdAndTenantIdForUpdate(userId, tenantId)
+                .orElseThrow(UserNotFoundException::new);
+
+        if (user.getRole() == Role.ADMIN) {
+            throw new UserAdminRefusedException("En administratör kan inte tas bort.");
+        }
+
+        if (paymentRepository.existsByCreatedBy(user.getId())
+                || approvalStepRepository.existsByAttestantId(user.getId())
+                || approvalStepRepository.existsByDecidedBy(user.getId())) {
+            throw new UserDeleteConflictException(DELETE_BLOCKED_BY_HISTORY);
+        }
+
+        refreshTokenRepository.deleteAllForUser(user.getId());
+
+        try {
+            // flush, så att databasens främmande nycklar slår till här. En betalning eller ett steg som hann
+            // skapas för användaren mellan kontrollen ovan och borttagningen fångas då som 409.
+            userRepository.delete(user);
+            userRepository.flush();
+        } catch (DataIntegrityViolationException referenced) {
+            throw new UserDeleteConflictException(DELETE_BLOCKED_BY_HISTORY);
+        }
+
+        auditService.record(
+                tenantId,
+                admin.userId(),
+                "DELETE_USER",
+                "USER",
+                user.getId(),
+                "Användare borttagen: %s (%s), roll %s".formatted(
+                        user.getName(),
+                        user.getEmail(),
+                        user.getRole() == null ? "ingen" : user.getRole().name().toLowerCase(Locale.ROOT)));
     }
 
     // En användare utan företag får inte administrera något. tenantId kommer från token och ska alltid

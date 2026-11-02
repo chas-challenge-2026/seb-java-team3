@@ -29,7 +29,7 @@ Admin är en **administrativ roll** som inte flyttar pengar. Följande gäller:
 1. **Admin skapar inga betalningar** och har inga egna betalningar (`/api/my-payments`, `/api/payments/config` och `/api/payments/changed-count` är bara för initiatorn).
 2. **Admin godkänner och avvisar inga betalningar.** Bara attestanten som steget är tilldelat kan fatta beslutet.
 3. **Admin får läsa och få översikt** i det egna företaget: hela audit-loggen, tidslinjen per betalning med atteststegen, attestkorgen och räknaren, samt konton.
-4. **Admin hanterar användare och roller** i det egna företaget (#242): lista, skapa och byta roll mellan INITIATOR och ATTESTANT. ADMIN kan inte tilldelas via API:t, och en administratörs roll ändras aldrig där, inte heller admins egen, så att ingen kan ge sig själv eller någon annan mer makt eller ta bort den sista administratören. En attestant med väntande atteststeg kan inte bli initiator. Varje skapande och rolländring loggas i audit (`CREATE_USER`, `UPDATE_USER_ROLE`), utan lösenord.
+4. **Admin hanterar användare och roller** i det egna företaget (#242): lista, skapa, byta roll mellan INITIATOR och ATTESTANT och ta bort en användare som aldrig har gjort något. ADMIN kan inte tilldelas via API:t, och en administratörs roll ändras aldrig där, inte heller admins egen, så att ingen kan ge sig själv eller någon annan mer makt eller ta bort den sista administratören. En attestant med väntande atteststeg kan inte bli initiator. Varje skapande, rolländring och borttagning loggas i audit (`CREATE_USER`, `UPDATE_USER_ROLE`, `DELETE_USER`), utan lösenord.
 5. **Fyraögonprincipen gäller alla roller:** den som har skapat en betalning kan aldrig själv godkänna eller avvisa den, även om hen är tilldelad steget. Kontrollen sitter i `ApprovalService` och gäller alla vägar in.
 
 Behörigheten kontrolleras i backend, med `@PreAuthorize` i controllern och i servicen. Frontend döljer bara det som inte går att göra.
@@ -56,6 +56,9 @@ Alla anrop kräver rollen ADMIN. Företaget kommer alltid från admins token, al
 | `GET /api/admin/users` | - | 200 `[{ id, name, email, role }]`, sorterat på namn |
 | `POST /api/admin/users` | `{ name, email, password, role }` | 201 `{ id, name, email, role }`, 400 (ogiltiga uppgifter), 409 (e-posten används) |
 | `PATCH /api/admin/users/{userId}/role` | `{ role }` | 200 `{ id, name, email, role }`, 400 (ogiltig roll), 403 (målet är en administratör), 404 (användaren finns inte i företaget), 409 (attestanten har väntande steg) |
+| `DELETE /api/admin/users/{userId}` | - | 204, 403 (målet är en administratör), 404 (användaren finns inte i företaget), 409 (användaren har skapat betalningar eller har tilldelats eller beslutat atteststeg) |
+
+`DELETE` tar bort användaren permanent, men bara om hen aldrig har gjort något: betalningarna och atteststegen pekar på användaren, och historiken (vem som skapade och godkände vad) ska bevaras. I praktiken går det alltså att ta bort ett konto som skapats av misstag, inte en användare som har arbetat i systemet. Användarens refresh-token tas bort samtidigt, så hen kan inte förnya sin inloggning, men ett redan utfärdat access-token gäller tills det går ut (högst 15 minuter). Borttagningen loggas som `DELETE_USER` med namn och e-post.
 
 Regler för `POST`: namn högst 100 tecken, giltig e-post högst 100 tecken (sparas med små bokstäver), lösenord minst 12 tecken och högst 72 byte, och `role` är `INITIATOR` eller `ATTESTANT`. Lösenordet sparas som BCrypt med kostnad 12.
 
@@ -84,7 +87,7 @@ Regler för `POST`: namn högst 100 tecken, giltig e-post högst 100 tecken (spa
 - **En rolländring slår igenom när inloggningen förnyas**, högst 15 minuter senare, eftersom rollen ligger i token (ADR 0012). Betalningsflödet tål mellantiden: beslut kontrolleras mot steget och skaparen, och en betalning tilldelas aldrig sin skapare. En attestant som just blivit initiator kan inte heller ha väntande steg, eftersom ändringen då nekas.
 - **E-postadressen är unik i hela databasen** (V1), inte per företag. Skapar admin en användare med en adress som finns hos ett annat företag får hen 409, och kan därför avgöra om adressen finns där. Att göra den unik per företag kräver en migration och en ändring av inloggningen, som slår upp på e-post. Vi accepterar det för nu.
 - **Den sista attestanten kan göras om till initiator** om hen inte har väntande steg. Betalningar över tröskeln får då 409 ("ingen attestant") tills en ny attestant finns. Vi har inte lagt någon spärr på det.
-- **Det saknas ännu sätt att ta bort eller inaktivera en användare eller byta lösenord.** Ett lösenord som admin har satt kan användaren inte byta själv.
+- **En användare med historik kan inte tas bort, och det finns inget sätt att inaktivera en användare eller byta lösenord.** En användare som skapat betalningar eller deltagit i attest får därför ligga kvar. Att kunna avsluta ett sådant konto kräver en inaktivering (en spärrflagga som inloggningen kontrollerar) i stället för en borttagning. Ett lösenord som admin har satt kan användaren inte byta själv.
 - **Audit-rader för användare använder `entity_type = USER` och användarens id.** Audit-vyn i frontend öppnar betalningens tidslinje för `entityId` på varje rad, så en användarrad skulle visa tidslinjen för en betalning med samma id. → Frontend ska bara göra rader expanderbara när de gäller en betalning.
 
 ## Uppföljning

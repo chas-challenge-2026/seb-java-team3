@@ -186,7 +186,7 @@ export default function CreateUserModal({ onClose }: CreateUserModalProps) {
           label="Startlösenord"
           type="password"
           required
-          placeholder="Minst 8 tecken"
+          placeholder="Minst 12 tecken"
           autoComplete="new-password"
           value={formData.password}
           onChange={(event) => updateField("password", event.target.value)}

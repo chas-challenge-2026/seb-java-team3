@@ -17,6 +17,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByTenantId(Long tenantId);
 
+    // Har användaren skapat någon betalning? Används innan en användare tas bort.
+    boolean existsByCreatedBy(Long createdBy);
+
     // Reserverat belopp på ett konto: summan av betalningar från kontot som väntar på attest. Tillgängligt
     // saldo är saldot minus det, så en väntande betalning håller sina pengar tills den godkänns (dras)
     // eller avvisas (släpps). Inget lagras, så reservationen kan aldrig komma ur synk med betalningarna.

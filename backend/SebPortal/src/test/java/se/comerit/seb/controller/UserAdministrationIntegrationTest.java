@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -424,6 +425,113 @@ class UserAdministrationIntegrationTest {
 
         assertEquals("attestant", roleInDatabase(attestantA));
         assertEquals(0, auditCount("UPDATE_USER_ROLE"));
+    }
+
+    // --- Ta bort -------------------------------------------------------------------------------------
+
+    private ResultActions deleteAs(User actor, Number userId) throws Exception {
+        return mockMvc.perform(delete("/api/admin/users/{userId}", userId)
+                .header("Authorization", bearer(actor)));
+    }
+
+    private long usersWithId(Number id) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE id = ?", Long.class, id);
+    }
+
+    private ResultActions loginAsLisa() throws Exception {
+        return mockMvc.perform(post("/api/auth/login")
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"lisa@malmobygg.se\",\"password\":\"%s\"}".formatted(PASSWORD)));
+    }
+
+    @Test
+    void deletingAUserWithoutHistory_removesThem_theirSessions_andLogsIt() throws Exception {
+        loginAsLisa().andExpect(status().isOk());
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = ?", Long.class, initiatorA.getId()));
+
+        deleteAs(adminA, initiatorA.getId()).andExpect(status().isNoContent());
+
+        assertEquals(0, usersWithId(initiatorA.getId()));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = ?", Long.class, initiatorA.getId()));
+        // Den borttagna kan inte logga in, och dyker inte upp i listan
+        loginAsLisa().andExpect(status().isUnauthorized());
+        listAs(adminA).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+
+        String adminLog = mockMvc.perform(get("/api/audit").header("Authorization", bearer(adminA)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(UTF_8);
+        List<Map<String, Object>> entries = JsonPath.read(adminLog, "$[?(@.action=='DELETE_USER')]");
+        assertEquals(1, entries.size());
+        assertEquals("USER", entries.get(0).get("entityType"));
+        assertEquals("Sara Ek", entries.get(0).get("userName"));
+        assertEquals("Användare borttagen: Lisa Persson (lisa@malmobygg.se), roll initiator",
+                entries.get(0).get("description"));
+    }
+
+    // Historiken (vem som skapade och godkände vad) måste bevaras, så den som är kopplad till en betalning
+    // eller ett steg tas inte bort
+    @Test
+    void aUserWithHistory_cannotBeDeleted_andIsLeftAlone() throws Exception {
+        Payment payment = new Payment(COMPANY_A, 1L, "SE8550000000054910000003",
+                new BigDecimal("7500.00"), "Faktura", initiatorA.getId());
+        payment.addApprovalStep(new ApprovalStep(attestantA.getId(), 1));
+        paymentRepository.saveAndFlush(payment);
+
+        // Initiatorn har skapat betalningen, och attestanten är tilldelad steget (väntande)
+        for (User target : List.of(initiatorA, attestantA)) {
+            deleteAs(adminA, target.getId())
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value(
+                            "Användaren har betalningar eller atteststeg kopplade till sig och kan inte tas bort, "
+                                    + "eftersom historiken måste bevaras."));
+            assertEquals(1, usersWithId(target.getId()));
+        }
+
+        // Också när steget är avgjort och bara historiken återstår
+        jdbc.update("UPDATE approval_steps SET status = 'approved', decided_by = ?", attestantA.getId());
+        deleteAs(adminA, attestantA.getId()).andExpect(status().isConflict());
+        assertEquals(1, usersWithId(attestantA.getId()));
+        assertEquals(0, auditCount("DELETE_USER"));
+    }
+
+    @Test
+    void anAdministrator_cannotBeDeleted_notEvenTheAdminThemselves() throws Exception {
+        User secondAdmin = save(COMPANY_A, "Nora Ek", "nora@malmobygg.se", Role.ADMIN);
+
+        for (User target : List.of(adminA, secondAdmin)) {
+            deleteAs(adminA, target.getId())
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.message").value("En administratör kan inte tas bort."));
+            assertEquals(1, usersWithId(target.getId()));
+        }
+        assertEquals(0, auditCount("DELETE_USER"));
+    }
+
+    @Test
+    void aUserOfAnotherCompany_looksLikeAMissingUserWhenDeleted_andIsLeftAlone() throws Exception {
+        long erikId = jdbc.queryForObject("SELECT id FROM users WHERE email = 'erik@lundskonsult.se'", Long.class);
+
+        String other = deleteAs(adminA, erikId)
+                .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString(UTF_8);
+        String missing = deleteAs(adminA, 999_999)
+                .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString(UTF_8);
+
+        assertEquals(JsonPath.<String>read(missing, "$.message"), JsonPath.<String>read(other, "$.message"));
+        assertEquals(1, usersWithId(erikId));
+        assertEquals(0, auditCount("DELETE_USER"));
+    }
+
+    @Test
+    void onlyAnAdmin_mayDeleteAUser() throws Exception {
+        for (User notAdmin : List.of(attestantA, initiatorA)) {
+            deleteAs(notAdmin, initiatorA.getId()).andExpect(status().isForbidden());
+        }
+        mockMvc.perform(delete("/api/admin/users/{userId}", initiatorA.getId()))
+                .andExpect(status().isUnauthorized());
+
+        assertEquals(1, usersWithId(initiatorA.getId()));
+        assertEquals(0, auditCount("DELETE_USER"));
     }
 
     @Test
