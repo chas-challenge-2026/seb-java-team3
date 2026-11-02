@@ -24,6 +24,8 @@ public class PaymentService {
     // så att konto-id hos andra kunder inte går att kartlägga.
     private static final String FROM_ACCOUNT_NOT_AVAILABLE =
             "Från-kontot finns inte eller tillhör inte ditt företag";
+    // Används när användaren aldrig markerat något som sett: då räknas alla beslut.
+    private static final LocalDateTime NEVER_SEEN = LocalDateTime.of(1970, 1, 1, 0, 0);
 
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
@@ -181,11 +183,23 @@ public class PaymentService {
     }
 
     // Badge för initiatorn: samma mönster som ApprovalService.countPendingByAttestant, men databasen
-    // räknar. Användare och företag kommer från JWT, aldrig från anropet.
+    // räknar. Räknar beslut som fattats efter att användaren senast markerade sina betalningar som
+    // sedda. Användare och företag kommer från JWT, aldrig från anropet.
     @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
     @Transactional(readOnly = true)
     public int countChangedForInitiator(AuthenticatedUserContext user) {
-        return (int) paymentRepository.countDecidedByInitiator(user.tenantId(), user.userId());
+        LocalDateTime seenAt = userRepository
+                .findPaymentsSeenAt(user.userId(), user.tenantId())
+                .orElse(NEVER_SEEN);
+        return (int) paymentRepository.countDecidedByInitiator(
+                user.tenantId(), user.userId(), seenAt);
+    }
+
+    // Initiatorn har sett sina ändrade betalningar: badgen nollas tills nästa beslut fattas.
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @Transactional
+    public void markChangedSeen(AuthenticatedUserContext user) {
+        userRepository.markPaymentsSeen(user.userId(), user.tenantId(), LocalDateTime.now());
     }
 
 }

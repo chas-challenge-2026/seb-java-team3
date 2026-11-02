@@ -66,4 +66,13 @@ public class NewPaymentController {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
         return ResponseEntity.ok(Map.of("count", paymentService.countChangedForInitiator(user)));
     }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PostMapping("/changed-count/seen")
+    public ResponseEntity<Void> changedSeen() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        paymentService.markChangedSeen(user);
+        return ResponseEntity.noContent().build();
+    }
 }
+
