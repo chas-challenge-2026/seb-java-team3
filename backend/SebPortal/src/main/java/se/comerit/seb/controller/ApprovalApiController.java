@@ -46,7 +46,9 @@ public class ApprovalApiController {
         return ResponseEntity.ok(Map.of("count", count));
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    // Bara ATTESTANT fattar beslut. ADMIN får läsa attestkorgen och räknaren som översikt men
+    // godkänner och avvisar aldrig (ADR 0017).
+    @PreAuthorize("hasRole('ATTESTANT')")
     @PostMapping("/{stepId}/approve")
     public ResponseEntity<?> approve(@PathVariable Long stepId) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
@@ -55,7 +57,7 @@ public class ApprovalApiController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @PreAuthorize("hasRole('ATTESTANT')")
     @PostMapping("/{stepId}/reject")
     public ResponseEntity<?> reject(@PathVariable Long stepId,
                                     @RequestBody(required = false) RejectApprovalRequest request) {

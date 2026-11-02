@@ -251,7 +251,7 @@ public class AuditService {
         return response;
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasRole('INITIATOR')")
     @Transactional(readOnly = true)
     public List<MyPaymentStatusResponse> getMyPaymentStatuses(AuthenticatedUserContext user) {
         List<Payment> payments = paymentRepository

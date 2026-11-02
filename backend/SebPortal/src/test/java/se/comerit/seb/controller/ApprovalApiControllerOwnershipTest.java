@@ -101,6 +101,31 @@ class ApprovalApiControllerOwnershipTest {
         verifyNoInteractions(accountRepository, auditService);
     }
 
+    // Fyraögonprincipen (ADR 0017): den som skapat betalningen får inte godkänna eller avvisa den, inte
+    // ens som tilldelad attestant. Servicen nekar, controllern svarar 403 och inget ändras. Svaret har den
+    // generiska texten, eftersom åtkomstnekanden inte avslöjar orsaken för klienten; den riktiga orsaken
+    // loggas och prövas i ApprovalServiceTest.
+    @Test
+    void approveAndReject_asTheCreatorOfThePayment_returns403AndChangesNothing() throws Exception {
+        payment.setCreatedBy(ATTESTANT_A_ID);
+
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Du har inte behörighet att hantera det här atteststeget."));
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"Avvisar min egen\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Du har inte behörighet att hantera det här atteststeget."));
+
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(step.getComment());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
     @Test
     void reject_withAControlCharacterInTheMessage_returns400AndChangesNothing() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
@@ -130,7 +155,7 @@ class ApprovalApiControllerOwnershipTest {
         verifyNoInteractions(accountRepository, auditService);
     }
 
-    // Attestanten och en admin beslutar om samma betalning samtidigt: den som kommer tvåa ska få 409 och
+    // Två beslut om samma betalning (till exempel två flikar): det som kommer tvåa ska få 409 och
     // ett begripligt meddelande, inte 500, och ingenting ska ändras en gång till.
     @Test
     void approve_whenThePaymentWasAlreadyRejected_returns409AndChangesNothing() throws Exception {
@@ -200,44 +225,17 @@ class ApprovalApiControllerOwnershipTest {
         return jwtService.generateToken(new AuthenticatedUserContext(userId, TENANT_ID, Role.ATTESTANT));
     }
 
+    // ADR 0017: admin fattar inga beslut om betalningar, varken i sitt eget företag eller i ett annat.
+    // Spärren sitter i controllern, så varken steg, saldo eller audit berörs.
     @Test
-    void admin_canApproveAnotherAttestantsStepInTheirCompany() throws Exception {
-        Account account = mock(Account.class);
-        when(account.getBalance()).thenReturn(new BigDecimal("1000.00"));
-        when(accountRepository.findByIdAndTenantIdForUpdate(ACCOUNT_ID.intValue(), TENANT_ID))
-                .thenReturn(Optional.of(account));
-        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
-        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNoContent());
-        assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
-        org.mockito.Mockito.verify(account).setBalance(new BigDecimal("800.00"));
-        org.mockito.Mockito.verify(auditService).record(org.mockito.ArgumentMatchers.eq(TENANT_ID),
-                org.mockito.ArgumentMatchers.eq(99L), org.mockito.ArgumentMatchers.eq("APPROVE_PAYMENT"),
-                org.mockito.ArgumentMatchers.eq("PAYMENT"), org.mockito.ArgumentMatchers.eq(PAYMENT_ID),
-                org.mockito.ArgumentMatchers.anyString());
-    }
-
-    @Test
-    void admin_canRejectAnotherAttestantsStepInTheirCompany() throws Exception {
-        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
-        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNoContent());
-        assertEquals(PaymentStatus.REJECTED, payment.getStatus());
-        verifyNoInteractions(accountRepository);
-    }
-
-    // Ett annat företags steg ser ut som ett steg som inte finns (400), så att steg-id hos andra kunder
-    // inte går att kartlägga (R-04)
-    @Test
-    void admin_cannotApproveOrRejectAnotherCompanysStep() throws Exception {
-        String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID + 1, Role.ADMIN));
-        for (String action : new String[] {"approve", "reject"}) {
-            mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
-                            .header("Authorization", "Bearer " + token))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Atteststeget hittades inte."));
+    void admin_cannotApproveOrRejectAnyStep() throws Exception {
+        for (long adminTenant : new long[] {TENANT_ID, TENANT_ID + 1}) {
+            String token = jwtService.generateToken(new AuthenticatedUserContext(99L, adminTenant, Role.ADMIN));
+            for (String action : new String[] {"approve", "reject"}) {
+                mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
+                                .header("Authorization", "Bearer " + token))
+                        .andExpect(status().isForbidden());
+            }
         }
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());

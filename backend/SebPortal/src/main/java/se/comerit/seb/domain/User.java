@@ -53,4 +53,7 @@ public class User {
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
     public LocalDateTime getPaymentsSeenAt() { return paymentsSeenAt; }
+
+    // Bara användaradministrationen byter roll (UserAdminService.changeRole), och då med användarens rad låst.
+    public void changeRole(Role newRole) { this.role = newRole; }
 }

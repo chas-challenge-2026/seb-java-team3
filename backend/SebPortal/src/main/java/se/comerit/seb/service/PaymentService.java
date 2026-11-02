@@ -16,6 +16,7 @@ import se.comerit.seb.security.AuthenticatedUserContext;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class PaymentService {
@@ -107,8 +108,14 @@ public class PaymentService {
         return amount.compareTo(thresholds.getTwoAttestantThreshold()) > 0 ? 2 : 1;
     }
 
-    private List<User> findAttestants(Long tenantId, int required) {
-        List<User> attestants = userRepository.findByTenantIdAndRoleOrderByIdAsc(tenantId, Role.ATTESTANT);
+    // Skaparen väljs aldrig (ADR 0017): en initiator som just blivit attestant kan ha kvar en initiator-token
+    // en stund, och en betalning vars steg tillhör skaparen skulle fastna, eftersom skaparen inte får godkänna
+    // sin egen. Skaparen räknas bort före kontrollen av antalet, så att "för få attestanter" gäller de
+    // attestanter som faktiskt kan godkänna.
+    private List<User> findAttestants(Long tenantId, int required, Long creatorId) {
+        List<User> attestants = userRepository.findByTenantIdAndRoleOrderByIdAsc(tenantId, Role.ATTESTANT).stream()
+                .filter(candidate -> !Objects.equals(candidate.getId(), creatorId))
+                .toList();
 
         // Betalningen stoppas redan här. Annars hade den reserverat pengar i väntan på ett godkännande som
         // ingen kan ge.
@@ -122,7 +129,8 @@ public class PaymentService {
         return attestants.subList(0, required);
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    // Bara INITIATOR. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
+    @PreAuthorize("hasRole('INITIATOR')")
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 
@@ -163,8 +171,9 @@ public class PaymentService {
             payment.setExecutedAt(LocalDateTime.now());
 
         } else {
-            // Över tröskeln: ett godkännandesteg per attestant som krävs, i tur och ordning.
-            List<User> attestants = findAttestants(request.tenantId(), requiredAttestants(request.amount()));
+            // Över tröskeln: ett godkännandesteg per attestant som krävs, i tur och ordning. Skaparen väljs aldrig.
+            List<User> attestants = findAttestants(
+                    request.tenantId(), requiredAttestants(request.amount()), request.createdBy());
 
             int stepNumber = 1;
             for (User attestant : attestants) {
@@ -193,7 +202,7 @@ public class PaymentService {
     // Badge för initiatorn: samma mönster som ApprovalService.countPendingByAttestant, men databasen
     // räknar. Räknar beslut som fattats efter att användaren senast markerade sina betalningar som
     // sedda. Användare och företag kommer från JWT, aldrig från anropet.
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasRole('INITIATOR')")
     @Transactional(readOnly = true)
     public int countChangedForInitiator(AuthenticatedUserContext user) {
         LocalDateTime seenAt = userRepository
@@ -204,7 +213,7 @@ public class PaymentService {
     }
 
     // Initiatorn har sett sina ändrade betalningar: badgen nollas tills nästa beslut fattas.
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasRole('INITIATOR')")
     @Transactional
     public void markChangedSeen(AuthenticatedUserContext user) {
         userRepository.markPaymentsSeen(user.userId(), user.tenantId(), LocalDateTime.now());

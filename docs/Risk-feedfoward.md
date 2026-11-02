@@ -6,8 +6,8 @@
        
     3. Autoincrementerande ID. Läs om GUID. PRIO. Implementera. /Backend Adnan
        
-    4. Accessmatris som listar alla roller, vilka actions de har får lov att göra. Finns det permission escalation. Tid – 2.10 – Lågt – Lista över actions på roller i /docs. -- Breddning. 
-    Status 2026-11-02: finns i `docs/accessmatris.md`, med vertikal och horisontell behörighet (punkt 2). Ett eskaleringshål är öppet: en admin kan godkänna sin egen betalning (R-03).
+    4. Accessmatris som listar alla roller, vilka actions de har får lov att göra. Finns det permission escalation. Tid – 2.10 – Lågt – Lista över actions på roller i /docs. -- LÖST: accessmatrisen finns i `docs/accessmatris.md` och ADR 0017. 
+    Status 2026-11-02: finns i `docs/accessmatris.md`, med vertikal och horisontell behörighet (punkt 2). Eskaleringshålet där en admin kunde godkänna sin egen betalning (R-03) är stängt i #242 (ADR 0017).
 
     5. Ehm MD5 hashar inte säkert heller. Det kommer ni behöva byta ut till en starkare om ni inte har gjort det redan. - MD5 borttaget, nu använder vi Bcrypt -- LÖST
 

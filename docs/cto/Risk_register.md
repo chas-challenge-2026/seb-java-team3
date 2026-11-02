@@ -85,7 +85,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Ägarskapskontroll ur security context; negativt 403-test för fel attestant
 - **Bevis:** `ApprovalApiControllerOwnershipTest` (9/9 gröna 2026-11-02), `DualApprovalIntegrationTest` (dubbel attest)
-- **Kvar:** En admin kan både skapa en betalning med ett atteststeg och godkänna den; vid dubbel attest är det stoppat (ADR 0016). Admin får skapa betalningar och hoppar över ägarkontrollen, och `ApprovalService` jämför inte beslutsfattaren med skaparen. Provkört 2026-11-02 mot Postgres: en betalning på 6 000 kr genomfördes med admin som både skapare och beslutsfattare. Se `docs/accessmatris.md`. Neka fallet och lägg till ett negativt test. Admins rätt att godkänna andras steg är avsiktlig och kan vara kvar
+- **Kvar:** Hålet där en admin kunde skapa en betalning med ett atteststeg och godkänna den själv är stängt i #242 (ADR 0017): admin kan varken skapa, godkänna eller avvisa betalningar, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den, oavsett roll. Bevis: `RoleAuthorizationTest`, `ApprovalApiControllerOwnershipTest` och `ApprovalServiceTest`. Postgres-testerna `DualApprovalIntegrationTest` och `TenantIsolationIntegrationTest` är omskrivna men inte körda lokalt; sätt status när CI är grön. Se `docs/accessmatris.md`
 - **Ansvarig:** Backend
 - **Status:** In progress
 

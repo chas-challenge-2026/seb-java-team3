@@ -16,12 +16,13 @@ Det här är v2, en ombyggnad av det avsiktligt trasiga v1-systemet. Backend är
 |----------|------|------|
 | Säker inloggning (JWT, BCrypt) | alla | `/login` |
 | Översikt över konton och väntande attester | alla | `/` |
-| Skapa betalning, IBAN kontrolleras med MOD97 | initiator, admin | `/payments/new` |
-| Följa status på egna betalningar | initiator, admin | `/my-payments` |
-| Godkänna eller avvisa betalning, badge visar antal väntande | attestant, admin | `/attest` |
+| Skapa betalning, IBAN kontrolleras med MOD97 | initiator | `/payments/new` |
+| Följa status på egna betalningar | initiator | `/my-payments` |
+| Godkänna eller avvisa betalning, badge visar antal väntande | attestant | `/attest` |
 | Granskningslogg och tidslinje per betalning | attestant, admin | `/audit` |
+| Lista och skapa användare, byta roll (API, sida kommer) | admin | `/api/admin/users` |
 
-Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest, och betalningar över `payment.approval.two-attestant-threshold` (50 000 kr) kräver två olika attestanter i tur och ordning (ADR 0016). Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg.
+Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest, och betalningar över `payment.approval.two-attestant-threshold` (50 000 kr) kräver två olika attestanter i tur och ordning (ADR 0016). Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den. Admin är en administrativ roll som inte skapar, godkänner eller avvisar betalningar (ADR 0017).
 
 ---
 

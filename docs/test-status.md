@@ -9,13 +9,13 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 42 klasser, 351 tester | `mvn -B package --file backend/SebPortal/pom.xml` grön lokalt 2026-11-02 i en Maven-container med Docker igång: 346 godkända, 5 överhoppade utan byggd `libauditsigner.so`. Alla 60 körningar i `ApprovalConcurrencyIntegrationTest` godkända (#235). |
+| Backend · JUnit | 54 klasser, 509 tester | Lokalt 2026-11-02 utan Docker, efter att `develop` mergats in i #242: 412 godkända och 5 överhoppade (`libauditsigner.so` saknas) av de 417 som inte kräver Docker, inga fel. De 92 testerna i `DualApprovalIntegrationTest` (14), `TenantIsolationIntegrationTest` (14), `ApprovalServiceTransactionIntegrationTest` (4) och `ApprovalConcurrencyIntegrationTest` (60 körningar) kräver Docker och kördes inte lokalt. Alla fyra är ändrade i #242 (admin kan inte längre skapa eller godkänna, och skaparen kan inte godkänna sin egen betalning) och är kompilerade men inte körda; CI kör dem. |
 | Frontend · Vitest | 24 filer, 199 tester | Alla gröna vid lokal körning 2026-11-02; typkontroll (`tsc`) och lint rena |
 | Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla gröna 2026-10-28 i en gcc-container med Check; sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-10-28 |
 | E2E · Playwright | 4 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning), `rejection-reason-233.spec.ts` | **6 av 7 gröna 2026-11-02** mot Vite dev-servern med backend i Docker. `mvp-flow.spec.ts` faller, se avsnitt 2 |
 
-Backendkörningen 2026-11-02 omfattade 351 tester utan fel, inklusive de fem i `IbanValidatorServiceTest`. Fem tester i `AuditSignerNativeIntegrationTest` hoppas över när `libauditsigner.so` inte är byggd. `ApprovalServiceTransactionIntegrationTest`, `ApprovalConcurrencyIntegrationTest` och `TenantIsolationIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`; den nya samtidighetsklassen ingick i samma kommando lokalt. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Backendkörningen 2026-11-02 omfattade 417 tester utan fel (utan Docker), inklusive de fem i `IbanValidatorServiceTest`. Fem tester i `AuditSignerNativeIntegrationTest` hoppas över när `libauditsigner.so` inte är byggd. `ApprovalServiceTransactionIntegrationTest`, `ApprovalConcurrencyIntegrationTest`, `TenantIsolationIntegrationTest` och `DualApprovalIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`; den nya samtidighetsklassen ingick i samma kommando lokalt. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -42,7 +42,11 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Login skyddas mot SQL-injektion (BUG-001, R-06) | Int | Grön | `AuthServiceInjectionTest` · 12 tester med H2 |
 | Lösenord hanteras med BCrypt (BUG-002, R-06) | Int | Grön | `AuthServiceInjectionTest.controlCase_validCredentialsAuthenticate`; `AuthServiceMd5Test` · 3 (H2); `AuthControllerMd5LoginTest` · 3 (401 för MD5-hash); `V7PasswordMigrationTest` · 5 (Flyway V1–V7) |
 | Attestant får bara hantera egna steg (BUG-011, R-03) | Int | Grön | `ApprovalApiControllerOwnershipTest` · 3; `ApprovalServiceTest.approve/reject_shouldThrowAccessDenied_*` |
-| Roller och åtkomst via `@PreAuthorize` (#79) | Int | Delvis | `RoleAuthorizationTest` · 22; se `docs/accessmatris.md` |
+| Roller och åtkomst via `@PreAuthorize` (#79) | Int | Delvis | `RoleAuthorizationTest` · 28; se `docs/accessmatris.md` |
+| Admin är en administrativ roll: skapar, godkänner och avvisar inga betalningar och har inga egna betalningar (ADR 0017) | Int | Grön | `RoleAuthorizationTest.admin*` (403 på skapa, godkänn, avvisa, `/config`, `/changed-count`, `/changed-count/seen`, `/api/my-payments`); `ApprovalApiControllerOwnershipTest.admin_cannotApproveOrRejectAnyStep`; `TenantIsolationIntegrationTest.admin_cannotApproveOrReject_inTheOwnCompanyOrAnother` och `DualApprovalIntegrationTest.anAdminCannotDecideOnAnyStep_butSeesWhatWaits` (Postgres, ej körda lokalt) |
+| Den som skapat en betalning kan inte godkänna eller avvisa den, ens som tilldelad attestant (ADR 0017) | Unit + Int | Grön | `ApprovalServiceTest.approve/reject_shouldRefuseTheCreatorOfThePayment_*`; `ApprovalApiControllerOwnershipTest.approveAndReject_asTheCreatorOfThePayment_*`; `DualApprovalIntegrationTest.theCreatorOfAPaymentCannotCountAsOneOfTheTwo` (Postgres, ej körd lokalt) |
+| Betalningen tilldelas aldrig sin skapare, inte heller vid dubbel attest | Unit + Int | Grön | `PaymentServiceTest.attestantSelection_*` · 2 och `twoStepPayment_*` · 2; `DualApprovalIntegrationTest.aCreatorWhoHasJustBecomeAnAttestant_*` (Postgres, ej körd lokalt) |
+| Delad BCrypt-encoder (kostnad 12) och normaliserad e-post vid inloggning, tom adress slås aldrig upp | Unit + Int | Grön | `PasswordEncoderConfigTest` · 6; `EmailAddressTest` · 4; `AuthServiceEmailTest` · 10 (H2) |
 | JWT-signering, utgång och ogiltiga token | Unit | Grön | `JwtServiceTest` · 11; `JwtAuthenticationFilterTest` · 3; `JwtUserContextTest` · 5 |
 | Token förfalskad med den gamla, publika hemligheten nekas; nyckeln slumpas vid start (ADR 0011) | Unit | Grön | `JwtServiceTest.tokenForgedWithAKnownSecret_isOnlyAcceptedByAServerUsingThatSecret`, `blankSecret_*`, `compromisedDevSecret_shouldBeRejectedAtStartup`, `explicitSecret_mustBeAtLeast32Bytes` |
 | Refresh token: utfärda, rotera, återanvändning spärrar hela familjen, utloggning, utgång och borttagen användare (ADR 0012) | Int | Grön | `RefreshTokenServiceTest` · 15 (H2); `RefreshTokenRepositoryTest` · 9 (H2); `RefreshTokenTest` · 2 |
@@ -72,6 +76,26 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 - `ProtectedRoute.test.tsx` finns inte. Test behövs för omdirigering till login och spärr vid fel roll.
 - Refresh token (ADR 0012) används av både backend och frontend, och `jwt.expiration-ms` är 15 minuter. Hela flödet över riktig HTTP mot Postgres 12 (Flyway V1–V8, cookie-attribut, rotation, återanvändning som spärrar familjen, utloggning och två samtidiga förnyelser som ger exakt en lyckad) kördes manuellt 2026-10-12. Racet från granskningen (en gammal token och den aktuella används samtidigt) reproducerades mot Postgres 12 2026-10-13: före fixen blev en aktiv token kvar i en spärrad familj, efter låset per användare blev ingen kvar, i båda ordningarna. Enhetstesterna låser fast att låset tas först, men själva samtidigheten bevisas bara av de manuella körningarna, eftersom H2 inte har samma radlåssemantik. De finns inte som incheckade tester. Testcontainers finns nu i sviten (#193), så de kan checkas in som tester mot Postgres.
 
+### Användaradministration (admin)
+
+| Kontroll | Typ | Status | Teststöd |
+| --- | --- | --- | --- |
+| Lista och skapa användare kräver ADMIN: 401 utan token, 403 för initiator och attestant, och tjänsten anropas aldrig | Int | Grön | `AdminUserControllerTest` · 19; `UserAdministrationIntegrationTest.onlyAnAdmin_mayListOrCreate_*` (H2) |
+| Admin ser bara det egna företaget, med id, namn, e-post och roll och aldrig en hash | Int | Grön | `UserAdministrationIntegrationTest.anAdmin_seesOnlyTheirOwnCompany_*` (H2, två företag) |
+| En ny användare hamnar alltid i admins företag, även med ett annat `tenantId` i anropet | Int | Grön | `UserAdministrationIntegrationTest.aNewUser_alwaysBelongsToTheAdminsCompany_*`; `AdminUserControllerTest.create_asAdmin_returns201*` |
+| Validering: namn, e-post, lösenord (minst 12 tecken, högst 72 byte) och roll. ADMIN kan inte tilldelas | Unit + Int | Grön | `UserAdminServiceTest` · 42 (parametriserad); `UserAdministrationIntegrationTest.invalidInput_*` |
+| Lösenordet sparas som BCrypt kostnad 12 och den nya användaren kan logga in | Int | Grön | `UserAdministrationIntegrationTest.aCreatedUser_getsAHashedPassword_andCanLogIn` (H2) |
+| Upptagen e-post ger 409, oavsett stavning och även hos annat företag. Samtidiga dubbletter fångas | Unit + Int | Delvis | `UserAdministrationIntegrationTest.aTakenEmail_*` (H2); `UserAdminServiceTest.createUser_whenTheDatabaseRefusesADuplicate_*` (mockad databas) |
+| Rolländring: administratörer (även admins egen) kan inte ändras, annat företag ger 404, attestant med väntande steg ger 409, samma roll är ett no-op | Unit + Int | Grön | `UserAdminServiceTest.changeRole_*`; `UserAdministrationIntegrationTest` (H2); `AdminUserControllerTest.changeRole_*` |
+| `CREATE_USER` och `UPDATE_USER_ROLE` loggas utan lösenord och syns bara för admin i det egna företaget | Int | Grön | `UserAdministrationIntegrationTest.creatingAUser_isLoggedForTheAdminOnly_*`, `changingARole_*` |
+
+**Avgränsningar och kvar att testa**
+
+- H2-tabellen har inget unikt index på e-post (det finns bara i Postgres, V1). Dubblettfångsten vid två samtidiga anrop bevisas därför bara av ett enhetstest med en mockad databas, och radlåset i `findByIdAndTenantIdForUpdate` är inte testat mot Postgres.
+- En rolländring samtidigt som en betalning skapas är inte testad. `PaymentServiceTest` visar att en betalning aldrig tilldelas sin skapare, men inte tävlingen mellan de två.
+- E-postadressen är unik i hela databasen, så en admin kan se om en adress finns hos ett annat företag (409). Testet dokumenterar det.
+- Frontend för användaradministration (#243) finns inte än och saknar tester. Den ska också bara göra audit-rader expanderbara när de gäller en betalning.
+
 ### Betalning och godkännande
 
 | Kontroll | Typ | Status | Teststöd |
@@ -89,7 +113,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Avvisa i granskningsrutan med valfri anledning; anledningen sparas, syns i audit och i Mina betalningar, längden kontrolleras (255) och kontrolltecken ger 400 | Unit + Int + Komp | Grön | `ApprovalServiceRejectCommentTest` · 10; `ApprovalApiControllerOwnershipTest.reject_withAControlCharacter_*`; `AttestGrid.test.tsx` (avvisa) · 4; `formatters.test.ts` (`formatRejectionReason`) · 2 |
 | Meddelandet vid avvisning sparas atomärt med beslutet (#228): efter commit står det på steget och på auditraden, och vid rollback försvinner det tillsammans med resten. Triggern i testet kontrollerar före felet att meddelandet står på båda raderna | Int (Postgres 12) + Unit | Grön | `ApprovalServiceTransactionIntegrationTest` · 4 (`commits_rejection_message_*`, `rollback_removes_the_rejection_message_*`); `AuditServiceSigningTest.record_withAComment_*` |
 | V10 lägger till `audit_entries.comment` och för över meddelandet från avvisningar som gjordes före V10, bara inom auditradens företag (#228, R-04) | Int | Grön | `V10AuditCommentMigrationTest` · 7 (riktiga migrationer på H2); de två testerna för företagsgränsen föll när tenant-villkoret togs bort i ett mutationsprov 2026-11-02. Överföringen kördes också mot Postgres 12 med data 2026-11-02, men det är inte ett incheckat test |
-| Ett andra beslut på samma betalning (t.ex. attestant och admin samtidigt) ger 409 med begripligt meddelande, ändrar ingenting och attestkorgen hämtas om | Int + Unit | Grön | `ApprovalApiControllerOwnershipTest.approve_whenThePaymentWasAlreadyRejected_*`, `reject_whenThePaymentWasAlreadyApproved_*`; `useApprovals.test.tsx` · 3 |
+| Ett andra beslut på samma betalning (t.ex. attestanten i två flikar) ger 409 med begripligt meddelande, ändrar ingenting och attestkorgen hämtas om | Int + Unit | Grön | `ApprovalApiControllerOwnershipTest.approve_whenThePaymentWasAlreadyRejected_*`, `reject_whenThePaymentWasAlreadyApproved_*`; `useApprovals.test.tsx` · 3 |
 | Samtidiga godkännanden ger inte dubbel debitering (R-01) | Int | Grön | `ApprovalConcurrencyIntegrationTest` · 3 scenarier × 20 körningar mot Postgres 12: dubbelt godkännande, godkänn/avvisa och två betalningar från samma konto (#235) |
 | `GET /api/accounts` visar bara det egna företagets konton, sorterade på id (#184, #185, #186, R-04) | Int | Grön | `AccountServiceTest` · 5 (H2); `AccountControllerSecurityTest` · 5 (401 utan/ogiltig token, 403 ATTESTANT, 200 INITIATOR och ADMIN) |
 | Saldot i `/api/accounts` stämmer efter en attesterad betalning (#186) | Int | Grön | `AccountBalanceAfterApprovalTest` · 2 (H2) |
@@ -189,6 +213,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | --- | --- | --- |
 | Avvisa betalning med kommentar | Grön | Byggt i #226: avvisa med valfri anledning, som sparas och syns i audit och Mina betalningar. Görs nu i granskningsrutan i attestkorgen. Utvidgat i #228: meddelandet (högst 255 tecken) sparas på steget och på auditraden i samma transaktion och visas i Historik. Godkännande tar inget meddelande, enligt teamets beslut 2026-11-02. Se "Betalning och godkännande". |
 | Påminnelse via e-post med kö och retry | Ej testad | Inte byggt. |
+| Användaradministration för admin (lista, skapa, byta roll) | Delvis | Backend byggt och testat i #242 (se "Användaradministration"). Frontend (#243) återstår. |
 | Dubbel attest över 50 000 kr | Grön | ADR 0016. Tröskeln, ordningen, spärren mot att samma person godkänner två gånger, avvisning och reservation körs mot Postgres i `DualApprovalIntegrationTest`. Gränsfallen ligger i `PaymentServiceTest`, och hela flödet i webbläsaren i `frontend/e2e/dual-approval.spec.ts`. |
 | Batch/CSV enligt RFC 4180 med allt-eller-inget | Delvis | Native-parsern i `native/csv` har 37 Check-tester, som inte körs i CI. Endpoint, vy och allt-eller-inget är inte byggda. |
 
@@ -201,6 +226,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | 3 | Testa behörighet för `/api/payments/config` och `/api/payments/changed-count`. | Tenant-gränserna är testade (`TenantIsolationIntegrationTest`), men de här två endpointsen saknar rolltest (`docs/accessmatris.md`). |
 | 4 | Testa omdirigeringen i skyddade routes; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
 | 5 | Rätta de två missvisande testnamnen. | Testnamnen ska spegla vad som faktiskt testas. |
+| 6 | Kör Docker-sviten efter #242 och testa e-postens unikhet och radlåset vid rolländring mot Postgres. | De fyra Testcontainers-klasserna ändrades utan att köras lokalt, och H2 har inget unikt e-postindex. |
 
 ## 6. Köra testerna
 

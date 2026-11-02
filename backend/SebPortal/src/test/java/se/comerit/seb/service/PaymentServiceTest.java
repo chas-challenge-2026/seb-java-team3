@@ -546,6 +546,87 @@ class PaymentServiceTest {
         verifyNoInteractions(auditService);
     }
 
+    // En initiator som just blivit attestant kan ha kvar en initiator-token en stund och skapa en betalning. Hen
+    // får aldrig sig själv som attestant: skaparen får inte godkänna sin egen betalning, så den skulle fastna.
+    @Test
+    void attestantSelection_skipsTheCreatorOfThePayment() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, accountRepo, mock(AuditService.class), "20000.00");
+
+        User creator = new User(1L, "Lisa Persson", "lisa@example.com", "hash", Role.ATTESTANT);
+        User other = new User(1L, "Johan Berg", "johan@example.com", "hash", Role.ATTESTANT);
+        ReflectionTestUtils.setField(creator, "id", 10L);
+        ReflectionTestUtils.setField(other, "id", 20L);
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT)).thenReturn(List.of(creator, other));
+
+        service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("7500"), "Test", 10L));
+
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepo).save(saved.capture());
+        assertEquals(List.of(20L),
+                saved.getValue().getApprovalSteps().stream().map(ApprovalStep::getAttestantId).toList());
+    }
+
+    @Test
+    void attestantSelection_whenTheCreatorIsTheOnlyAttestant_isRefusedAndSavesNothing() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, accountRepo, auditService, "20000.00");
+
+        User creator = new User(1L, "Lisa Persson", "lisa@example.com", "hash", Role.ATTESTANT);
+        ReflectionTestUtils.setField(creator, "id", 10L);
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT)).thenReturn(List.of(creator));
+
+        assertThrows(NoAttestantAvailableException.class, () -> service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("7500"), "Test", 10L)));
+
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService);
+    }
+
+    // Dubbel attest (ADR 0016) och skaparregeln (ADR 0017) tillsammans: skaparen räknas bort först, så de
+    // två stegen går till de två första av de övriga attestanterna, i id-ordning.
+    @Test
+    void twoStepPayment_skipsTheCreator_andPicksTheNextTwoAttestantsInOrder() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                mock(AuditService.class), "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(10L), attestant(21L), attestant(22L), attestant(23L)));
+
+        service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("50000.01"), "Test", 10L));
+
+        assertEquals(List.of(21L, 22L),
+                savedSteps(paymentRepo).stream().map(ApprovalStep::getAttestantId).toList());
+    }
+
+    // Räknar man bort skaparen räcker inte attestanterna till två steg: betalningen stoppas redan här.
+    @Test
+    void twoStepPayment_whenTheCreatorLeavesTooFewAttestants_isRefusedAndSavesNothing() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                auditService, "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(10L), attestant(21L)));
+
+        assertThrows(NoAttestantAvailableException.class, () -> service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("50000.01"), "Test", 10L)));
+
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService);
+    }
+
     private static CreatePaymentRequest paymentOf(String amount) {
         return new CreatePaymentRequest(1L, 1L, "SE8550000000054910000003", new BigDecimal(amount), "Test", 1L);
     }

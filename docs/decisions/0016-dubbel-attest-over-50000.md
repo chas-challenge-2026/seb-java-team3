@@ -5,6 +5,7 @@
 - **Deltagare:** Team-seb-3 drivande: Pontus Ingenius
 - **Berör:** Betalningar och attestflöde
 - **Relaterade issues:** R-03, R-05
+- **Delvis ändrad av:** [ADR 0017](0017-admin-ar-en-administrativ-roll.md). Admin beslutar inte längre om steg, så admin är inte längre nödutgång när en attestant är borta, och R-03 (admin godkänner sin egen betalning) är stängd. Texten nedan beskriver beslutet som det togs.
 - **Relaterat:** [ADR 0003](0003-mvp-scope-och-avgransningar.md), [ADR 0013](0013-avgransning-av-UX-feedback-infor-MVP.md), [ADR 0015](0015-strikt-storre-an-for-attesttroskeln.md), `docs/backlog.md`, `docs/accessmatris.md`
 
 ## Kontext

@@ -87,9 +87,8 @@ public class ApprovalService {
                 .toList();
     }
 
-    // Det som visas i attestkorgen och räknas i badgen: steget som är på tur, om användaren får besluta om
-    // det. Attest 2 syns alltså inte förrän attest 1 är klar, och en admin ser inte ett steg som hen ändå
-    // skulle nekas att godkänna.
+    // Det som visas i attestkorgen och räknas i badgen: steget som är på tur. Attest 2 syns alltså inte
+    // förrän attest 1 är klar. En admin ser steget som översikt (ADR 0017) men får inte besluta om det.
     private static Optional<ApprovalStep> stepUserCanDecide(Payment payment, AuthenticatedUserContext user) {
         return payment.getApprovalSteps().stream()
                 .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
@@ -99,8 +98,7 @@ public class ApprovalService {
     }
 
     // Dubbel attest ska vara två av varandra oberoende personer (ADR 0016): den som har skapat betalningen
-    // eller redan godkänt ett av stegen får inte godkänna fler. Kontrollen behövs för admin, som får besluta
-    // om alla företagets steg. En betalning med ett steg berörs inte.
+    // eller redan godkänt ett av stegen får inte godkänna fler. En betalning med ett steg berörs inte.
     private static boolean breaksDualControl(Payment payment, Long actorId) {
         List<ApprovalStep> steps = payment.getApprovalSteps();
         if (steps.size() < 2) {
@@ -121,13 +119,14 @@ public class ApprovalService {
         }
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    // Bara ATTESTANT fattar beslut. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void approveForUser(Long approvalStepId, AuthenticatedUserContext user) {
         approveInternal(approvalStepId, user.userId(), user);
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void approve(Long approvalStepId, Long actorId) {
         approveInternal(approvalStepId, actorId, null);
@@ -157,10 +156,11 @@ public class ApprovalService {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
-        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
+        refuseDecisionByCreator(payment, actorId, "godkänna");
 
         requireNoEarlierStepPending(payment, approvalStep);
 
@@ -226,13 +226,13 @@ public class ApprovalService {
         }
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void rejectForUser(Long approvalStepId, AuthenticatedUserContext user, String comment) {
         rejectInternal(approvalStepId, user.userId(), comment, user);
     }
 
-    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void reject(Long approvalStepId, Long actorId, String comment) {
         rejectInternal(approvalStepId, actorId, comment, null);
@@ -282,10 +282,11 @@ public class ApprovalService {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
         }
 
-        if (!(user != null && user.isAdmin()) && !Objects.equals(approvalStep.getAttestantId(), actorId)) {
+        if (!Objects.equals(approvalStep.getAttestantId(), actorId)) {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
+        refuseDecisionByCreator(payment, actorId, "avvisa");
 
         requireNoEarlierStepPending(payment, approvalStep);
 
@@ -321,6 +322,16 @@ public class ApprovalService {
                 description,
                 comment
         );
+    }
+
+    // Fyraögonprincipen (ADR 0017): den som skapat en betalning får aldrig själv godkänna eller avvisa den,
+    // även om hen råkar vara tilldelad steget (till exempel efter en rolländring). Kontrollen sitter i
+    // servicen och gäller alla vägar in, och sker innan något ändras.
+    private static void refuseDecisionByCreator(Payment payment, Long actorId, String verb) {
+        if (Objects.equals(payment.getCreatedBy(), actorId)) {
+            throw new ApprovalStepAccessDeniedException(
+                    "Du kan inte " + verb + " en betalning som du själv har skapat.");
+        }
     }
 
     // Betalningen bakom steget, låst tills transaktionen är klar. Ett annat företags steg ser ut precis

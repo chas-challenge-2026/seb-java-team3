@@ -64,15 +64,14 @@ class DualApprovalIntegrationTest {
 
     private Long tenantId;
     private long account;
+    private long initiator;
     private long firstAttestant;
     private long secondAttestant;
     private long admin;
-    private long otherAdmin;
     private String initiatorToken;
     private String firstAttestantToken;
     private String secondAttestantToken;
     private String adminToken;
-    private String otherAdminToken;
 
     @BeforeEach
     void seedCompany() {
@@ -82,18 +81,16 @@ class DualApprovalIntegrationTest {
                 """);
 
         tenantId = jdbc.queryForObject("INSERT INTO tenants (name) VALUES ('Bolaget AB') RETURNING id", Long.class);
-        long initiator = user(tenantId, "Ina Initiatör", "initiator", "initiator");
+        initiator = user(tenantId, "Ina Initiatör", "initiator", "initiator");
         firstAttestant = user(tenantId, "Första Attestant", "first", "attestant");
         secondAttestant = user(tenantId, "Andra Attestant", "second", "attestant");
         admin = user(tenantId, "Ada Admin", "admin", "admin");
-        otherAdmin = user(tenantId, "Olle Admin", "other-admin", "admin");
         account = account(tenantId);
 
         initiatorToken = token(initiator, tenantId, Role.INITIATOR);
         firstAttestantToken = token(firstAttestant, tenantId, Role.ATTESTANT);
         secondAttestantToken = token(secondAttestant, tenantId, Role.ATTESTANT);
         adminToken = token(admin, tenantId, Role.ADMIN);
-        otherAdminToken = token(otherAdmin, tenantId, Role.ADMIN);
     }
 
     @Test
@@ -143,30 +140,24 @@ class DualApprovalIntegrationTest {
         assertEquals(List.of("CREATE_PAYMENT", "APPROVE_STEP", "APPROVE_PAYMENT"), auditActions(payment));
     }
 
-    // Kärnan i dubbel attest: admin får besluta om alla företagets steg, men inte vara båda personerna
+    // ADR 0017: admin är en administrativ roll och fattar inga beslut om betalningar, så admin kan varken vara en
+    // av de två eller ersätta en av dem. Admin ser däremot steget som är på tur, som översikt.
     @Test
-    void anAdminCannotApproveBothSteps() throws Exception {
+    void anAdminCannotDecideOnAnyStep_butSeesWhatWaits() throws Exception {
         long payment = createPayment(OVER_TWO_ATTESTANT_THRESHOLD, initiatorToken);
         long step1 = stepId(payment, 1);
         long step2 = stepId(payment, 2);
 
-        assertEquals(204, perform(post("/api/approvals/" + step1 + "/approve"), adminToken).status());
-
-        // Steget försvinner också från adminens korg, eftersom hen ändå skulle nekas
-        assertEquals(List.of(), queue(adminToken));
+        assertEquals(List.of(step1), queue(adminToken));
+        assertEquals(403, perform(post("/api/approvals/" + step1 + "/approve"), adminToken).status());
+        assertEquals(403, perform(post("/api/approvals/" + step1 + "/reject"), adminToken).status());
         assertEquals(403, perform(post("/api/approvals/" + step2 + "/approve"), adminToken).status());
+
         assertEquals("pending_approval", paymentStatus(payment));
+        assertEquals("pending", stepStatus(step1));
         assertEquals("pending", stepStatus(step2));
         assertEquals(0, STARTING_BALANCE.compareTo(balance()));
-
-        // En annan person kan slutföra, och loggen pekar ut den som faktiskt beslutade
-        assertEquals(List.of(step2), queue(otherAdminToken));
-        assertEquals("Ada Admin",
-                JsonPath.read(getOk("/api/approvals", otherAdminToken), "$[0].previousApprovals[0].approverName"));
-        assertEquals(204, perform(post("/api/approvals/" + step2 + "/approve"), otherAdminToken).status());
-        assertEquals("completed", paymentStatus(payment));
-        assertEquals(admin, decidedBy(step1));
-        assertEquals(otherAdmin, decidedBy(step2));
+        assertNull(decidedBy(step1));
     }
 
     @Test
@@ -182,19 +173,36 @@ class DualApprovalIntegrationTest {
         assertEquals("pending_approval", paymentStatus(payment));
     }
 
+    // Skaparen kan inte räknas som en av de två, även om ett steg skulle peka på hen (ADR 0016 och ADR 0017).
+    // Steget tilldelas om med SQL, eftersom betalningen aldrig tilldelas sin skapare (se nästa test).
     @Test
     void theCreatorOfAPaymentCannotCountAsOneOfTheTwo() throws Exception {
-        long payment = createPayment(OVER_TWO_ATTESTANT_THRESHOLD, adminToken);
+        long payment = createPayment(OVER_TWO_ATTESTANT_THRESHOLD, initiatorToken);
         long step1 = stepId(payment, 1);
         long step2 = stepId(payment, 2);
+        jdbc.update("UPDATE users SET role = 'attestant' WHERE id = ?", initiator);
+        jdbc.update("UPDATE approval_steps SET attestant_id = ? WHERE id = ?", initiator, step1);
+        String creatorAsAttestant = token(initiator, tenantId, Role.ATTESTANT);
 
-        assertEquals(List.of(), queue(adminToken));
-        assertEquals(403, perform(post("/api/approvals/" + step1 + "/approve"), adminToken).status());
+        assertEquals(List.of(), queue(creatorAsAttestant));
+        assertEquals(403, perform(post("/api/approvals/" + step1 + "/approve"), creatorAsAttestant).status());
+        assertEquals(403, perform(post("/api/approvals/" + step1 + "/reject"), creatorAsAttestant).status());
         assertEquals("pending", stepStatus(step1));
-
-        assertEquals(204, perform(post("/api/approvals/" + step1 + "/approve"), firstAttestantToken).status());
-        assertEquals(403, perform(post("/api/approvals/" + step2 + "/approve"), adminToken).status());
         assertEquals("pending_approval", paymentStatus(payment));
+        assertEquals(0, STARTING_BALANCE.compareTo(balance()));
+
+        assertEquals(403, perform(post("/api/approvals/" + step2 + "/approve"), creatorAsAttestant).status());
+    }
+
+    // En initiator som just blivit attestant kan ha kvar en initiator-token en stund och skapa en betalning.
+    // Hen väljs aldrig som attestant på sin egen betalning, även om hen har det lägsta id:t.
+    @Test
+    void aCreatorWhoHasJustBecomeAnAttestant_isNeverAssignedToTheirOwnPayment() throws Exception {
+        jdbc.update("UPDATE users SET role = 'attestant' WHERE id = ?", initiator);
+
+        long payment = createPayment(OVER_TWO_ATTESTANT_THRESHOLD, initiatorToken);
+
+        assertEquals(List.of(firstAttestant, secondAttestant), assignedAttestants(payment));
     }
 
     @Test
@@ -271,10 +279,16 @@ class DualApprovalIntegrationTest {
         assertEquals(List.of("Första Attestant"), actors);
     }
 
+    // Före ADR 0017 kunde en admin besluta i en annan attestants ställe. Sådana beslut finns kvar i historiken,
+    // och listan ska peka ut den som faktiskt beslutade. Beslutet läggs in med SQL, eftersom det inte längre går
+    // att fatta via API:t.
     @Test
     void myPayments_namesWhoActuallyDecided_notWhoTheStepWasAssignedTo() throws Exception {
         long payment = createPayment(OVER_TWO_ATTESTANT_THRESHOLD, initiatorToken);
-        assertEquals(204, perform(post("/api/approvals/" + stepId(payment, 1) + "/approve"), adminToken).status());
+        jdbc.update("""
+                UPDATE approval_steps SET status = 'approved', decided_at = NOW(), decided_by = ?
+                WHERE id = ?
+                """, admin, stepId(payment, 1));
 
         String myPayments = getOk("/api/my-payments", initiatorToken);
 
