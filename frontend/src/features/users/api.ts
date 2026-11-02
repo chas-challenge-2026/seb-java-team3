@@ -8,6 +8,7 @@ import type { UserResponse } from "../auth/types";
 //   listUsers():  api("/api/admin/users", {}, userListSchema)
 //   createUser(): api("/api/admin/users", { method: "POST", body: JSON.stringify(input) }, userResponseSchema)
 //   updateUserRole(): api(`/api/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }, userResponseSchema)
+//   deleteUser(id): api(`/api/admin/users/${id}`, { method: "DELETE" }) (kontrollera att api() klarar svar utan innehåll)
 // (sökvägarna är ett antagande, justera efter backendens kontrakt)
 
 const MOCK_DELAY_MS = 500;
@@ -65,4 +66,21 @@ export async function updateUserRole(id: number, role: CreatableRole): Promise<U
   mockUsers = mockUsers.map((user) => (user.id === id ? updated : user));
 
   return updated;
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await delay();
+
+  const existing = mockUsers.find((user) => user.id === id);
+
+  if (!existing) {
+    throw new ApiError(404, "Användaren finns inte.");
+  }
+
+  // Det enda adminkontot får inte tas bort
+  if (existing.role === "ADMIN") {
+    throw new ApiError(403, "Administratören kan inte tas bort.");
+  }
+
+  mockUsers = mockUsers.filter((user) => user.id !== id);
 }

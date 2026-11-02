@@ -45,8 +45,8 @@
 
 .count span { font-weight: 800; }
 
-/* Utrymme under sista raden så att rollväljarens meny får plats. Scroll i sidled bara på smal skärm. */
-.tableWrap { padding-bottom: 5rem; }
+/* Ingen scroll på bred skärm, så att rollväljarens meny kan öppnas utanför kortet vid sista raden */
+.tableWrap { border-radius: 0 0 1.25rem 1.25rem; }
 
 .grid {
   width: 100%;
@@ -76,6 +76,13 @@
 
 .grid tbody tr:last-child td { border-bottom: 0; }
 
+/* Roll- och åtgärdskolumnerna är precis så breda som innehållet, med litet avstånd emellan */
+.shrinkCol { width: 1%; white-space: nowrap; }
+.grid td.roleCol { padding-right: 0.5rem; }
+.grid td.actionCol { padding-left: 0.5rem; }
+.grid th.roleCol { padding-right: 0.5rem; }
+.grid th.actionCol { padding-left: 0.5rem; }
+
 .name { color: var(--text-primary); font-weight: 650; }
 .email { color: var(--text-muted); font-size: 0.9rem; }
 
@@ -90,7 +97,89 @@
   white-space: nowrap;
 }
 
-.roleCell { min-width: 10rem; }
+.roleCell { width: 8.5rem; }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.deleteButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--danger-border);
+  border-radius: 0.65rem;
+  background: var(--danger-icon-bg);
+  color: var(--danger-text);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.deleteButton:hover {
+  background: var(--danger-bg-hover);
+  color: var(--danger-text-strong);
+}
+
+.deleteButton:focus-visible {
+  outline: 3px solid var(--focus-attention);
+  outline-offset: 2px;
+}
+
+/* Bekräfta borttagning: röd knapp som matchar ikonknappen */
+.dangerButton.dangerButton {
+  border: 1px solid var(--danger-text);
+  background: var(--danger-icon-bg);
+  color: var(--danger-text-strong);
+  font-weight: 650;
+}
+
+.dangerButton.dangerButton:hover:not(:disabled) {
+  background: var(--danger-bg-hover);
+}
+
+.summary {
+  margin: 0 0 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--bg-primary);
+}
+
+.summary div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.summary div:last-child { border-bottom: 0; }
+.summary dt { flex: 0 0 auto; color: var(--text-secondary); font-size: 0.82rem; }
+
+.summary dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.permanentNotice {
+  margin: 0 0 1rem;
+  color: var(--danger-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
 
 .roleError {
   margin: 0.3rem 0 0;

@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users } from "lucide-react";
+import { Trash2, Users } from "lucide-react";
 
 import Button from "../../components/ui/buttons/Button";
 import IconMessage from "../../components/ui/feedback/IconMessage";
 import LoadErrorMessage from "../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../components/ui/feedback/LoadingMessage";
 import CreateUserModal from "./CreateUserModal";
+import DeleteUserModal from "./DeleteUserModal";
 import UserRoleCell from "./UserRoleCell";
+import type { UserResponse } from "./types";
 import { usersQueryOptions } from "./usersQueryOptions";
 
 import styles from "./UsersPage.module.css";
@@ -15,6 +17,7 @@ import styles from "./UsersPage.module.css";
 export default function UserList() {
   const { data, isPending, isError, isFetching, refetch } = useQuery(usersQueryOptions);
   const [isCreating, setIsCreating] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserResponse | null>(null);
 
   return (
     <section className={styles.card} aria-label="Användare">
@@ -69,7 +72,10 @@ export default function UserList() {
               <tr>
                 <th>Namn</th>
                 <th>E-post</th>
-                <th>Roll</th>
+                <th className={`${styles.shrinkCol} ${styles.roleCol}`}>Roll</th>
+                <th className={`${styles.shrinkCol} ${styles.actionCol}`}>
+                  <span className={styles.srOnly}>Åtgärder</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -77,8 +83,22 @@ export default function UserList() {
                 <tr key={user.id}>
                   <td className={styles.name}>{user.name}</td>
                   <td className={styles.email}>{user.email}</td>
-                  <td>
+                  <td className={`${styles.shrinkCol} ${styles.roleCol}`}>
                     <UserRoleCell user={user} />
+                  </td>
+                  <td className={`${styles.shrinkCol} ${styles.actionCol}`}>
+                    {/* Det enda adminkontot kan inte tas bort */}
+                    {user.role !== "ADMIN" && (
+                      <button
+                        type="button"
+                        className={styles.deleteButton}
+                        aria-label={`Ta bort ${user.name}`}
+                        title="Ta bort användare"
+                        onClick={() => setUserToDelete(user)}
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -88,6 +108,9 @@ export default function UserList() {
       )}
 
       {isCreating && <CreateUserModal onClose={() => setIsCreating(false)} />}
+      {userToDelete && (
+        <DeleteUserModal user={userToDelete} onClose={() => setUserToDelete(null)} />
+      )}
     </section>
   );
 }

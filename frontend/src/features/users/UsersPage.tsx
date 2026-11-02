@@ -4,7 +4,7 @@ import UserList from "./UserList";
 export default function UsersPage() {
   return (
     <main>
-      <Container maxWidth="xxl">
+      <Container maxWidth="md">
         <UserList />
       </Container>
     </main>
