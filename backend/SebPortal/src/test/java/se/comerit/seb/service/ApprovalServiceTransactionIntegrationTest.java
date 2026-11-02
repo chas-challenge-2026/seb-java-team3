@@ -54,6 +54,7 @@ class ApprovalServiceTransactionIntegrationTest {
 
     private Long tenantId;
     private Long actorId;
+    private Long initiatorId;
     private Long accountId;
     private Long paymentId;
     private Long approvalStepId;
@@ -74,6 +75,17 @@ class ApprovalServiceTransactionIntegrationTest {
                 tenantId,
                 "Issue 193 attestant",
                 "issue193-attestant-" + tenantId + "@seb.test",
+                "unused-test-password-hash");
+        // Betalningen skapas av en initiator: den som skapat en betalning får inte godkänna den (ADR 0015)
+        initiatorId = jdbcTemplate.queryForObject("""
+                INSERT INTO users (tenant_id, name, email, password_hash, role)
+                VALUES (?, ?, ?, ?, 'initiator')
+                RETURNING id
+                """,
+                Long.class,
+                tenantId,
+                "Issue 193 initiator",
+                "issue193-initiator-" + tenantId + "@seb.test",
                 "unused-test-password-hash");
         accountId = jdbcTemplate.queryForObject("""
                 INSERT INTO accounts (tenant_id, account_name, iban, balance, currency)
@@ -97,7 +109,7 @@ class ApprovalServiceTransactionIntegrationTest {
                 TO_IBAN,
                 PAYMENT_AMOUNT,
                 "Issue 193 transaction test",
-                actorId);
+                initiatorId);
         approvalStepId = jdbcTemplate.queryForObject("""
                 INSERT INTO approval_steps (payment_id, attestant_id, step_number, status)
                 VALUES (?, ?, 1, 'pending')
@@ -126,6 +138,9 @@ class ApprovalServiceTransactionIntegrationTest {
         }
         if (actorId != null) {
             jdbcTemplate.update("DELETE FROM users WHERE id = ?", actorId);
+        }
+        if (initiatorId != null) {
+            jdbcTemplate.update("DELETE FROM users WHERE id = ?", initiatorId);
         }
         if (tenantId != null) {
             jdbcTemplate.update("DELETE FROM tenants WHERE id = ?", tenantId);

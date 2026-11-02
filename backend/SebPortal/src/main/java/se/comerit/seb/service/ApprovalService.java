@@ -122,6 +122,7 @@ public class ApprovalService {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
+        refuseDecisionByCreator(payment, actorId, "godkänna");
 
         boolean earlierStepPending = payment.getApprovalSteps().stream()
                 .anyMatch(step -> step.getStepNumber() < approvalStep.getStepNumber()
@@ -222,6 +223,7 @@ public class ApprovalService {
             throw new ApprovalStepAccessDeniedException(
                     "Approval step " + approvalStepId + " is not assigned to actor " + actorId);
         }
+        refuseDecisionByCreator(payment, actorId, "avvisa");
 
         approvalStep.setStatus(ApprovalStepStatus.REJECTED);
         approvalStep.setDecidedAt(LocalDateTime.now());
@@ -252,6 +254,16 @@ public class ApprovalService {
                 payment.getId(),
                 description
         );
+    }
+
+    // Fyraögonprincipen (ADR 0015): den som skapat en betalning får aldrig själv godkänna eller avvisa den,
+    // även om hen råkar vara tilldelad steget (till exempel efter en rolländring). Kontrollen sitter i
+    // servicen och gäller alla vägar in, och sker innan något ändras.
+    private static void refuseDecisionByCreator(Payment payment, Long actorId, String verb) {
+        if (Objects.equals(payment.getCreatedBy(), actorId)) {
+            throw new ApprovalStepAccessDeniedException(
+                    "Du kan inte " + verb + " en betalning som du själv har skapat.");
+        }
     }
 
     // Betalningen bakom steget, låst tills transaktionen är klar. Ett annat företags steg ser ut precis

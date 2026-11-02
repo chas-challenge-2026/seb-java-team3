@@ -99,6 +99,29 @@ class ApprovalApiControllerOwnershipTest {
         verifyNoInteractions(accountRepository, auditService);
     }
 
+    // Fyraögonprincipen (ADR 0015): den som skapat betalningen får inte godkänna eller avvisa den, inte
+    // ens som tilldelad attestant. Servicen nekar, controllern svarar 403 och inget ändras.
+    @Test
+    void approveAndReject_asTheCreatorOfThePayment_returns403AndChangesNothing() throws Exception {
+        payment.setCreatedBy(ATTESTANT_A_ID);
+
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Du kan inte godkänna en betalning som du själv har skapat."));
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"Avvisar min egen\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Du kan inte avvisa en betalning som du själv har skapat."));
+
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(step.getComment());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
     @Test
     void reject_asAttestantWhoDoesNotOwnTheStep_returns403AndChangesNothing() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
@@ -113,7 +136,7 @@ class ApprovalApiControllerOwnershipTest {
         verifyNoInteractions(accountRepository, auditService);
     }
 
-    // Attestanten och en admin beslutar om samma betalning samtidigt: den som kommer tvåa ska få 409 och
+    // Två beslut om samma betalning (till exempel två flikar): det som kommer tvåa ska få 409 och
     // ett begripligt meddelande, inte 500, och ingenting ska ändras en gång till.
     @Test
     void approve_whenThePaymentWasAlreadyRejected_returns409AndChangesNothing() throws Exception {
