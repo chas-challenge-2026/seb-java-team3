@@ -2,20 +2,20 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-10-29
+**Senast uppdaterad:** 2026-11-01
 **Ansvarig denna sprint:** ____
 
 ## 1. Läget just nu
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 38 klasser, 258 tester | Gröna vid lokal körning 2026-10-28 i en Maven-container, även de två Testcontainers-testerna i `ApprovalServiceTransactionIntegrationTest`; fem hoppas över utan byggd `libauditsigner.so` |
+| Backend · JUnit | 40 klasser, 331 tester | `mvn -B package --file backend/SebPortal/pom.xml` grön lokalt 2026-11-01: 326 godkända, 5 överhoppade utan byggd `libauditsigner.so`. Alla 60 körningar i `ApprovalConcurrencyIntegrationTest` godkända (#235). |
 | Frontend · Vitest | 20 filer, 176 tester | Alla gröna vid lokal körning 2026-10-29 |
 | Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla gröna 2026-10-28 i en gcc-container med Check; sviten körs inte i CI |
 | Rök-test · app som är igång | `scripts/smoke-spa.mjs`, 18 kontroller | Alla OK mot Docker 2026-10-28 |
 | E2E · Playwright | 3 filer: `mvp-flow.spec.ts` (MVP-tråden), `smoke.spec.ts`, `session.spec.ts` (session och omladdning) | Alla 5 gröna 2026-10-28 mot Vite dev-servern med backend i Docker, med granskningsrutan i attestkorgen |
 
-De 271 backendtesterna, inklusive de fem i `IbanValidatorServiceTest`, var gröna vid lokal körning 2026-10-29. Fem tester i `AuditSignerNativeIntegrationTest` hoppas över när `libauditsigner.so` inte är byggd. `ApprovalServiceTransactionIntegrationTest` och `TenantIsolationIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
+Backendkörningen 2026-11-01 omfattade 331 tester utan fel, inklusive de fem i `IbanValidatorServiceTest`. Fem tester i `AuditSignerNativeIntegrationTest` hoppas över när `libauditsigner.so` inte är byggd. `ApprovalServiceTransactionIntegrationTest`, `ApprovalConcurrencyIntegrationTest` och `TenantIsolationIntegrationTest` startar Postgres 12 med Testcontainers och kräver därför Docker. `maven.yml` kör `mvn package` vid push och PR mot `develop`; den nya samtidighetsklassen ingick i samma kommando lokalt. Rök-testet körs manuellt mot en app som är igång och ingår inte i CI.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -84,7 +84,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Betalningsinitiativtagaren måste bekräfta uppgifterna innan betalningen skapas; bekräftelsen kan avbrytas utan att skapa betalning | Komp | Grön | `PaymentForm.test.tsx` (`submits the normalized data and shows the confirmation on success`, `does not create a payment when the initiator cancels the confirmation`) |
 | Avvisa i granskningsrutan med valfri anledning; anledningen sparas, syns i audit och i Mina betalningar, och längden kontrolleras (255) | Unit + Komp | Grön | `ApprovalServiceRejectCommentTest` · 5; `AttestGrid.test.tsx` (avvisa) · 4; `formatters.test.ts` (`formatRejectionReason`) · 2 |
 | Ett andra beslut på samma betalning (t.ex. attestant och admin samtidigt) ger 409 med begripligt meddelande, ändrar ingenting och attestkorgen hämtas om | Int + Unit | Grön | `ApprovalApiControllerOwnershipTest.approve_whenThePaymentWasAlreadyRejected_*`, `reject_whenThePaymentWasAlreadyApproved_*`; `useApprovals.test.tsx` · 3 |
-| Samtidiga godkännanden ger inte dubbel debitering (R-01) | – | Ej testad | Inget incheckat test |
+| Samtidiga godkännanden ger inte dubbel debitering (R-01) | Int | Grön | `ApprovalConcurrencyIntegrationTest` · 3 scenarier × 20 körningar mot Postgres 12: dubbelt godkännande, godkänn/avvisa och två betalningar från samma konto (#235) |
 | `GET /api/accounts` visar bara det egna företagets konton, sorterade på id (#184, #185, #186, R-04) | Int | Grön | `AccountServiceTest` · 5 (H2); `AccountControllerSecurityTest` · 5 (401 utan/ogiltig token, 403 ATTESTANT, 200 INITIATOR och ADMIN) |
 | Saldot i `/api/accounts` stämmer efter en attesterad betalning (#186) | Int | Grön | `AccountBalanceAfterApprovalTest` · 2 (H2) |
 
@@ -95,8 +95,9 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 - Backend nekar belopp 0. Frontend nekar tomma och negativa belopp samt fler än två decimaler; referens får vara högst 140 tecken. Gränsfallen vid exakt tröskel är testade och frontend hämtar tröskeln från backend.
 - `approve_concurrentApproval_shouldThrowAndRollback` testar att ett tidigare steg fortfarande väntar. Namnet antyder samtidighet, men det är inte vad testet verifierar.
 - Saldo, status och audit sätts i samma `@Transactional`-metod. `ApprovalServiceTransactionIntegrationTest` (Postgres 12, Testcontainers) verifierar båda utfallen: `commits_balance_and_audit_on_success` och `rollback_on_failure`, där en trigger får commit att misslyckas och saldo, status, steg och audit står kvar orörda. Rollback vid avvisning är inte testad.
-- Koden använder `PESSIMISTIC_WRITE` via `PaymentRepository.findByApprovalStepIdForUpdate`. `ApprovalConcurrencyTest` med 20 tester kördes lokalt 2026-09-21 men är inte incheckad. Dubbelgodkännande saknar därför ett test i repot. Kontoraden låses också vid saldoavdraget (`AccountRepository.findByIdAndTenantIdForUpdate`, #191). `AccountRepositoryTenantTest.findByIdAndTenantIdForUpdate_locksTheRow` verifierar att låset begärs, men att två samtidiga godkännanden mot samma konto faktiskt går efter varandra är inte testat mot en riktig databas.
-- Ägarkontrollen av från-kontot görs på två ställen: vid skapande i `PaymentService` via `AccountRepository.existsByIdAndTenantId` (#187) och vid godkännande, där pengarna flyttas, i `ApprovalService` via `findByIdAndTenantIdForUpdate` (#191). Servicetesterna mockar repositoryt; `AccountRepositoryTenantTest` kör båda frågorna mot H2 med konton för två företag och misslyckas om tenant-villkoret eller låset tas bort. Frågorna är inte körda mot Postgres i testerna. Okänt konto, ogiltigt id och annat företags konto ger samma 400-svar, så att konto-id hos andra kunder inte kan kartläggas.
+- `ApprovalConcurrencyIntegrationTest` (#235) verifierar både betalningslåset (`PaymentRepository.findByApprovalStepIdForUpdate`) och kontolåset (`AccountRepository.findByIdAndTenantIdForUpdate`, #191) mot Postgres 12 med Flyway och JDBC-testdata. Två separata transaktioner startas med `CountDownLatch`; olika databasanslutningar och transaktions-id kontrolleras, och båda måste samtidigt vänta på databaslås innan testets radspärr släpps. Alla väntetider är begränsade och testdata städas efter varje körning. Saldo, betalning, atteststeg, balanshistorik och exakt en auditpost per vinnande beslut kontrolleras.
+- Mutationsprovet 2026-11-01 kördes i isolerade kopior under `target`: när enbart `@Lock(PESSIMISTIC_WRITE)` togs bort från betalningsfrågan föll scenario 1 och 2 i samtliga 20 körningar vardera eftersom båda besluten lyckades. När enbart kontolåset togs bort föll scenario 3 i samtliga 20 körningar: saldot blev 700 eller 800 i stället för 500. Kopiornas källfiler återställdes byte för byte; arbetskopians produktionskod ändrades aldrig. Därefter passerade hela `mvn package` med ordinarie låsning.
+- Ägarkontrollen av från-kontot görs på två ställen: vid skapande i `PaymentService` via `AccountRepository.existsByIdAndTenantId` (#187) och vid godkännande, där pengarna flyttas, i `ApprovalService` via `findByIdAndTenantIdForUpdate` (#191). Servicetesterna mockar repositoryt; `AccountRepositoryTenantTest` kör båda frågorna mot H2 med konton för två företag och misslyckas om tenant-villkoret eller låset tas bort. Kontolåsningen körs även mot Postgres i `ApprovalConcurrencyIntegrationTest` (#235). Okänt konto, ogiltigt id och annat företags konto ger samma 400-svar, så att konto-id hos andra kunder inte kan kartläggas.
 
 ### IBAN och BIC
 
@@ -188,7 +189,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Prioritet | Att göra | Varför |
 | --- | --- | --- |
 | 1 | Kör E2E i CI. | E2E-testet körs bara manuellt mot en app som är igång. |
-| 2 | Checka in och kör samtidighetstestet mot Postgres med Testcontainers. | Låsning vid samtidiga godkännanden (R-01) är inte verifierad i repot. |
+| 2 | [x] Samtidighetstest mot Postgres med Testcontainers verifierat (#235). | R-01 täcks av `ApprovalConcurrencyIntegrationTest` (60 körningar); betalnings- och kontolåsningen har även kontrollerats med röda mutationsprov. |
 | 3 | Testa behörighet för `/api/my-payments`. | Tenant-gränserna är testade (`TenantIsolationIntegrationTest`), men rollbehörigheten för `/api/my-payments` saknar test. |
 | 4 | Testa omdirigeringen i skyddade routes; kör native-sviten i CI. | Frontendbeteenden och C-validering saknar löpande verifiering. |
 | 5 | Rätta de två missvisande testnamnen. | Testnamnen ska spegla vad som faktiskt testas. |
