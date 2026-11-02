@@ -5,6 +5,7 @@ export default function UsersPage() {
   return (
     <main>
       <Container maxWidth="md">
+        <h1 style={{textAlign: "center", marginBottom: "2rem"}}>Användare</h1>
         <UserList />
       </Container>
     </main>

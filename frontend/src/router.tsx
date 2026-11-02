@@ -9,7 +9,7 @@ import { AuthErrorView } from "./features/auth/AuthErrorView";
 
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { Login } from "./pages/Login";
-import { UITestPage } from "./pages/UIComponentTests";
+// import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./features/payment/NewPayment"
 import AuditPage from "./features/audit/pages/AuditPage"
 import MyPaymentsPage from "./features/audit/pages/MyPaymentsPage";
@@ -45,11 +45,11 @@ const authRoute = createRoute({
   errorComponent: AuthErrorView,
 });
 
-const uiTestRoute = createRoute({
-  getParentRoute: () => authRoute,
-  path: "/uitest",
-  component: UITestPage,
-});
+// const uiTestRoute = createRoute({
+//   getParentRoute: () => authRoute,
+//   path: "/uitest",
+//   component: UITestPage,
+// });
 
 const newPaymentRoute = createRoute({
   getParentRoute: () => authRoute,
@@ -97,7 +97,7 @@ const routeTree = rootRoute.addChildren([
 
   authRoute.addChildren([
     dashboardRoute,
-    uiTestRoute,
+    // uiTestRoute,
     newPaymentRoute,
     auditRoute,
     myPaymentsRoute,
