@@ -187,7 +187,17 @@ public class ApprovalService {
     // för ett databasfel.
     static final int MAX_COMMENT_LENGTH = 255;
 
+    // Kontrolltecken ger 400: Postgres tar inte emot NUL i text, och ett meddelande med bara kontrolltecken
+    // hade blivit tomt efter trim. Radbrytningar och tabbar är vanlig fritext och får vara kvar.
+    private static boolean containsControlCharacter(String text) {
+        return text.chars().anyMatch(c -> Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t');
+    }
+
     private void rejectInternal(Long approvalStepId, Long actorId, String rawComment, AuthenticatedUserContext user) {
+        if (rawComment != null && containsControlCharacter(rawComment)) {
+            throw new IllegalArgumentException("Kommentaren innehåller ogiltiga tecken.");
+        }
+
         String comment = rawComment == null || rawComment.isBlank() ? null : rawComment.trim();
         if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
             throw new IllegalArgumentException(
@@ -239,6 +249,7 @@ public class ApprovalService {
                 payment.getAmount(),
                 payment.getCurrency(),
                 payment.getToIban());
+        // Meddelandet står också i beskrivningen, eftersom den signerade loggen bara får beskrivningen
         if (comment != null) {
             description += ". Kommentar: " + comment;
         }
@@ -249,7 +260,8 @@ public class ApprovalService {
                 "REJECT_PAYMENT",
                 "PAYMENT",
                 payment.getId(),
-                description
+                description,
+                comment
         );
     }
 
