@@ -19,7 +19,14 @@ public class AuthService {
     }
 
     public Optional<User> authenticate(String email, String rawPassword) {
-        return userRepository.findByEmail(email)
+        String normalizedEmail = EmailAddress.normalize(email);
+        // En tom adress ska aldrig slås upp: Spring Data översätter null till "email IS NULL" och skulle
+        // då kunna hitta en användare som saknar e-post.
+        if (normalizedEmail == null || normalizedEmail.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return userRepository.findByEmail(normalizedEmail)
                 .filter(user -> passwordEncoder.matches(rawPassword, user.getPasswordHash()));
     }
 }

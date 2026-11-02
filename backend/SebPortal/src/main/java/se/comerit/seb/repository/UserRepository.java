@@ -13,9 +13,18 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // Exakt träff. Anropare normaliserar först med EmailAddress.normalize, eftersom alla e-postadresser
+    // sparas i den formen.
     Optional<User> findByEmail(String email);
 
+    boolean existsByEmail(String email);
+
     List<User> findByTenantIdAndRole(Long tenantId, Role role);
+
+    // Företagets användare, sorterade på namn (och id när två har samma namn) så att listan blir stabil.
+    // Företaget måste komma från den inloggade användarens token och får aldrig vara null: Spring Data
+    // översätter ett null-argument till "tenant_id IS NULL" och skulle då lista användare utan företag.
+    List<User> findByTenantIdOrderByNameAscIdAsc(Long tenantId);
 
     // Låser användarens rad (SELECT ... FOR UPDATE) tills transaktionen är klar. Används som ett
     // lås per användare: RefreshTokenService tar det först i inloggning, förnyelse och utloggning,
