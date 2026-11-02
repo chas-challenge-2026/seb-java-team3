@@ -29,7 +29,7 @@ Admin är en **administrativ roll** som inte flyttar pengar. Följande gäller:
 1. **Admin skapar inga betalningar** och har inga egna betalningar (`/api/my-payments`, `/api/payments/config` och `/api/payments/changed-count` är bara för initiatorn).
 2. **Admin godkänner och avvisar inga betalningar.** Bara attestanten som steget är tilldelat kan fatta beslutet.
 3. **Admin får läsa och få översikt** i det egna företaget: hela audit-loggen, tidslinjen per betalning med atteststegen, attestkorgen och räknaren, samt konton.
-4. **Admin ska kunna hantera användare och roller** i det egna företaget. Det byggs i #242.
+4. **Admin hanterar användare och roller** i det egna företaget (#242): lista, skapa och byta roll mellan INITIATOR och ATTESTANT. ADMIN kan inte tilldelas via API:t, och en administratörs roll ändras aldrig där, inte heller admins egen, så att ingen kan ge sig själv eller någon annan mer makt eller ta bort den sista administratören. En attestant med väntande atteststeg kan inte bli initiator. Varje skapande och rolländring loggas i audit (`CREATE_USER`, `UPDATE_USER_ROLE`), utan lösenord.
 5. **Fyraögonprincipen gäller alla roller:** den som har skapat en betalning kan aldrig själv godkänna eller avvisa den, även om hen är tilldelad steget. Kontrollen sitter i `ApprovalService` och gäller alla vägar in.
 
 Behörigheten kontrolleras i backend, med `@PreAuthorize` i controllern och i servicen. Frontend döljer bara det som inte går att göra.
@@ -45,13 +45,26 @@ Allt gäller bara det egna företaget.
 | Se attestkorgen och räknaren | Nej | Egna steg | Hela företaget, bara läsa |
 | Godkänna eller avvisa | Nej | Egna steg, aldrig sin egen betalning | Nej |
 | Audit-logg och tidslinje | Nej | Skapa, godkänn och avvisa | Allt |
-| Hantera användare och roller | Nej | Nej | Ja (byggs i #242) |
+| Hantera användare och roller | Nej | Nej | Ja |
+
+### API för användaradministration
+
+Alla anrop kräver rollen ADMIN. Företaget kommer alltid från admins token, aldrig från anropet. Felsvar har formen `{ timestamp, status, error, message }`, utom 401 och det vanliga 403 för fel roll.
+
+| Anrop | Kropp | Svar |
+|---|---|---|
+| `GET /api/admin/users` | - | 200 `[{ id, name, email, role }]`, sorterat på namn |
+| `POST /api/admin/users` | `{ name, email, password, role }` | 201 `{ id, name, email, role }`, 400 (ogiltiga uppgifter), 409 (e-posten används) |
+| `PATCH /api/admin/users/{userId}/role` | `{ role }` | 200 `{ id, name, email, role }`, 400 (ogiltig roll), 403 (målet är en administratör), 404 (användaren finns inte i företaget), 409 (attestanten har väntande steg) |
+
+Regler för `POST`: namn högst 100 tecken, giltig e-post högst 100 tecken (sparas med små bokstäver), lösenord minst 12 tecken och högst 72 byte, och `role` är `INITIATOR` eller `ATTESTANT`. Lösenordet sparas som BCrypt med kostnad 12.
 
 ## Alternativ vi övervägde
 
 - **Behålla admin som superanvändare (som tidigare)** - valdes bort. Fyraögonprincipen går att kringgå med rollen, och rollen har ingen egen uppgift.
 - **Ta bort admin helt** - valdes bort. Då finns ingen som kan se hela loggen, och användare och roller måste skötas direkt i databasen. Kunden vill kunna visa vem som godkände vad och när, och det kräver en roll med överblick.
 - **Låta admin skapa betalningar men förbjuda att godkänna sina egna** - valdes bort. Regeln om att skaparen inte får godkänna behålls för alla roller, men admin tillför då fortfarande ingenting administrativt. Dessutom kan den som delar ut behörigheter själv flytta pengar, vilket vi vill undvika.
+- **Låta admin ändra alla roller, även administratörers** - valdes bort. Då kan en admin ta bort den sista administratören eller ge sig själv en roll med andra rättigheter. Att göra någon till administratör hanteras i stället direkt i databasen tills vi har ett uttalat behov.
 - **Flera roller per användare** (en person kan vara både admin och attestant) - skjuts upp. Det kräver att rollen i JWT:n och alla kontroller görs om, och det går emot att rollerna ska hållas isär.
 
 ## Konsekvenser
@@ -64,16 +77,20 @@ Allt gäller bara det egna företaget.
 
 **Negativa / risker**
 - **Frontend och backend går isär tills frontend ändras.** `router.tsx` släpper fortfarande in admin på `/payments/new`, `/my-payments` och `/attest`, och `SideBar` visar Attestera för admin. Admin får därför 403 på de sidorna. → Frontend ändras separat (#243). Admin ska behålla en skrivskyddad attestvy utan godkänn- och avvisa-knappar.
-- **README stämmer inte längre.** Raderna om vem som får skapa och godkänna anger fortfarande admin. → Uppdateras när README skrivs om (#202).
 - **Seed-användaren Sara Ek (admin) kan inte längre skapa eller godkänna** betalningar. Demon använder Lisa (initiator) och Johan (attestant), så den påverkas inte.
 - **En person som både ska administrera och attestera** måste ha två konton med olika e-postadresser, eftersom en användare bara har en roll. Det är ett medvetet val tills kunden efterfrågar något annat.
 - **Audit-listan visar bara de 200 senaste händelserna.** Admin ser alltså inte "all historik" ännu. → Sidindelning eller filter behövs.
+- **En rolländring slår igenom när inloggningen förnyas**, högst 15 minuter senare, eftersom rollen ligger i token (ADR 0012). Betalningsflödet tål mellantiden: beslut kontrolleras mot steget och skaparen, och en betalning tilldelas aldrig sin skapare. En attestant som just blivit initiator kan inte heller ha väntande steg, eftersom ändringen då nekas.
+- **E-postadressen är unik i hela databasen** (V1), inte per företag. Skapar admin en användare med en adress som finns hos ett annat företag får hen 409, och kan därför avgöra om adressen finns där. Att göra den unik per företag kräver en migration och en ändring av inloggningen, som slår upp på e-post. Vi accepterar det för nu.
+- **Den sista attestanten kan göras om till initiator** om hen inte har väntande steg. Betalningar över tröskeln får då 409 ("ingen attestant") tills en ny attestant finns. Vi har inte lagt någon spärr på det.
+- **Det saknas ännu sätt att ta bort eller inaktivera en användare eller byta lösenord.** Ett lösenord som admin har satt kan användaren inte byta själv.
+- **Audit-rader för användare använder `entity_type = USER` och användarens id.** Audit-vyn i frontend öppnar betalningens tidslinje för `entityId` på varje rad, så en användarrad skulle visa tidslinjen för en betalning med samma id. → Frontend ska bara göra rader expanderbara när de gäller en betalning.
 
 ## Uppföljning
 
-- Frontend: ta bort admin från de tre betalningsroutes och från knapparna i attestvyn (#243). Kontrollera att admin ser sin översikt utan fel.
-- Användarhantering (lista, skapa, ändra roll) byggs i #242. Lägg till dess regler här, eller i en ny ADR, när den är klar.
-- Audit: loggas skapande och rolländring av användare, så att även administratörens handlingar går att följa.
+- Frontend (#243): ta bort admin från de tre betalningsroutes och från knapparna i attestvyn. Bygg användarsidan mot API:t ovan, med ett rollval per rad. Lägg till svenska etiketter för `CREATE_USER` och `UPDATE_USER_ROLE` i `formatters.ts`, och gör audit-rader expanderbara bara när `entityType` är `PAYMENT`.
+- Kör Docker-sviten: testerna som ändrades i #242 och radlåset vid rolländring är inte körda mot Postgres lokalt.
 - Audit-listan: sidindelning eller filter, så att admin kan se hela historiken.
-- Uppdatera `docs/test-status.md` och README när ändringen är klar.
+- Behov som inte är byggda: inaktivera en användare, byta lösenord, att göra någon till administratör, och en spärr mot att göra den sista attestanten till initiator.
+- README skrivs om i #202. Raderna om roller är uppdaterade här.
 - Omvärdera beslutet om kunden vill ha en roll som både administrerar och attesterar (flera roller per användare).
