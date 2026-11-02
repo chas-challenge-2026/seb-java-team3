@@ -6,11 +6,17 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
+import se.comerit.seb.dto.ChangeUserRoleRequest;
 import se.comerit.seb.dto.CreateUserRequest;
 import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.exception.EmailAlreadyInUseException;
+import se.comerit.seb.exception.RoleChangeConflictException;
+import se.comerit.seb.exception.UserAdminRefusedException;
+import se.comerit.seb.exception.UserNotFoundException;
+import se.comerit.seb.repository.ApprovalStepRepository;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
@@ -40,13 +46,16 @@ public class UserAdminService {
     private static final Pattern EMAIL_FORMAT = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final UserRepository userRepository;
+    private final ApprovalStepRepository approvalStepRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
 
     public UserAdminService(UserRepository userRepository,
+                            ApprovalStepRepository approvalStepRepository,
                             PasswordEncoder passwordEncoder,
                             AuditService auditService) {
         this.userRepository = userRepository;
+        this.approvalStepRepository = approvalStepRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
     }
@@ -95,6 +104,57 @@ public class UserAdminService {
                 "Användare skapad: %s (%s), roll %s".formatted(name, email, role.name().toLowerCase(Locale.ROOT)));
 
         return UserResponse.from(saved);
+    }
+
+    // Byter roll mellan INITIATOR och ATTESTANT för en användare i admins företag.
+    //  - Användarens rad låses medan det pågår, och ett annat företags användare ser ut som en som inte finns (404).
+    //  - En administratörs roll ändras aldrig här (403). Det gäller också admins egen, så ingen kan ge sig själv
+    //    eller någon annan mer makt, eller ta bort den sista administratören.
+    //  - En attestant med väntande steg kan inte bli något annat (409): stegen skulle ligga kvar hos någon som
+    //    inte längre kan fatta beslut.
+    //  - Samma roll som förut är ett lyckat anrop utan ändring och utan audit-rad.
+    // Rollen ligger i användarens token, så ändringen slår igenom när inloggningen förnyas, högst 15 minuter
+    // senare (ADR 0012). Betalningsflödet tål mellantiden: beslut kontrolleras mot steget och skaparen, och en
+    // betalning tilldelas aldrig sin skapare.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public UserResponse changeRole(AuthenticatedUserContext admin, Long userId, ChangeUserRoleRequest request) {
+        Long tenantId = requireTenant(admin);
+        Role newRole = validRole(request == null ? null : request.role());
+
+        User user = userRepository.findByIdAndTenantIdForUpdate(userId, tenantId)
+                .orElseThrow(UserNotFoundException::new);
+
+        if (user.getRole() == Role.ADMIN) {
+            throw new UserAdminRefusedException("Rollen för en administratör kan inte ändras här.");
+        }
+
+        Role oldRole = user.getRole();
+        if (oldRole == newRole) {
+            return UserResponse.from(user);
+        }
+
+        if (oldRole == Role.ATTESTANT
+                && approvalStepRepository.existsByAttestantIdAndStatus(user.getId(), ApprovalStepStatus.PENDING)) {
+            throw new RoleChangeConflictException(
+                    "Attestanten har väntande atteststeg. Låt dem godkännas eller avvisas innan rollen ändras.");
+        }
+
+        user.changeRole(newRole);
+
+        auditService.record(
+                tenantId,
+                admin.userId(),
+                "UPDATE_USER_ROLE",
+                "USER",
+                user.getId(),
+                "Roll ändrad för %s (%s): %s till %s".formatted(
+                        user.getName(),
+                        user.getEmail(),
+                        oldRole == null ? "ingen" : oldRole.name().toLowerCase(Locale.ROOT),
+                        newRole.name().toLowerCase(Locale.ROOT)));
+
+        return UserResponse.from(user);
     }
 
     // En användare utan företag får inte administrera något. tenantId kommer från token och ska alltid

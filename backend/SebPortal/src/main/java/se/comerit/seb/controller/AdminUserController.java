@@ -4,10 +4,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import se.comerit.seb.dto.ChangeUserRoleRequest;
 import se.comerit.seb.dto.CreateUserRequest;
 import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.security.AuthenticatedUserContext;
@@ -45,5 +48,14 @@ public class AdminUserController {
     public ResponseEntity<UserResponse> createUser(@RequestBody CreateUserRequest request) {
         AuthenticatedUserContext admin = jwtUserContext.requireAuthenticated();
         return ResponseEntity.status(HttpStatus.CREATED).body(userAdminService.createUser(admin, request));
+    }
+
+    // 200 med användaren och den nya rollen. 400 vid en ogiltig roll, 403 för andra än ADMIN och när målet är en
+    // administratör, 404 om användaren inte finns i företaget och 409 om en attestant har väntande steg.
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{userId}/role")
+    public UserResponse changeRole(@PathVariable Long userId, @RequestBody ChangeUserRoleRequest request) {
+        AuthenticatedUserContext admin = jwtUserContext.requireAuthenticated();
+        return userAdminService.changeRole(admin, userId, request);
     }
 }

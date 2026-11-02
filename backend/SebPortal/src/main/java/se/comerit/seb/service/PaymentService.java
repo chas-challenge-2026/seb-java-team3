@@ -16,6 +16,7 @@ import se.comerit.seb.security.AuthenticatedUserContext;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class PaymentService {
@@ -99,8 +100,12 @@ public class PaymentService {
         }
     }
 
-    private User findAttestant(Long tenantId) {
-        List<User> attestants = userRepository.findByTenantIdAndRole(tenantId, Role.ATTESTANT);
+    // Skaparen väljs aldrig: en initiator som just blivit attestant kan ha kvar en initiator-token en stund, och
+    // en betalning vars enda steg tillhör skaparen skulle fastna, eftersom skaparen inte får godkänna sin egen.
+    private User findAttestant(Long tenantId, Long creatorId) {
+        List<User> attestants = userRepository.findByTenantIdAndRole(tenantId, Role.ATTESTANT).stream()
+                .filter(candidate -> !Objects.equals(candidate.getId(), creatorId))
+                .toList();
 
         if (attestants.isEmpty()) {
             throw new NoAttestantAvailableException(tenantId);
@@ -157,7 +162,7 @@ public class PaymentService {
             // Över tröskeln: skapa minst ett godkännandesteg.
             // OBS: belopp över two-attestant-threshold hanteras just nu likadant som 1-attestant-
             // fallet - riktig 2-attestant-kedja är avgränsad från #43.
-            User attestant = findAttestant(request.tenantId());
+            User attestant = findAttestant(request.tenantId(), request.createdBy());
 
             ApprovalStep step = new ApprovalStep(attestant.getId(), 1);
             payment.addApprovalStep(step);

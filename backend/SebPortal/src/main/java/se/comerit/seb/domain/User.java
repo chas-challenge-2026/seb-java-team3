@@ -47,4 +47,7 @@ public class User {
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
+
+    // Bara användaradministrationen byter roll (UserAdminService.changeRole), och då med användarens rad låst.
+    public void changeRole(Role newRole) { this.role = newRole; }
 }

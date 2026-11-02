@@ -16,6 +16,7 @@ import se.comerit.seb.domain.User;
 import se.comerit.seb.dto.CreateUserRequest;
 import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.exception.EmailAlreadyInUseException;
+import se.comerit.seb.repository.ApprovalStepRepository;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
@@ -47,7 +48,9 @@ class UserAdminServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final AuditService auditService = mock(AuditService.class);
     private final PasswordEncoder passwordEncoder = new PasswordEncoderConfig().passwordEncoder();
-    private final UserAdminService service = new UserAdminService(userRepository, passwordEncoder, auditService);
+    private final ApprovalStepRepository approvalStepRepository = mock(ApprovalStepRepository.class);
+    private final UserAdminService service =
+            new UserAdminService(userRepository, approvalStepRepository, passwordEncoder, auditService);
 
     @BeforeEach
     void savedUsersGetAnId() {
