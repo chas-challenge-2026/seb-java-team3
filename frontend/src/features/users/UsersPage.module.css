@@ -1,0 +1,228 @@
+/* Ingen overflow: hidden på kortet, annars klipps rollväljarens meny av på de sista raderna */
+.card {
+  border: 1px solid var(--border-default);
+  border-radius: 1.25rem;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid var(--border-default);
+  border-radius: 1.25rem 1.25rem 0 0;
+  background: var(--bg-muted);
+}
+
+.header h2 { color: var(--text-primary); font-size: 1.4rem; line-height: 1.2; }
+.header p { margin-top: 0.3rem; color: var(--text-muted); font-size: 0.88rem; }
+
+.headerActions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-heading);
+  font-size: 0.8rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.count span { font-weight: 800; }
+
+/* Ingen scroll på bred skärm, så att rollväljarens meny kan öppnas utanför kortet vid sista raden */
+.tableWrap { border-radius: 0 0 1.25rem 1.25rem; }
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.grid th,
+.grid td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: left;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+
+.grid th {
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.grid tbody tr:last-child td { border-bottom: 0; }
+
+/* Roll- och åtgärdskolumnerna är precis så breda som innehållet, med litet avstånd emellan */
+.shrinkCol { width: 1%; white-space: nowrap; }
+.grid td.roleCol { padding-right: 0.5rem; }
+.grid td.actionCol { padding-left: 0.5rem; }
+.grid th.roleCol { padding-right: 0.5rem; }
+.grid th.actionCol { padding-left: 0.5rem; }
+
+.name { color: var(--text-primary); font-weight: 650; }
+.email { color: var(--text-muted); font-size: 0.9rem; }
+
+.role {
+  display: inline-block;
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.4rem;
+  background: var(--bg-subtle);
+  color: var(--text-navigation);
+  font-size: 0.78rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.roleCell { width: 8.5rem; }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.deleteButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--danger-border);
+  border-radius: 0.65rem;
+  background: var(--danger-icon-bg);
+  color: var(--danger-text);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.deleteButton:hover {
+  background: var(--danger-bg-hover);
+  color: var(--danger-text-strong);
+}
+
+.deleteButton:focus-visible {
+  outline: 3px solid var(--focus-attention);
+  outline-offset: 2px;
+}
+
+/* Bekräfta borttagning: röd knapp som matchar ikonknappen */
+.dangerButton.dangerButton {
+  border: 1px solid var(--danger-text);
+  background: var(--danger-icon-bg);
+  color: var(--danger-text-strong);
+  font-weight: 650;
+}
+
+.dangerButton.dangerButton:hover:not(:disabled) {
+  background: var(--danger-bg-hover);
+}
+
+.summary {
+  margin: 0 0 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--bg-primary);
+}
+
+.summary div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.summary div:last-child { border-bottom: 0; }
+.summary dt { flex: 0 0 auto; color: var(--text-secondary); font-size: 0.82rem; }
+
+.summary dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.permanentNotice {
+  margin: 0 0 1rem;
+  color: var(--danger-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.roleError {
+  margin: 0.3rem 0 0;
+  color: var(--danger-text);
+  font-size: 0.78rem;
+}
+
+.requiredLegend { margin: 0 0 0.75rem; color: var(--text-secondary); font-size: 0.78rem; }
+.requiredMark { color: var(--danger-text); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
+
+.submitError {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--danger-border);
+  border-radius: 0.65rem;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.fieldError {
+  margin: 0.25rem 0 1rem;
+  color: var(--danger-text);
+  font-size: 0.82rem;
+}
+
+.listState { padding: 0.5rem 1rem 1rem; }
+
+@media (max-width: 640px) {
+  .header { flex-direction: column; gap: 1rem; padding: 1.25rem; }
+  .headerActions { justify-content: flex-start; }
+  .actions button { flex: 1; }
+  .tableWrap { overflow-x: auto; }
+  .grid th,
+  .grid td { padding-left: 1rem; padding-right: 1rem; }
+}
