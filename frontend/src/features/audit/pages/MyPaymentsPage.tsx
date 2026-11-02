@@ -14,6 +14,7 @@ export default function MyPaymentsPage() {
 
   return (
     <Container maxWidth="xxl">
+      <h1 style={{textAlign: "center", marginBottom: "2rem"}}>Mina betalningar</h1>
       {isPending ? (
         <LoadingMessage message="Laddar dina betalningar…" />
       ) : isError ? (

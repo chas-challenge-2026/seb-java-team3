@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from "@tanstack/react-router";
 import Styles from "./SideBarItem.module.css"
 
-type AppRoute = "/" | "/login" | "/payments/new" | "/attest" | "/my-payments" | "/audit";
+type AppRoute = "/" | "/login" | "/payments/new" | "/attest" | "/my-payments" | "/audit" | "/admin/users";
 
 interface SidebarItemProps {
     label: string;

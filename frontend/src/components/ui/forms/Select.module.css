@@ -7,6 +7,11 @@
   padding: 0 0.5rem;
 }
 
+.compact { margin-bottom: 0; padding: 0; }
+.compact .trigger { height: 2.25rem; padding: 0 0.5rem 0 0.7rem; gap: 0.5rem; font-size: 0.85rem; }
+.compact .option { min-height: 2.25rem; padding: 0.45rem 0.6rem; font-size: 0.82rem; }
+.compact .menu { right: 0; left: 0; }
+
 .selectLabel { color: var(--text-heading); font-size: 0.84rem; font-weight: 650; }
 .requiredMark { color: var(--danger-text); }
 

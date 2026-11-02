@@ -13,6 +13,7 @@ import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.UserRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -48,6 +49,19 @@ class AuditServiceSigningTest {
         verify(auditRepository).save(any(AuditEntry.class));
         assertEquals("APPROVE_PAYMENT", saved.getAction());
         assertEquals(7L, saved.getEntityId());
+        assertNull(saved.getComment());
+    }
+
+    // #228: attestantens meddelande sparas i en egen kolumn på raden, och den signerade loggen får det via
+    // beskrivningen
+    @Test
+    void record_withAComment_savesItOnTheRowAndSignsTheDescription() {
+        AuditEntry saved = auditService.record(5L, 42L, "REJECT_PAYMENT", "PAYMENT", 7L,
+                "Betalning avvisad. Kommentar: Fel konto", "Fel konto");
+
+        assertEquals("Fel konto", saved.getComment());
+        TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+        verify(signer).append(42L, "REJECT_PAYMENT", 7L, "Betalning avvisad. Kommentar: Fel konto");
     }
 
     @Test

@@ -1,6 +1,6 @@
 # ADR 0001 — ScrumBan som arbetssätt
 
-- **Status:** Föreslagen
+- **Status:** Accepterad
 - **Datum:** 2026-08-26
 - **Deltagare:** Team · drivande: Pontus Ingenius
 - **Berör:** Teamets arbetsprocess

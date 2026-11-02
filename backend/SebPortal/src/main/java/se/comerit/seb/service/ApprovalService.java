@@ -32,6 +32,9 @@ public class ApprovalService {
     private static final String FROM_ACCOUNT_NOT_AVAILABLE =
             "Från-kontot finns inte eller tillhör inte ditt företag";
 
+    // Samma text för ett steg som inte finns och ett annat företags steg, utan id:t i svaret (R-04, R-18).
+    private static final String APPROVAL_STEP_NOT_FOUND = "Atteststeget hittades inte.";
+
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final AuditService auditService;
@@ -111,7 +114,7 @@ public class ApprovalService {
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
                 .filter(step -> Objects.equals(step.getId(), approvalStepId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -187,7 +190,17 @@ public class ApprovalService {
     // för ett databasfel.
     static final int MAX_COMMENT_LENGTH = 255;
 
+    // Kontrolltecken ger 400: Postgres tar inte emot NUL i text, och ett meddelande med bara kontrolltecken
+    // hade blivit tomt efter trim. Radbrytningar och tabbar är vanlig fritext och får vara kvar.
+    private static boolean containsControlCharacter(String text) {
+        return text.chars().anyMatch(c -> Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t');
+    }
+
     private void rejectInternal(Long approvalStepId, Long actorId, String rawComment, AuthenticatedUserContext user) {
+        if (rawComment != null && containsControlCharacter(rawComment)) {
+            throw new IllegalArgumentException("Kommentaren innehåller ogiltiga tecken.");
+        }
+
         String comment = rawComment == null || rawComment.isBlank() ? null : rawComment.trim();
         if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
             throw new IllegalArgumentException(
@@ -211,7 +224,7 @@ public class ApprovalService {
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
                 .filter(step -> Objects.equals(step.getId(), approvalStepId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -239,6 +252,7 @@ public class ApprovalService {
                 payment.getAmount(),
                 payment.getCurrency(),
                 payment.getToIban());
+        // Meddelandet står också i beskrivningen, eftersom den signerade loggen bara får beskrivningen
         if (comment != null) {
             description += ". Kommentar: " + comment;
         }
@@ -249,7 +263,8 @@ public class ApprovalService {
                 "REJECT_PAYMENT",
                 "PAYMENT",
                 payment.getId(),
-                description
+                description,
+                comment
         );
     }
 
@@ -261,7 +276,7 @@ public class ApprovalService {
         return paymentRepository.findByApprovalStepIdForUpdate(approvalStepId)
                 .filter(payment -> user == null
                         || (user.tenantId() != null && Objects.equals(payment.getTenantId(), user.tenantId())))
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)

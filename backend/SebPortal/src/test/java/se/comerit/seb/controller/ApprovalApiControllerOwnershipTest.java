@@ -92,10 +92,27 @@ class ApprovalApiControllerOwnershipTest {
     void approve_asAttestantWhoDoesNotOwnTheStep_returns403AndChangesNothing() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_B_ID)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                // R-18: svaret lämnar inte ut steg- eller användar-id
+                .andExpect(jsonPath("$.message").value("Du har inte behörighet att hantera det här atteststeget."));
 
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
+    @Test
+    void reject_withAControlCharacterInTheMessage_returns400AndChangesNothing() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"Fel\\u0000konto\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Kommentaren innehåller ogiltiga tecken."));
+
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(step.getComment());
         verifyNoInteractions(accountRepository, auditService);
     }
 
@@ -220,7 +237,7 @@ class ApprovalApiControllerOwnershipTest {
             mockMvc.perform(post("/api/approvals/{stepId}/" + action, STEP_ID)
                             .header("Authorization", "Bearer " + token))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Approval step not found: " + STEP_ID));
+                    .andExpect(jsonPath("$.message").value("Atteststeget hittades inte."));
         }
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());

@@ -1,6 +1,16 @@
-import type { MyPaymentStatus } from "../schema";
+import type { MyPaymentStatus, PaymentAuditTimelineEntry } from "../schema";
 
 export { formatDateTime, getDateTimeSortValue } from "../../../lib/dateTime";
+
+// Admin får också en rad per atteststeg ("Atteststeg avvisat"), och steget bär samma meddelande som beslutet.
+// Meddelandet visas bara på beslutet, annars står samma text två gånger.
+export function formatTimelineComment(entry: PaymentAuditTimelineEntry): string | null {
+  if (entry.eventType.startsWith("APPROVAL_STEP_")) {
+    return null;
+  }
+
+  return entry.comment?.trim() || null;
+}
 
 // Vem betalningen hänger på, bredvid statusen: den som ska attestera nu, den som avvisade, eller de som
 // godkände. Om en betalning fastnar ser initiatören vem som ska kontaktas (UX-feedback).

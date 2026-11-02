@@ -21,7 +21,7 @@
 
 | Task | Ägare | Est. | Not |
 |------|-------|------|-----|
-| Lägga till meddelande vid godkänn/avvisa, som sparas tillsammans med beslutet och visas i historiken | Jonathan | M | |
+| Lägga till meddelande vid avvisning, som sparas tillsammans med beslutet och visas i historiken | Jonathan | M | |
 | Skapa endpoint som räknar initiatorns betalningar med ändrad status (badge) | Adnan | M | Behövs innan frontend-badgen kan göras |
 | Lägga till "sedd"-status för badgen | Markus | M | Behöver stämmas av med Adnan |
 
@@ -29,7 +29,7 @@
 
 | Task | Ägare | Est. | Not |
 |------|-------|------|-----|
-| Göra vyn där attestanten kan godkänna/avvisa en betalning, skriva meddelande och bekräfta | Pontus | M | |
+| Göra vyn där attestanten kan godkänna/avvisa en betalning, skriva meddelande vid avvisning och bekräfta | Pontus | M | |
 | Lägga till bekräftelse när initiatorn skapar en betalning | Marcus | S | Använd en gemensam bekräftelse-komponent |
 | Göra en dropdown där initiatorn kan se mer info om en avvisad betalning under Mina betalningar | Mohammed | M | |
 | Lägga till badge på "Mina betalningar" och genväg till Attestera | Marcus | S | Väntar på endpointen från Adnan |
