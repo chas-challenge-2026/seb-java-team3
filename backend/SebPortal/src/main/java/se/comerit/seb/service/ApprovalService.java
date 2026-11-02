@@ -81,7 +81,7 @@ public class ApprovalService {
                 .toList();
     }
 
-    // Bara ATTESTANT fattar beslut. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0015).
+    // Bara ATTESTANT fattar beslut. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
     @PreAuthorize("hasRole('ATTESTANT')")
     @Transactional
     public void approveForUser(Long approvalStepId, AuthenticatedUserContext user) {
@@ -256,7 +256,7 @@ public class ApprovalService {
         );
     }
 
-    // Fyraögonprincipen (ADR 0015): den som skapat en betalning får aldrig själv godkänna eller avvisa den,
+    // Fyraögonprincipen (ADR 0017): den som skapat en betalning får aldrig själv godkänna eller avvisa den,
     // även om hen råkar vara tilldelad steget (till exempel efter en rolländring). Kontrollen sitter i
     // servicen och gäller alla vägar in, och sker innan något ändras.
     private static void refuseDecisionByCreator(Payment payment, Long actorId, String verb) {

@@ -117,7 +117,7 @@ public class PaymentService {
         return attestants.get(0);
     }
 
-    // Bara INITIATOR. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0015).
+    // Bara INITIATOR. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
     @PreAuthorize("hasRole('INITIATOR')")
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {

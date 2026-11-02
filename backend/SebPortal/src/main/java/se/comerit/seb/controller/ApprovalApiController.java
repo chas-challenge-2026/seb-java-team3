@@ -47,7 +47,7 @@ public class ApprovalApiController {
     }
 
     // Bara ATTESTANT fattar beslut. ADMIN får läsa attestkorgen och räknaren som översikt men
-    // godkänner och avvisar aldrig (ADR 0015).
+    // godkänner och avvisar aldrig (ADR 0017).
     @PreAuthorize("hasRole('ATTESTANT')")
     @PostMapping("/{stepId}/approve")
     public ResponseEntity<?> approve(@PathVariable Long stepId) {

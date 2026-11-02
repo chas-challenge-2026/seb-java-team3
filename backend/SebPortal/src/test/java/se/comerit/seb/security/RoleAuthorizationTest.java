@@ -142,7 +142,7 @@ class RoleAuthorizationTest {
                 .andExpect(status().isNoContent());
     }
 
-    // ADR 0015: admin är en administrativ roll och fattar inga beslut om betalningar.
+    // ADR 0017: admin är en administrativ roll och fattar inga beslut om betalningar.
     @Test
     void adminCannotApprovePayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", 10L)
@@ -247,7 +247,7 @@ class RoleAuthorizationTest {
                 .andExpect(status().isCreated());
     }
 
-    // ADR 0015: admin är en administrativ roll och flyttar inga pengar.
+    // ADR 0017: admin är en administrativ roll och flyttar inga pengar.
     @Test
     void adminCannotCreatePayment() throws Exception {
         mockMvc.perform(post("/api/payments")

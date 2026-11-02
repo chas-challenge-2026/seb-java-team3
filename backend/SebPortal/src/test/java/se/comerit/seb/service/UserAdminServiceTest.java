@@ -44,7 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-// Användaradministrationen (#242, ADR 0015): validering, företag från token, hashat lösenord, 409 på upptagen
+// Användaradministrationen (#242, ADR 0017): validering, företag från token, hashat lösenord, 409 på upptagen
 // e-post och audit utan lösenord. Rollspärren (403 för andra än ADMIN) prövas på HTTP-nivå i controllertestet.
 class UserAdminServiceTest {
 

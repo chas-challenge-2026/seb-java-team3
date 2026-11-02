@@ -76,7 +76,7 @@ class ApprovalServiceTransactionIntegrationTest {
                 "Issue 193 attestant",
                 "issue193-attestant-" + tenantId + "@seb.test",
                 "unused-test-password-hash");
-        // Betalningen skapas av en initiator: den som skapat en betalning får inte godkänna den (ADR 0015)
+        // Betalningen skapas av en initiator: den som skapat en betalning får inte godkänna den (ADR 0017)
         initiatorId = jdbcTemplate.queryForObject("""
                 INSERT INTO users (tenant_id, name, email, password_hash, role)
                 VALUES (?, ?, ?, ?, 'initiator')

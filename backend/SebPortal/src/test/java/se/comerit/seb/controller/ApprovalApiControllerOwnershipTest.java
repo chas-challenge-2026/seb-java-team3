@@ -99,7 +99,7 @@ class ApprovalApiControllerOwnershipTest {
         verifyNoInteractions(accountRepository, auditService);
     }
 
-    // Fyraögonprincipen (ADR 0015): den som skapat betalningen får inte godkänna eller avvisa den, inte
+    // Fyraögonprincipen (ADR 0017): den som skapat betalningen får inte godkänna eller avvisa den, inte
     // ens som tilldelad attestant. Servicen nekar, controllern svarar 403 och inget ändras.
     @Test
     void approveAndReject_asTheCreatorOfThePayment_returns403AndChangesNothing() throws Exception {
@@ -206,7 +206,7 @@ class ApprovalApiControllerOwnershipTest {
         return jwtService.generateToken(new AuthenticatedUserContext(userId, TENANT_ID, Role.ATTESTANT));
     }
 
-    // ADR 0015: admin fattar inga beslut om betalningar, varken i sitt eget företag eller i ett annat.
+    // ADR 0017: admin fattar inga beslut om betalningar, varken i sitt eget företag eller i ett annat.
     // Spärren sitter i controllern, så varken steg, saldo eller audit berörs.
     @Test
     void admin_cannotApproveOrRejectAnyStep() throws Exception {

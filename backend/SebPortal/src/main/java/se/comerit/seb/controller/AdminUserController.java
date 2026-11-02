@@ -19,7 +19,7 @@ import se.comerit.seb.service.UserAdminService;
 
 import java.util.List;
 
-// Användaradministration för ADMIN (ADR 0015). Rollen kontrolleras både här och i UserAdminService.
+// Användaradministration för ADMIN (ADR 0017). Rollen kontrolleras både här och i UserAdminService.
 // Företaget kommer alltid från admins token: varken listan eller en ny användare kan styras med ett
 // företags-id från anropet.
 @RestController

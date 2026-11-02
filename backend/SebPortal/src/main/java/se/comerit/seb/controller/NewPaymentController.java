@@ -36,7 +36,7 @@ public class NewPaymentController {
 
     public record PaymentConfigResponse(BigDecimal approvalThreshold) {}
 
-    // Bara INITIATOR skapar betalningar. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0015).
+    // Bara INITIATOR skapar betalningar. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
     @PreAuthorize("hasRole('INITIATOR')")
     @GetMapping("/config")
     public PaymentConfigResponse getPaymentConfig() {

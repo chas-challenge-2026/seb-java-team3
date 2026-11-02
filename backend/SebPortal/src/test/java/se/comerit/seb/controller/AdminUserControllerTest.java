@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// Controllern och rollspärren för användaradministrationen (#242, ADR 0015), genom den riktiga
+// Controllern och rollspärren för användaradministrationen (#242, ADR 0017), genom den riktiga
 // säkerhetskedjan med en riktig token. Tjänsten är mockad: hela kedjan prövas i
 // UserAdministrationIntegrationTest.
 @WebMvcTest(AdminUserController.class)

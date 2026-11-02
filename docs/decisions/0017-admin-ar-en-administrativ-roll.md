@@ -1,4 +1,4 @@
-# ADR 0015 — Admin är en administrativ roll och flyttar inga pengar
+# ADR 0017 — Admin är en administrativ roll och flyttar inga pengar
 
 - **Status:** Accepterad
 - **Datum:** 2026-11-02

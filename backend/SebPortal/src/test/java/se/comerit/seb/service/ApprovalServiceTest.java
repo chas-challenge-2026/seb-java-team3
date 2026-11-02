@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ApprovalServiceTest {
 
     // Den som skapat betalningarna i testerna. Skild från attestanterna, eftersom den som skapat en
-    // betalning aldrig får godkänna eller avvisa den (ADR 0015).
+    // betalning aldrig får godkänna eller avvisa den (ADR 0017).
     private static final Long INITIATOR_ID = 900L;
 
     @Test

@@ -22,7 +22,7 @@ Det här är v2, en ombyggnad av det avsiktligt trasiga v1-systemet. Backend är
 | Granskningslogg och tidslinje per betalning | attestant, admin | `/audit` |
 | Lista och skapa användare, byta roll (API, sida kommer) | admin | `/api/admin/users` |
 
-Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest. Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den. Admin är en administrativ roll som inte skapar, godkänner eller avvisar betalningar (ADR 0015).
+Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest. Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den. Admin är en administrativ roll som inte skapar, godkänner eller avvisar betalningar (ADR 0017).
 
 ---
 

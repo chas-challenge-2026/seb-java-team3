@@ -265,7 +265,7 @@ class TenantIsolationIntegrationTest {
         assertUntouched(b.pendingPayment, b.pendingStep, b.account);
     }
 
-    // ADR 0015: admin är en administrativ roll. Admin nekas att fatta beslut redan i controllern, oavsett
+    // ADR 0017: admin är en administrativ roll. Admin nekas att fatta beslut redan i controllern, oavsett
     // om steget finns i det egna företaget eller inte, och inget ändras.
     @Test
     void admin_cannotApproveOrReject_inTheOwnCompanyOrAnother() throws Exception {

@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// Användaradministrationen genom hela kedjan (#242, ADR 0015): säkerhetskedjan, controller, service, repository
+// Användaradministrationen genom hela kedjan (#242, ADR 0017): säkerhetskedjan, controller, service, repository
 // och audit, mot H2 i minnet utan Docker. Bara signeringen av audit-loggen är avstängd (inget native bibliotek).
 // Två företag finns med, så att isoleringen mellan dem går att visa.
 @SpringBootTest(properties = {

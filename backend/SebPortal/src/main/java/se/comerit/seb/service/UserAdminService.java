@@ -27,7 +27,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-// Användaradministration för ADMIN (ADR 0015). Admin ser och skapar användare i det egna företaget.
+// Användaradministration för ADMIN (ADR 0017). Admin ser och skapar användare i det egna företaget.
 // Företaget kommer alltid från admins token, aldrig från anropet.
 @Service
 public class UserAdminService {
