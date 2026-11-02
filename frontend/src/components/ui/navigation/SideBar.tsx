@@ -12,6 +12,7 @@ import {
   CreditCard,
   CreditCardCheck,
   Timeline,
+  Users,
   Moon,
   LogOut,
   Sun,
@@ -82,6 +83,14 @@ const SideBar = () => {
                 active={currentPath === "/audit"}
               />
             ))}
+          {user?.role === "ADMIN" && (
+            <SideBarItem
+              label="Användare"
+              icon={<Users size={iconSize} />}
+              route={"/admin/users"}
+              active={currentPath === "/admin/users"}
+            />
+          )}
           </ul>
         </nav>
       </div>

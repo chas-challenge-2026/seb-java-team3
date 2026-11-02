@@ -23,11 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -173,11 +176,9 @@ class ApprovalServiceTest {
         // Steget ska fortfarande vara PENDING — B lyckades inte ändra något
         assertEquals(ApprovalStepStatus.PENDING, approvalStep.getStatus());
 
-        // Ingen audit-post, inget kontosaldo ska ha rörts
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        // Ingen audit-post, inget kontosaldo ska ha rörts. verifyNoInteractions täcker alla varianter av
+        // record, oavsett hur många argument de tar.
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -263,8 +264,11 @@ class ApprovalServiceTest {
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
         assertNull(payment.getExecutedAt());
 
-        // Saldot ska vara orört och ingen "godkänd betalning"-audit får ha skrivits
-        verifyNoInteractions(accountRepository, auditService);
+        // Saldot ska vara orört. Godkännandet loggas, men inte som en godkänd betalning.
+        verifyNoInteractions(accountRepository);
+        verify(auditService).record(eq(1L), eq(actorId), eq("APPROVE_STEP"), eq("PAYMENT"), eq(100L),
+                contains("Attest 1 av 2"));
+        verifyNoMoreInteractions(auditService);
     }
 
     @Test
@@ -358,10 +362,7 @@ class ApprovalServiceTest {
         assertEquals(ApprovalStepStatus.PENDING, approvalStep1.getStatus());
 
         // Ingen audit-post ska ha skapats
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verifyNoInteractions(auditService);
     }
 
     @Test

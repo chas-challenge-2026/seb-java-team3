@@ -13,6 +13,7 @@ export default function AuditPage() {
 
     return (
         <Container maxWidth="xxl">
+            <h1 style={{textAlign: "center", marginBottom: "2rem"}}>Historik</h1>
             {isPending ? (
                 <LoadingMessage message="Laddar händelser…" />
             ) : isError ? (

@@ -270,4 +270,21 @@ class RoleAuthorizationTest {
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
                 .andExpect(status().isForbidden());
     }
+
+    // Sedd-status för initiatorns badge: bara initiatorn har en badge att nollställa
+    @Test
+    void initiatorCanMarkChangedPaymentsSeen() throws Exception {
+        mockMvc.perform(post("/api/payments/changed-count/seen")
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void adminAndAttestantCannotMarkChangedPaymentsSeen() throws Exception {
+        for (Role role : new Role[] {Role.ADMIN, Role.ATTESTANT}) {
+            mockMvc.perform(post("/api/payments/changed-count/seen")
+                            .header("Authorization", "Bearer " + tokenFor(3L, 1L, role)))
+                    .andExpect(status().isForbidden());
+        }
+    }
 }

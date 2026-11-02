@@ -57,9 +57,11 @@ public record MyPaymentStatusResponse(
     }
 
     private static ApprovalStepSummary toSummary(ApprovalStep step, Map<Long, String> userNamesById) {
+        // Den som faktiskt beslutade, annars den som steget väntar på
+        Long attestantId = step.getDecidedBy() != null ? step.getDecidedBy() : step.getAttestantId();
         return new ApprovalStepSummary(
                 step.getStepNumber(),
-                userNamesById.getOrDefault(step.getAttestantId(), UNKNOWN_ATTESTANT),
+                userNamesById.getOrDefault(attestantId, UNKNOWN_ATTESTANT),
                 step.getStatus().name(),
                 step.getDecidedAt(),
                 step.getComment()

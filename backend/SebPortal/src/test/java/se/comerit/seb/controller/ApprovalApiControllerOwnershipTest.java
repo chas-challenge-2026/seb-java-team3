@@ -92,7 +92,9 @@ class ApprovalApiControllerOwnershipTest {
     void approve_asAttestantWhoDoesNotOwnTheStep_returns403AndChangesNothing() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_B_ID)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                // R-18: svaret lämnar inte ut steg- eller användar-id
+                .andExpect(jsonPath("$.message").value("Du har inte behörighet att hantera det här atteststeget."));
 
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
@@ -100,7 +102,9 @@ class ApprovalApiControllerOwnershipTest {
     }
 
     // Fyraögonprincipen (ADR 0017): den som skapat betalningen får inte godkänna eller avvisa den, inte
-    // ens som tilldelad attestant. Servicen nekar, controllern svarar 403 och inget ändras.
+    // ens som tilldelad attestant. Servicen nekar, controllern svarar 403 och inget ändras. Svaret har den
+    // generiska texten, eftersom åtkomstnekanden inte avslöjar orsaken för klienten; den riktiga orsaken
+    // loggas och prövas i ApprovalServiceTest.
     @Test
     void approveAndReject_asTheCreatorOfThePayment_returns403AndChangesNothing() throws Exception {
         payment.setCreatedBy(ATTESTANT_A_ID);
@@ -108,13 +112,28 @@ class ApprovalApiControllerOwnershipTest {
         mockMvc.perform(post("/api/approvals/{stepId}/approve", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Du kan inte godkänna en betalning som du själv har skapat."));
+                .andExpect(jsonPath("$.message").value("Du har inte behörighet att hantera det här atteststeget."));
         mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
                         .contentType(APPLICATION_JSON)
                         .content("{\"comment\":\"Avvisar min egen\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Du kan inte avvisa en betalning som du själv har skapat."));
+                .andExpect(jsonPath("$.message").value("Du har inte behörighet att hantera det här atteststeget."));
+
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(step.getComment());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
+    @Test
+    void reject_withAControlCharacterInTheMessage_returns400AndChangesNothing() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", STEP_ID)
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_A_ID))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"comment\":\"Fel\\u0000konto\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Kommentaren innehåller ogiltiga tecken."));
 
         assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());

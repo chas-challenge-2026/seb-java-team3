@@ -442,16 +442,16 @@ class TenantIsolationIntegrationTest {
         assertFalse(body.contains(other.toIban), () -> "läcker " + other.marker + "s mottagar-IBAN: " + body);
     }
 
-    // Samma status och samma text (bortsett från id:t) som för ett steg som inte finns
+    // Samma status och samma text som för ett steg som inte finns, och inget id i svaret (R-18)
     private void assertLooksLikeMissingStep(long stepId, String action, String token) throws Exception {
         Response other = perform(post("/api/approvals/" + stepId + "/" + action), token);
         Response missing = perform(post("/api/approvals/" + MISSING_ID + "/" + action), token);
 
         assertEquals(400, other.status(), () -> action + " " + stepId + ": " + other.body());
         assertEquals(missing.status(), other.status());
-        String missingMessage = JsonPath.read(missing.body(), "$.message");
-        assertEquals(missingMessage.replace(String.valueOf(MISSING_ID), String.valueOf(stepId)),
-                JsonPath.read(other.body(), "$.message"));
+        String otherMessage = JsonPath.read(other.body(), "$.message");
+        assertEquals(JsonPath.<String>read(missing.body(), "$.message"), otherMessage);
+        assertFalse(otherMessage.contains(String.valueOf(stepId)), () -> "läcker steg-id: " + otherMessage);
     }
 
     // --- Databasläge ------------------------------------------------------------------------------

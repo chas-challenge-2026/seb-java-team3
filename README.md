@@ -22,7 +22,7 @@ Det här är v2, en ombyggnad av det avsiktligt trasiga v1-systemet. Backend är
 | Granskningslogg och tidslinje per betalning | attestant, admin | `/audit` |
 | Lista och skapa användare, byta roll (API, sida kommer) | admin | `/api/admin/users` |
 
-Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest. Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den. Admin är en administrativ roll som inte skapar, godkänner eller avvisar betalningar (ADR 0017).
+Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest, och betalningar över `payment.approval.two-attestant-threshold` (50 000 kr) kräver två olika attestanter i tur och ordning (ADR 0016). Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den. Admin är en administrativ roll som inte skapar, godkänner eller avvisar betalningar (ADR 0017).
 
 ---
 
@@ -46,6 +46,7 @@ Seed-användare (skapas av Flyway, alla tillhör samma företag):
 |------|--------|---------|
 | Initiator | lisa@malmobygg.se | password123 |
 | Attestant | johan@malmobygg.se | password123 |
+| Attestant 2 | eva@malmobygg.se | password123 |
 | Admin | sara@malmobygg.se | password123 |
 
 Kom ihåg att seed-datans IBAN:er inte klarar MOD97, utom `SE4550000000058398257466`. Använd t.ex. `DE89370400440532013000` som mottagare när du provar.
@@ -78,11 +79,11 @@ Utan de native biblioteken kör backend en Java-implementation av IBAN-validerin
 
 ### Hemligheter
 
-Dev-värdena i `application.properties` får aldrig användas i stage eller produktion. Sätt dessa som miljövariabler där:
+Dev-värdena i `application.properties` får aldrig användas i stage eller produktion. Dessa miljövariabler styr hemligheterna där:
 
 | Variabel | Används till |
 |----------|--------------|
-| `JWT_SECRET` | Signering av JWT, se ADR 0009 |
+| `JWT_SECRET` | Valfri fast nyckel för JWT-signering. Utan värde slumpas nyckeln vid start (ADR 0011). `infra/docker-compose.yml` skickar inte vidare variabeln i dag |
 | `AUDIT_SIGNING_KEY` | HMAC-nyckel för den signerade granskningsloggen (native audit-signering) |
 | `AUDIT_LOG_PATH` | Loggfilens sökväg. I Docker ligger den på volymen `auditlog` (`/app/audit`) så att den överlever omstart |
 | `AUDIT_SIGNING_REQUIRED` | Sätt `true` i stage och produktion. Appen vägrar då starta utan native-biblioteket och med dev-nyckeln |
@@ -91,7 +92,7 @@ Dev-värdena i `application.properties` får aldrig användas i stage eller prod
 
 ## Arkitektur
 
-Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V7). Inloggning ger en JWT som frontend skickar i `Authorization`-headern (ADR 0009), och rollerna kontrolleras med `@PreAuthorize`.
+Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V9). Inloggning ger en JWT som frontend håller i minnet och skickar i `Authorization`-headern, och en refresh-token i HttpOnly-cookie förnyar den (ADR 0009, ADR 0012). Rollerna kontrolleras med `@PreAuthorize`.
 
 Frontend (React, TanStack Router och Query) byggs i Dockerfilen och serveras av Spring från jar-filen. `SpaFallbackController` skickar frontend-routes till `index.html`, medan `/api/**` fortsätter vara API.
 
@@ -221,16 +222,15 @@ Det här är medvetet inte byggt i MVP (ADR 0003, [docs/mvp.md](docs/mvp.md)):
 
 - Batch/CSV-uppladdning med allt-eller-inget (parsern finns, endpointen och vyn saknas)
 - Påminnelser via e-post med kö och retry
-- Dubbel attest, attestant 2 (VD) och tröskeltrappa (datamodellen stöder flera steg)
+- Särskilt VD-steg och fler trösklar än dubbel attest över 50 000 kr (datamodellen stöder flera steg)
 - Förfallodatum på betalningar (ADR 0013)
 - Compliance-export, 2FA och valutaomvandling (allt hanteras i SEK)
 
 Kända brister:
 
 - Bara en av seed-datans IBAN:er (`SE4550000000058398257466`) klarar MOD97, så betalningar till de andra stoppas av valideringen.
-- Samtidiga godkännanden av samma betalning är skyddade med radlås, men det finns inget incheckat test mot riktig databas (R-01).
 
-Kända brister i testerna, som samtidighet mot riktig databas och tenant-gränser, står i [docs/test-status.md](docs/test-status.md).
+Kända brister i testerna står i [docs/test-status.md](docs/test-status.md).
 
 ---
 

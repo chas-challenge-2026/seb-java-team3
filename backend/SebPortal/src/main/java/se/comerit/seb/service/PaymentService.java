@@ -25,6 +25,8 @@ public class PaymentService {
     // så att konto-id hos andra kunder inte går att kartlägga.
     private static final String FROM_ACCOUNT_NOT_AVAILABLE =
             "Från-kontot finns inte eller tillhör inte ditt företag";
+    // Används när användaren aldrig markerat något som sett: då räknas alla beslut.
+    private static final LocalDateTime NEVER_SEEN = LocalDateTime.of(1970, 1, 1, 0, 0);
 
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
@@ -100,21 +102,31 @@ public class PaymentService {
         }
     }
 
-    // Skaparen väljs aldrig: en initiator som just blivit attestant kan ha kvar en initiator-token en stund, och
-    // en betalning vars enda steg tillhör skaparen skulle fastna, eftersom skaparen inte får godkänna sin egen.
-    private User findAttestant(Long tenantId, Long creatorId) {
-        List<User> attestants = userRepository.findByTenantIdAndRole(tenantId, Role.ATTESTANT).stream()
+    // Samma regel som för den första tröskeln (ADR 0015): strikt över, så exakt tröskelbeloppet räcker
+    // med en attestant (ADR 0016).
+    private int requiredAttestants(BigDecimal amount) {
+        return amount.compareTo(thresholds.getTwoAttestantThreshold()) > 0 ? 2 : 1;
+    }
+
+    // Skaparen väljs aldrig (ADR 0017): en initiator som just blivit attestant kan ha kvar en initiator-token
+    // en stund, och en betalning vars steg tillhör skaparen skulle fastna, eftersom skaparen inte får godkänna
+    // sin egen. Skaparen räknas bort före kontrollen av antalet, så att "för få attestanter" gäller de
+    // attestanter som faktiskt kan godkänna.
+    private List<User> findAttestants(Long tenantId, int required, Long creatorId) {
+        List<User> attestants = userRepository.findByTenantIdAndRoleOrderByIdAsc(tenantId, Role.ATTESTANT).stream()
                 .filter(candidate -> !Objects.equals(candidate.getId(), creatorId))
                 .toList();
 
-        if (attestants.isEmpty()) {
+        // Betalningen stoppas redan här. Annars hade den reserverat pengar i väntan på ett godkännande som
+        // ingen kan ge.
+        if (attestants.size() < required) {
             throw new NoAttestantAvailableException(tenantId);
         }
 
-        // MVP-regel: ta den första hittade attestanten.
+        // MVP-regel: ta de första attestanterna, i id-ordning.
         // Dokumenterad avgränsning - riktig urvalslogik (t.ex.
         // arbetsbelastning, roterande tilldelning) är inte MVP.
-        return attestants.get(0);
+        return attestants.subList(0, required);
     }
 
     // Bara INITIATOR. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
@@ -159,13 +171,14 @@ public class PaymentService {
             payment.setExecutedAt(LocalDateTime.now());
 
         } else {
-            // Över tröskeln: skapa minst ett godkännandesteg.
-            // OBS: belopp över two-attestant-threshold hanteras just nu likadant som 1-attestant-
-            // fallet - riktig 2-attestant-kedja är avgränsad från #43.
-            User attestant = findAttestant(request.tenantId(), request.createdBy());
+            // Över tröskeln: ett godkännandesteg per attestant som krävs, i tur och ordning. Skaparen väljs aldrig.
+            List<User> attestants = findAttestants(
+                    request.tenantId(), requiredAttestants(request.amount()), request.createdBy());
 
-            ApprovalStep step = new ApprovalStep(attestant.getId(), 1);
-            payment.addApprovalStep(step);
+            int stepNumber = 1;
+            for (User attestant : attestants) {
+                payment.addApprovalStep(new ApprovalStep(attestant.getId(), stepNumber++));
+            }
             // status är redan PENDING_APPROVAL som default i Payment
         }
 
@@ -187,11 +200,23 @@ public class PaymentService {
     }
 
     // Badge för initiatorn: samma mönster som ApprovalService.countPendingByAttestant, men databasen
-    // räknar. Användare och företag kommer från JWT, aldrig från anropet.
+    // räknar. Räknar beslut som fattats efter att användaren senast markerade sina betalningar som
+    // sedda. Användare och företag kommer från JWT, aldrig från anropet.
     @PreAuthorize("hasRole('INITIATOR')")
     @Transactional(readOnly = true)
     public int countChangedForInitiator(AuthenticatedUserContext user) {
-        return (int) paymentRepository.countDecidedByInitiator(user.tenantId(), user.userId());
+        LocalDateTime seenAt = userRepository
+                .findPaymentsSeenAt(user.userId(), user.tenantId())
+                .orElse(NEVER_SEEN);
+        return (int) paymentRepository.countDecidedByInitiator(
+                user.tenantId(), user.userId(), seenAt);
+    }
+
+    // Initiatorn har sett sina ändrade betalningar: badgen nollas tills nästa beslut fattas.
+    @PreAuthorize("hasRole('INITIATOR')")
+    @Transactional
+    public void markChangedSeen(AuthenticatedUserContext user) {
+        userRepository.markPaymentsSeen(user.userId(), user.tenantId(), LocalDateTime.now());
     }
 
 }

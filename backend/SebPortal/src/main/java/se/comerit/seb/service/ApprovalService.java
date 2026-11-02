@@ -18,10 +18,13 @@ import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class ApprovalService {
@@ -31,6 +34,9 @@ public class ApprovalService {
     // går att kartlägga.
     private static final String FROM_ACCOUNT_NOT_AVAILABLE =
             "Från-kontot finns inte eller tillhör inte ditt företag";
+
+    // Samma text för ett steg som inte finns och ett annat företags steg, utan id:t i svaret (R-04, R-18).
+    private static final String APPROVAL_STEP_NOT_FOUND = "Atteststeget hittades inte.";
 
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
@@ -48,8 +54,8 @@ public class ApprovalService {
     }
 
     // Attestkorgen: väntande steg för den inloggade attestanten (en ADMIN ser hela företagets).
-    // Kontonamn och initiatörens namn slås upp en gång för hela listan, och bara inom företaget,
-    // så att ett annat företags konton eller användare aldrig namnges (R-04).
+    // Kontonamn och namnen på initiatören och tidigare attestanter slås upp en gång för hela listan, och
+    // bara inom företaget, så att ett annat företags konton eller användare aldrig namnges (R-04).
     @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
     @Transactional(readOnly = true)
     public List<PendingApprovalResponse> getPendingApprovals(AuthenticatedUserContext user) {
@@ -60,25 +66,57 @@ public class ApprovalService {
         Map<Long, Account> accountsById = accountRepository.findByTenantIdOrderByIdAsc(user.tenantId()).stream()
                 .collect(Collectors.toMap(account -> account.getId().longValue(), account -> account));
 
-        List<Long> initiatorIds = payments.stream()
-                .map(Payment::getCreatedBy)
+        List<Long> userIds = payments.stream()
+                .flatMap(payment -> Stream.concat(
+                        Stream.of(payment.getCreatedBy()),
+                        payment.getApprovalSteps().stream().map(ApprovalStep::getDecidedBy)))
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        Map<Long, String> initiatorNamesById = userRepository.findAllById(initiatorIds).stream()
-                .filter(initiator -> user.tenantId().equals(initiator.getTenantId()))
+        Map<Long, String> userNamesById = userRepository.findAllById(userIds).stream()
+                .filter(candidate -> user.tenantId().equals(candidate.getTenantId()))
                 .collect(Collectors.toMap(User::getId, User::getName));
 
         return payments.stream()
-                .flatMap(payment -> payment.getApprovalSteps().stream()
-                        .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                        .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                .flatMap(payment -> stepUserCanDecide(payment, user).stream()
                         .map(step -> PendingApprovalResponse.from(
                                 payment,
                                 step,
                                 accountsById.get(payment.getFromAccountId()),
-                                initiatorNamesById.get(payment.getCreatedBy()))))
+                                userNamesById)))
                 .toList();
+    }
+
+    // Det som visas i attestkorgen och räknas i badgen: steget som är på tur. Attest 2 syns alltså inte
+    // förrän attest 1 är klar. En admin ser steget som översikt (ADR 0017) men får inte besluta om det.
+    private static Optional<ApprovalStep> stepUserCanDecide(Payment payment, AuthenticatedUserContext user) {
+        return payment.getApprovalSteps().stream()
+                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
+                .min(Comparator.comparing(ApprovalStep::getStepNumber))
+                .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                .filter(step -> !breaksDualControl(payment, user.userId()));
+    }
+
+    // Dubbel attest ska vara två av varandra oberoende personer (ADR 0016): den som har skapat betalningen
+    // eller redan godkänt ett av stegen får inte godkänna fler. En betalning med ett steg berörs inte.
+    private static boolean breaksDualControl(Payment payment, Long actorId) {
+        List<ApprovalStep> steps = payment.getApprovalSteps();
+        if (steps.size() < 2) {
+            return false;
+        }
+        return Objects.equals(payment.getCreatedBy(), actorId)
+                || steps.stream().anyMatch(step -> step.getStatus() == ApprovalStepStatus.APPROVED
+                        && Objects.equals(step.getDecidedBy(), actorId));
+    }
+
+    private static void requireNoEarlierStepPending(Payment payment, ApprovalStep approvalStep) {
+        boolean earlierStepPending = payment.getApprovalSteps().stream()
+                .anyMatch(step -> step.getStepNumber() < approvalStep.getStepNumber()
+                        && step.getStatus() == ApprovalStepStatus.PENDING);
+
+        if (earlierStepPending) {
+            throw new ApprovalNotPendingException("Ett tidigare atteststeg måste godkännas först.");
+        }
     }
 
     // Bara ATTESTANT fattar beslut. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
@@ -112,7 +150,7 @@ public class ApprovalService {
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
                 .filter(step -> Objects.equals(step.getId(), approvalStepId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -124,21 +162,36 @@ public class ApprovalService {
         }
         refuseDecisionByCreator(payment, actorId, "godkänna");
 
-        boolean earlierStepPending = payment.getApprovalSteps().stream()
-                .anyMatch(step -> step.getStepNumber() < approvalStep.getStepNumber()
-                        && step.getStatus() == ApprovalStepStatus.PENDING);
+        requireNoEarlierStepPending(payment, approvalStep);
 
-        if (earlierStepPending) {
-            throw new ApprovalNotPendingException("Ett tidigare atteststeg måste godkännas först.");
+        if (breaksDualControl(payment, actorId)) {
+            throw new ApprovalStepAccessDeniedException(
+                    "Actor " + actorId + " has created or already approved the payment of approval step " + approvalStepId);
         }
 
         approvalStep.setStatus(ApprovalStepStatus.APPROVED);
         approvalStep.setDecidedAt(LocalDateTime.now());
+        approvalStep.setDecidedBy(actorId);
 
         boolean allApproved = payment.getApprovalSteps().stream()
                 .allMatch(step -> step.getStatus() == ApprovalStepStatus.APPROVED);
 
-        if (allApproved) {
+        if (!allApproved) {
+            // Varje godkännande ska gå att följa i loggen, även det som inte genomför betalningen.
+            auditService.record(
+                    payment.getTenantId(),
+                    actorId,
+                    "APPROVE_STEP",
+                    "PAYMENT",
+                    payment.getId(),
+                    "Attest %d av %d godkänd: %s %s till %s".formatted(
+                            approvalStep.getStepNumber(),
+                            payment.getApprovalSteps().size(),
+                            payment.getAmount(),
+                            payment.getCurrency(),
+                            payment.getToIban())
+            );
+        } else {
             Account account = findAndLockAccountOfPaymentTenant(payment);
 
             if (account.getBalance() == null) {
@@ -189,7 +242,17 @@ public class ApprovalService {
     // för ett databasfel.
     static final int MAX_COMMENT_LENGTH = 255;
 
+    // Kontrolltecken ger 400: Postgres tar inte emot NUL i text, och ett meddelande med bara kontrolltecken
+    // hade blivit tomt efter trim. Radbrytningar och tabbar är vanlig fritext och får vara kvar.
+    private static boolean containsControlCharacter(String text) {
+        return text.chars().anyMatch(c -> Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t');
+    }
+
     private void rejectInternal(Long approvalStepId, Long actorId, String rawComment, AuthenticatedUserContext user) {
+        if (rawComment != null && containsControlCharacter(rawComment)) {
+            throw new IllegalArgumentException("Kommentaren innehåller ogiltiga tecken.");
+        }
+
         String comment = rawComment == null || rawComment.isBlank() ? null : rawComment.trim();
         if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
             throw new IllegalArgumentException(
@@ -213,7 +276,7 @@ public class ApprovalService {
         ApprovalStep approvalStep = payment.getApprovalSteps().stream()
                 .filter(step -> Objects.equals(step.getId(), approvalStepId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
 
         if (approvalStep.getStatus() != ApprovalStepStatus.PENDING) {
             throw new ApprovalNotPendingException("Betalningen är redan behandlad. Ladda om sidan för att se det senaste.");
@@ -225,8 +288,11 @@ public class ApprovalService {
         }
         refuseDecisionByCreator(payment, actorId, "avvisa");
 
+        requireNoEarlierStepPending(payment, approvalStep);
+
         approvalStep.setStatus(ApprovalStepStatus.REJECTED);
         approvalStep.setDecidedAt(LocalDateTime.now());
+        approvalStep.setDecidedBy(actorId);
         approvalStep.setComment(comment);
 
         payment.getApprovalSteps().stream()
@@ -242,6 +308,7 @@ public class ApprovalService {
                 payment.getAmount(),
                 payment.getCurrency(),
                 payment.getToIban());
+        // Meddelandet står också i beskrivningen, eftersom den signerade loggen bara får beskrivningen
         if (comment != null) {
             description += ". Kommentar: " + comment;
         }
@@ -252,7 +319,8 @@ public class ApprovalService {
                 "REJECT_PAYMENT",
                 "PAYMENT",
                 payment.getId(),
-                description
+                description,
+                comment
         );
     }
 
@@ -274,7 +342,7 @@ public class ApprovalService {
         return paymentRepository.findByApprovalStepIdForUpdate(approvalStepId)
                 .filter(payment -> user == null
                         || (user.tenantId() != null && Objects.equals(payment.getTenantId(), user.tenantId())))
-                .orElseThrow(() -> new IllegalArgumentException("Approval step not found: " + approvalStepId));
+                .orElseThrow(() -> new IllegalArgumentException(APPROVAL_STEP_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
@@ -284,9 +352,7 @@ public class ApprovalService {
                 : paymentRepository.findPendingApprovalsForAttestant(user.tenantId(), user.userId());
         return (int) payments
                 .stream()
-                .flatMap(payment -> payment.getApprovalSteps().stream())
-                .filter(step -> step.getStatus() == ApprovalStepStatus.PENDING)
-                .filter(step -> user.isAdmin() || user.userId().equals(step.getAttestantId()))
+                .filter(payment -> stepUserCanDecide(payment, user).isPresent())
                 .count();
     }
 

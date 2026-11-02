@@ -34,6 +34,7 @@
 - Som attestant vill jag avvisa en betalning med en kommentar så att initiatorn vet varför den stoppades.
 - Som admin vill jag att riktigt stora belopp kräver två attestanter (attestant 1 + 2) så att ingen enskild person kan släppa igenom dem.
    - Breddning: andra kedjesteget (VD = attestant 2)
+   - AC: > 50 000 kr → två steg med olika attestanter, i tur och ordning; samma person kan inte godkänna båda; den som skapat betalningen kan inte vara en av dem (ADR 0016).
 
 ## Epic: Kontonummerkontroll (IBAN/BIC)
 **Kundproblem:** Felaktiga kontonummer upptäcks först när betalningen kommer i retur.

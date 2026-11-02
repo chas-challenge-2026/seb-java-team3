@@ -34,13 +34,15 @@ public class NewPaymentController {
         this.approvalThresholds = approvalThresholds;
     }
 
-    public record PaymentConfigResponse(BigDecimal approvalThreshold) {}
+    public record PaymentConfigResponse(BigDecimal approvalThreshold, BigDecimal twoAttestantThreshold) {}
 
     // Bara INITIATOR skapar betalningar. ADMIN är en administrativ roll och flyttar inga pengar (ADR 0017).
     @PreAuthorize("hasRole('INITIATOR')")
     @GetMapping("/config")
     public PaymentConfigResponse getPaymentConfig() {
-        return new PaymentConfigResponse(approvalThresholds.getNoAttestantThreshold());
+        return new PaymentConfigResponse(
+                approvalThresholds.getNoAttestantThreshold(),
+                approvalThresholds.getTwoAttestantThreshold());
     }
 
     @PreAuthorize("hasRole('INITIATOR')")
@@ -67,4 +69,13 @@ public class NewPaymentController {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
         return ResponseEntity.ok(Map.of("count", paymentService.countChangedForInitiator(user)));
     }
+
+    @PreAuthorize("hasRole('INITIATOR')")
+    @PostMapping("/changed-count/seen")
+    public ResponseEntity<Void> changedSeen() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        paymentService.markChangedSeen(user);
+        return ResponseEntity.noContent().build();
+    }
 }
+

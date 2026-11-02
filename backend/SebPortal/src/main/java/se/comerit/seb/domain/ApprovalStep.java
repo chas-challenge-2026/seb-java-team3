@@ -29,6 +29,11 @@ public class ApprovalStep {
     @Column(name = "decided_at")
     private LocalDateTime decidedAt;
 
+    // Den som fattade beslutet, som kan vara en admin i stället för den tilldelade attestanten. Tom på
+    // steg från före V12 och på steg som stängdes automatiskt när ett tidigare steg avvisades.
+    @Column(name = "decided_by")
+    private Long decidedBy;
+
     @Column(name = "comment", length = 255)
     private String comment;
 
@@ -57,6 +62,9 @@ public class ApprovalStep {
 
     public LocalDateTime getDecidedAt() { return decidedAt; }
     public void setDecidedAt(LocalDateTime decidedAt) { this.decidedAt = decidedAt; }
+
+    public Long getDecidedBy() { return decidedBy; }
+    public void setDecidedBy(Long decidedBy) { this.decidedBy = decidedBy; }
 
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }

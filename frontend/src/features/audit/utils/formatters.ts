@@ -1,6 +1,16 @@
-import type { MyPaymentStatus } from "../schema";
+import type { MyPaymentStatus, PaymentAuditTimelineEntry } from "../schema";
 
 export { formatDateTime, getDateTimeSortValue } from "../../../lib/dateTime";
+
+// Admin får också en rad per atteststeg ("Atteststeg avvisat"), och steget bär samma meddelande som beslutet.
+// Meddelandet visas bara på beslutet, annars står samma text två gånger.
+export function formatTimelineComment(entry: PaymentAuditTimelineEntry): string | null {
+  if (entry.eventType.startsWith("APPROVAL_STEP_")) {
+    return null;
+  }
+
+  return entry.comment?.trim() || null;
+}
 
 // Vem betalningen hänger på, bredvid statusen: den som ska attestera nu, den som avvisade, eller de som
 // godkände. Om en betalning fastnar ser initiatören vem som ska kontaktas (UX-feedback).
@@ -39,6 +49,18 @@ export function formatAuditStatus(status: string | null): string {
   }
 }
 
+// Status i Mina betalningar: vid dubbel attest visas också vilken attest betalningen väntar på
+export function formatMyPaymentStatus(payment: MyPaymentStatus): string {
+  const status = formatAuditStatus(payment.status);
+  const pending = [...payment.approvalSteps]
+    .sort((a, b) => a.stepNumber - b.stepNumber)
+    .find((step) => step.status === "PENDING");
+
+  return payment.status === "PENDING_APPROVAL" && pending && payment.approvalSteps.length > 1
+    ? `${status} ${pending.stepNumber} av ${payment.approvalSteps.length}`
+    : status;
+}
+
 export function formatAmount(amount: number | null, currency: string | null): string {
   if (amount === null) {
     return "-";
@@ -56,6 +78,8 @@ export function formatEventType(eventType: string): string {
   switch (eventType) {
     case "CREATE_PAYMENT":
       return "Betalning skapad";
+    case "APPROVE_STEP":
+      return "Attest godkänd";
     case "APPROVE_PAYMENT":
       return "Betalning godkänd";
     case "REJECT_PAYMENT":

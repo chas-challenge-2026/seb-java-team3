@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import se.comerit.seb.config.JwtSecurityConfig;
 import se.comerit.seb.domain.ApprovalStep;
+import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.repository.AccountRepository;
@@ -85,10 +86,24 @@ class ApprovalApiControllerCountTest {
 
     @Test
     void count_doesNotIncludeOtherAttestantsStepsOnASharedPayment() throws Exception {
+        Payment sharedPayment = paymentWithStepsFor(ATTESTANT_A_ID, ATTESTANT_B_ID);
+        sharedPayment.getApprovalSteps().get(0).setStatus(ApprovalStepStatus.APPROVED);
+        when(paymentRepository.findPendingApprovalsForAttestant(TENANT_ID, ATTESTANT_B_ID))
+                .thenReturn(List.of(sharedPayment));
+
         mockMvc.perform(get("/api/approvals/count")
                         .header("Authorization", "Bearer " + tokenFor(ATTESTANT_B_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(1));
+    }
+
+    // ADR 0016: attest 2 väntar på attest 1, så det finns inget att göra för B ännu
+    @Test
+    void count_doesNotIncludeAStepThatIsNotYetOnTurn() throws Exception {
+        mockMvc.perform(get("/api/approvals/count")
+                        .header("Authorization", "Bearer " + tokenFor(ATTESTANT_B_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(0));
     }
 
     @Test
@@ -105,8 +120,12 @@ class ApprovalApiControllerCountTest {
 
     @Test
     void admin_seesAndCountsOtherAttestantsPendingStepsWithinTheirTenant() throws Exception {
+        // Två betalningar med andra attestanters steg. Bara steget som är på tur visas, så en betalning med
+        // två steg blir en rad.
         when(paymentRepository.findPendingApprovalsForTenant(TENANT_ID))
-                .thenReturn(List.of(paymentWithStepsFor(ATTESTANT_A_ID, ATTESTANT_B_ID)));
+                .thenReturn(List.of(
+                        paymentWithStepsFor(ATTESTANT_A_ID, ATTESTANT_B_ID),
+                        paymentWithStepsFor(ATTESTANT_B_ID)));
         String token = jwtService.generateToken(new AuthenticatedUserContext(99L, TENANT_ID, Role.ADMIN));
         mockMvc.perform(get("/api/approvals").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
