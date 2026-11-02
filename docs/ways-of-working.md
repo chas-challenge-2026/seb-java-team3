@@ -21,7 +21,7 @@ Nedbrytning av stories: Vi bryter ner varje story till tasks med hjälp av olika
 
 Från vänster till höger:
 
-`User Story Parent -> Backlog -> Ready -> In Progress -> Review -> Done`
+`Backlog -> Ready -> In Progress -> Review -> Done`
 - Slutför före du börjar nytt. Fem halvfärdiga saker är värre än en klar.
 - En sub-issue(task) flyttas till `Ready` först när det uppfyller DoR, och till `Done` först när det uppfyller DoD.
 

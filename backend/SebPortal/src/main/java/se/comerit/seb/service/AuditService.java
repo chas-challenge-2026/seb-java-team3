@@ -150,7 +150,7 @@ public class AuditService {
             Long paymentId
     ) {
         Payment payment = paymentRepository.findByIdAndTenantIdWithApprovalSteps(paymentId, user.tenantId())
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+                .orElseThrow(() -> new IllegalArgumentException("Betalningen hittades inte."));
 
         List<AuditEntry> auditEntries = auditRepository.findPaymentEvents(user.tenantId(), paymentId);
 

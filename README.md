@@ -77,11 +77,11 @@ Utan de native biblioteken kör backend en Java-implementation av IBAN-validerin
 
 ### Hemligheter
 
-Dev-värdena i `application.properties` får aldrig användas i stage eller produktion. Sätt dessa som miljövariabler där:
+Dev-värdena i `application.properties` får aldrig användas i stage eller produktion. Dessa miljövariabler styr hemligheterna där:
 
 | Variabel | Används till |
 |----------|--------------|
-| `JWT_SECRET` | Signering av JWT, se ADR 0009 |
+| `JWT_SECRET` | Valfri fast nyckel för JWT-signering. Utan värde slumpas nyckeln vid start (ADR 0011). `infra/docker-compose.yml` skickar inte vidare variabeln i dag |
 | `AUDIT_SIGNING_KEY` | HMAC-nyckel för den signerade granskningsloggen (native audit-signering) |
 | `AUDIT_LOG_PATH` | Loggfilens sökväg. I Docker ligger den på volymen `auditlog` (`/app/audit`) så att den överlever omstart |
 | `AUDIT_SIGNING_REQUIRED` | Sätt `true` i stage och produktion. Appen vägrar då starta utan native-biblioteket och med dev-nyckeln |
@@ -90,7 +90,7 @@ Dev-värdena i `application.properties` får aldrig användas i stage eller prod
 
 ## Arkitektur
 
-Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V7). Inloggning ger en JWT som frontend skickar i `Authorization`-headern (ADR 0009), och rollerna kontrolleras med `@PreAuthorize`.
+Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V9). Inloggning ger en JWT som frontend håller i minnet och skickar i `Authorization`-headern, och en refresh-token i HttpOnly-cookie förnyar den (ADR 0009, ADR 0012). Rollerna kontrolleras med `@PreAuthorize`.
 
 Frontend (React, TanStack Router och Query) byggs i Dockerfilen och serveras av Spring från jar-filen. `SpaFallbackController` skickar frontend-routes till `index.html`, medan `/api/**` fortsätter vara API.
 
@@ -227,9 +227,8 @@ Det här är medvetet inte byggt i MVP (ADR 0003, [docs/mvp.md](docs/mvp.md)):
 Kända brister:
 
 - Bara en av seed-datans IBAN:er (`SE4550000000058398257466`) klarar MOD97, så betalningar till de andra stoppas av valideringen.
-- Samtidiga godkännanden av samma betalning är skyddade med radlås, men det finns inget incheckat test mot riktig databas (R-01).
 
-Kända brister i testerna, som samtidighet mot riktig databas och tenant-gränser, står i [docs/test-status.md](docs/test-status.md).
+Kända brister i testerna står i [docs/test-status.md](docs/test-status.md).
 
 ---
 

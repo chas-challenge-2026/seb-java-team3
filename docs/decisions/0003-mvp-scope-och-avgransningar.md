@@ -2,7 +2,7 @@
 
 - **Status:** Accepterad
 - **Datum:** 2026-08-26
-- **Uppdaterad** 2026-10-15
+- **Uppdaterad** 2026-11-02
 - **Deltagare:** Hela teamet · drivande: Team
 - **Berör:** Hela leveransen / prioritering
 - **Relaterade issues:** #
@@ -46,7 +46,7 @@ Många features parallellt: valdes bort pga hög risk för många halvfärdiga f
 
 ## Uppdatering v.5 
 - MVP flödet är stabilt. Breddning kan påbörjas, vi börjar med reject knapp i frontend.
-- refresh-token-rotation, 2FA
+- refresh-token-rotation (byggd, ADR 0012), 2FA
 - CSV-batch-uploader
 
 Varför dessa? De här kraven väger tyngst för kund. Säkerthet, stabilt etc. 
