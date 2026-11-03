@@ -181,8 +181,11 @@
   line-height: 1.4;
 }
 
+/* Rollkolumnen har nowrap, så felet måste få radbrytas för att stanna inom cellen */
 .roleError {
   margin: 0.3rem 0 0;
+  white-space: normal;
+  overflow-wrap: normal;
   color: var(--danger-text);
   font-size: 0.78rem;
 }

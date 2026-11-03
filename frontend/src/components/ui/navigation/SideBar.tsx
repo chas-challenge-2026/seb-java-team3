@@ -18,11 +18,13 @@ import {
   Sun,
 } from "lucide-react";
 import { usePendingApprovalCount } from "../../../features/attest/useApprovals";
+import { useChangedPaymentCount } from "../../../features/audit/useChangedPaymentCount";
 
 const SideBar = () => {
   const { data: user } = useUser();
   const canReadApprovals = user?.role === "ATTESTANT" || user?.role === "ADMIN";
   const { data: approvalCount } = usePendingApprovalCount(canReadApprovals);
+  const { data: changedPaymentCount } = useChangedPaymentCount(user?.role === "INITIATOR");
   const handleLogout = useLogout();
   const [theme, setTheme] = useState<Theme>(getSavedTheme);
 
@@ -71,6 +73,7 @@ const SideBar = () => {
             (user.role === "INITIATOR" ? (
               <SideBarItem
                 label="Mina betalningar"
+                badge={changedPaymentCount && changedPaymentCount > 0 ? changedPaymentCount : undefined}
                 icon={<Timeline size={iconSize} />}
                 route={"/my-payments"}
                 active={currentPath === "/my-payments"}
