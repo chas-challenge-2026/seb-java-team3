@@ -1,0 +1,33 @@
+/* Avvisad-märket är knappen som fäller ut orsaken, med en pil som visar det */
+.statusToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 0;
+    font-family: inherit;
+    line-height: inherit;
+    cursor: pointer;
+}
+
+.statusToggle:hover {
+    background: var(--border-default);
+}
+
+.statusToggle:focus-visible {
+    outline: 3px solid var(--focus-attention);
+    outline-offset: 2px;
+}
+
+.heading {
+    color: var(--text-heading);
+    font-size: 0.95rem;
+}
+
+.reason {
+    margin-top: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

@@ -1,0 +1,244 @@
+# AI-logg
+
+Här dokumenterar vi var AI påverkat beslut, kod eller analys. 
+
+## Så fyller du i
+
+- Ett block per gång AI påverkat något som spelar roll (kod som mergats, ett designbeslut, en analys). Trivial autocomplete behöver inte loggas.
+- **Skriv i förstaperson och namnge dig**bedömningen är individuell, så det måste synas vem som granskat.
+- Fältet **"Hur jag granskade/ändrade"** är det viktigaste. Där visar du din egen förståelse. "Kopierade rakt av" gäller inte.
+- Länka till commit/PR/issue så det går att härleda.
+- **Nyast överst**klistra in nya block direkt under `## Logg`, så slipper du scrolla.
+
+## Mall — kopiera och fyll i
+
+Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera fält som inte är relevanta.
+
+---
+### ÅÅÅÅ-MM-DD [kort vad] [ditt namn]
+- **Verktyg:**
+- **Använde AI till:**
+- **Genererades:**
+- **Hur jag granskade/ändrade:**
+- **Valde bort (om något):**
+- **Spår:** PR #, issue #
+---
+
+## Logg
+
+### 2026-11-02 — Koppling mot backend för användaradministration och borttagning av användare (#243) Marcus
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att koppla frontend-sidan för användaradministration mot det riktiga API:t, nu när backend-delen (#242, ADR 0017) fanns, och att bygga ut backend med borttagning av användare, eftersom ta bort-knappen annars inte hade något att anropa. AI:n läste först `AdminUserController`, DTO:erna och ADR 0017 för att få det faktiska kontraktet, och jämförde det med mockdatan jag byggt tidigare. Jag bad sedan om borttagningen i backend, och AI:n läste hur användare hänger ihop med betalningar, atteststeg, refresh-token och audit innan den designade den.
+- **Genererades:**
+  - Frontend: riktiga anrop i `features/users/api.ts` (`GET`, `POST`, `PATCH /{id}/role` och `DELETE /{id}`) i stället för mocken. Mocken hade gissat `PUT` för rollbyte, men backend använder `PATCH`. Schemat följer backends regler: lösenord minst 12 tecken och högst 72 **byte**, namn och e-post högst 100 tecken. `api.test.ts` kontrollerar nu sökväg, metod och body i stället för att testa mocken.
+  - Backend: `DELETE /api/admin/users/{userId}` (`AdminUserController`, `UserAdminService.deleteUser`) med 204, 403 för en administratör, 404 för en användare utanför företaget och 409 när användaren har historik. Nya repository-frågor (`existsByCreatedBy`, `existsByAttestantId`, `existsByDecidedBy`, `deleteAllForUser`), `UserDeleteConflictException` med handler, och en audit-rad `DELETE_USER` med namn och e-post.
+  - 10 nya backendtester (service, controller och hela kedjan mot H2 med två företag) och ett nytt frontendtest för 409-meddelandet. Dokumentationen är uppdaterad i ADR 0017, `docs/accessmatris.md` och README.
+  - Verifiering: Java och Maven finns inte lokalt, så AI:n körde backend i Maven-imagen via Docker. Användartesterna är 96/96 gröna. Hela backendsviten gav 442 tester utan fel i själva testerna, men 4 Testcontainers-klasser (`DualApprovalIntegrationTest`, `TenantIsolationIntegrationTest`, `ApprovalConcurrencyIntegrationTest`, `ApprovalServiceTransactionIntegrationTest`) kunde inte starta eftersom de behöver Docker inifrån containern. Dem körs i CI. Frontend: `tsc`, ESLint och 252 Vitest-tester gröna.
+- **Hur jag granskade/ändrade:** Jag körde appen och fick först "Kunde inte nå servern". AI:n kollade proxyn (port 8084), containerstatus och loggar, och det visade sig att backend bara inte hunnit starta. Efter omladdning fungerade flödet. Jag bestämde att borttagningen skulle byggas i backend i stället för att ta bort knappen, efter att AI:n hade flaggat att backend saknade endpointen. Jag läste också igenom AI:ns förklaring av varför användare med historik inte kan tas bort, och godtog den begränsningen.
+- **Valde bort (om något):**
+  - Att låta borttagningen radera en användare med betalningar eller atteststeg. Historiken (vem som skapade och godkände vad) måste bevaras, och en radering skulle antingen krascha på främmande nycklar eller tappa spårbarheten. Därför går det bara att ta bort en användare som aldrig gjort något. De seedade demoanvändarna kan alltså inte tas bort. Att kunna avsluta ett konto med historik kräver en inaktivering (spärrflagga som inloggningen kontrollerar), som är ett eget beslut och en egen migration.
+  - Att ta bort ta bort-knappen i frontend när backend saknade endpointen. AI:n hann först göra det, men jag valde i stället att bygga endpointen, och knappen kom tillbaka.
+  - Att åtgärda att ett redan utfärdat access-token gäller i upp till 15 minuter efter att användaren tagits bort. Det är samma beteende som efter en rolländring (ADR 0012) och är dokumenterat i ADR 0017.
+  - Frontend-ändringarna i #243 för betalningsroutes och audit-vyn (admin släpps fortfarande in på `/payments/new`, `/my-payments` och `/attest`, och användarhändelser kan inte expanderas). De ingick inte i det här steget.
+- **Spår:** Branch `feature/admin-userlist-connection`, ej committat än · issue #242, #243
+
+### 2026-11-02 — Användaradministration för admin (frontend, mockdata) och sidtitlar Marcus
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att bygga frontend-delen av användaradministrationen för admin innan backend finns, med mockdata som ska bytas mot riktiga anrop senare. AI:n läste först hur appen är uppbyggd (router, sidomeny, betalningsformuläret, auditloggens tabell, `Modal`, `Select` och Zod-scheman) och byggde sedan ovanpå det så att sidan följer resten av designen. Jag styrde sedan resultatet i flera steg: från listan och formuläret bredvid varandra till en lista med en modal för att skapa användare, rollbyte, borttagning, smalare layout och sidtitlar. Därefter bad jag AI:n skriva tester och den här loggposten.
+- **Genererades:**
+  - Ny route `/admin/users` som begränsas till ADMIN med `requireRole`, och menylänken "Användare" som bara visas för admin (`router.tsx`, `SideBar.tsx`, `SideBarItem.tsx`).
+  - `src/features/users/`: `UsersPage`, `UserList` (tabell med laddning, fel och tom lista), `UserRoleCell` (rollbyte), `CreateUserModal` (formulär med Zod-validering, backendfel vid e-postfältet, låst knapp medan anropet pågår och bekräftelsevy efter skapande), `DeleteUserModal` (bekräftelse om att borttagningen är permanent), `schema.ts`, `roles.ts`, `usersQueryOptions.ts` och CSS.
+  - `api.ts` med mockad `listUsers`, `createUser`, `updateUserRole` och `deleteUser`. Mocken har samma signaturer som de riktiga anropen ska få, så vid kopplingen byts bara innehållet ut. Sökvägarna i kommentaren (`/api/admin/users` m.fl.) är AI:ns gissningar och måste stämmas av mot backend.
+  - Små ändringar i befintlig kod: `Select` fick `compact` och `ariaLabel` för att fungera i en tabellcell, och sidtitlar (`<h1>`) lades till på Historik och Ny betalning. Titeln på Mina betalningar ändrades från "Historik" till "Mina betalningar".
+  - 36 nya tester (228 totalt): schema, mock-API, lista, rollbyte, skapa-modal och menylänkens synlighet, samt nya fall i `requireRole.test.ts` för en route som bara släpper in ADMIN.
+  - Verifiering: `tsc`, ESLint och hela Vitest-sviten gröna. Testerna hittade ett fel i AI:ns egen kod: `createUser` anropades med ett extra argument eftersom TanStack Query v5 skickar med kontext till `mutationFn`. Det hade blivit ett problem först när anropet kopplas mot riktig backend.
+- **Hur jag granskade/ändrade:** Jag gick igenom varje version av sidan och gav ändringar utifrån hur den såg ut. Första versionen hade listan och formuläret som två kort bredvid varandra, och jag bad om att listan skulle vara det primära med en "Skapa användare"-knapp och en modal som matchar attest- och betalningsmodalerna. Jag bad om att dropdownen skulle använda vår egen `Select` i stället för en vanlig `<select>`, att sidan skulle göras smalare, att gapet mellan dropdown och ta bort-knapp skulle minskas och att listans höjd skulle anpassa sig efter antalet användare. Jag la också märke till att rubriken på Ny betalning låg högre upp än på de andra sidorna, och den justerades. Jag bad AI:n skriva testerna efter att ha frågat om de behövdes. [Fyll i här vad du själv kontrollerat, t.ex. att du provat flödet i webbläsaren och ändrat något i koden för att se testerna bli röda.]
+- **Valde bort (om något):**
+  - Att låta admin skapa nya admin-konton och att ändra eller ta bort adminkontot. Det finns bara ett, och det skyddas i formuläret, i rollcellen och i mocken. Backend måste ändå upprätthålla regeln, eftersom frontend inte kan garantera den.
+  - En vanlig `<select>` för rollbyte i tabellen. Den ersattes av vår egen `Select` för att det ska vara enhetligt.
+  - En ny titel på Översikt och Attestera. `Översikt` har en bortkommenterad h1 och en hälsning, och Attestera heter "Attestkorg" men menylänken "Attestera". Ingen av dem ändrades.
+- **Spår:** Branch `feature/improved-admin`, commitat. Issue #243
+
+
+### 2026-10-29 — Test av tenant-isolering och två rättade läckor (R-04) Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att täcka bristen "Isoleringen mellan företag saknar heltäckande tester" (R-04 i `docs/test-status.md`, där bara konton hade test av faktisk filtrering). AI:n gick igenom alla endpoints som bär företagsdata och hur varje fråga filtrerar på `tenantId`, skrev testet, körde det och kontrollerade med mutationsprov att det fångar fel. Testet hittade två läckor, och efter att jag bett om det rättade AI:n dem.
+- **Genererades:**
+  - `TenantIsolationIntegrationTest` · 13 tester: hela appen över HTTP med riktiga JWT mot Postgres 12 (Testcontainers), utan mockar. Två företag körs mot varandra över konton, auditlogg, tidslinje, mina betalningar, attestkorgen och antal, godkänn, avvisa och skapa betalning. All text hos ett företag har en markör (`BOLAG_A`/`BOLAG_B`), så att varje svar kan sökas igenom efter läckage. Fixturen har också rader som korsar företagsgränsen, så att det är tenant-villkoret som prövas och inte bara att användar-id:n skiljer sig.
+  - Rättelse i `AuditService`: användarnamnen i auditloggen och tidslinjen slogs upp utan tenant-villkor. Nu namnges bara det egna företagets användare (`userNamesInTenant`).
+  - Rättelse i `ApprovalService`: godkänn och avvisa kontrollerade status före företag. Ett annat företags steg gav därför 403 eller 409 beroende på status, vilket avslöjade om steg-id:t fanns och om det var behandlat. Nu kontrolleras företaget först, och ett annat företags steg ger samma 400 som ett steg som inte finns.
+  - `ApprovalApiControllerOwnershipTest` är uppdaterat till 400, och `docs/test-status.md` till Grön för R-04. AI:n skrev också commit-meddelande och PR-beskrivning.
+  - Verifiering:
+    - Mutationsprov: tolv tenant-skydd togs bort ett i taget i en kopia av koden, och för vart och ett föll minst ett test.
+    - Mot koden före rättelserna föll 6 tester, och felmeddelandena visade båda läckorna.
+    - Med rättelserna är hela backendsviten grön: 271 tester, 5 överhoppade utan `libauditsigner.so`.
+    - Första versionen använde en ogiltig IBAN, så testet "betalning från annat företags konto nekas" blev grönt av fel skäl (IBAN-felet, inte kontot). Det upptäcktes vid första körningen, och testet kräver nu kontots felmeddelande. Av samma skäl kräver attesttestet att svaret är identiskt med ett steg som inte finns, inte bara en felkod.
+- **Hur jag granskade/ändrade:** användarnamn i AuditService.java. Kommentera bort raden .filter(candidate -> tenantId.equals(candidate.getTenantId())) i userNamesInTenant.
+Förväntat: auditLogAndTimeline_neverNameAnotherCompanysUser blir rött med expected: <Systemet> but was: <BOLAG_B Admin>.
+
+Kontroll 2: steg hos ett annat företag i ApprovalService.java. Ändra filtret i findPaymentOfStepForUpdate till .filter(payment -> true).
+Förväntat: approveAndReject_ofAnotherCompanysStep_... blir rött med 409 eller 204 i stället för 400.
+
+- **Valde bort (om något):**
+  - Att lägga tenant-villkoret i själva låsfrågan `findByApprovalStepIdForUpdate`. De interna anropen `approve/reject(stepId, actorId)` har ingen inloggad användare och använder samma fråga, så kontrollen görs i stället direkt efter uppslaget.
+  - Att ge en användare från ett annat företag en egen text som "Okänd användare". Den visas som "Systemet", samma text som en okänd användare redan får.
+  - Behörighetstestet för `/api/my-payments`. Det står kvar som nästa testinsats.
+- **Spår:** Commit `1e94f05`, branch `test-isolering`, PR #
+
+### 2026-10-08 — Tester för badge, rollskydd, route-skydd och tidslinjens ordning (#196, #197, #198) Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att skriva testerna för tre test-issues utifrån issuetexterna, köra dem och kontrollera att de faktiskt fångar fel. Att ta reda på var logiken som skulle testas låg: badgens 0-regel ligger i `SideBar`, inte i `SideBarItem`, och tidslinjens ordning bestäms på två ställen (`ORDER BY` i `AuditRepository.findPaymentEvents` och sorteringen i `AuditService.getPaymentAuditTimeline`).
+- **Genererades:**
+  - #197: `Badge.test.tsx` (badgen visar N vid N > 0, ingen badge vid 0), `ApprovalApiControllerCountTest` (`/api/approvals/count` räknar bara den inloggade attestantens egna steg, även på en betalning som delas med en annan attestant) och sex nya fall i `RoleAuthorizationTest` för `/api/approvals/count` och `/api/my-payments`.
+  - #198: `requireAuth.test.ts` (utan token eller med avvisad token skickas man till `/login` och token rensas) och `requireRole.test.ts` (fel roll skickas till `/`, rätt roll släpps in, med samma rollistor som `router.tsx`).
+  - #196: `AuditRepositoryPaymentEventsTest` (H2: skapa före godkänn efter `created_at`, inte efter id) och `AuditServiceTimelineTest` (kronologisk ordning, och vid samma tidsstämpel en numerisk tie-break så att `AUDIT-9` kommer före `AUDIT-10` oavsett indataordning).
+  - Verifiering: AI:n körde backendtesterna i samma Maven-image som CI och frontendsviten med Vitest (85/85 gröna). Som mutationskoll tog den bort tie-breaken och `ORDER BY` i en kopia av koden, och då failade exakt de två tester som ska vakta dem.
+- **Hur jag granskade/ändrade:** Granska koden, ändra olika beroende för att få rött resultat för att få full förståelse för vad som är gjort och vad vi faktiskt testar. t.ex. bytte approvalCount > 0 mot >= 0 i SideBar.tsx:68, se Badge.test.tsx bli rött.
+- **Valde bort (om något):** Ett test på repository-nivå för tie-breaken vid samma tidsstämpel. H2 lämnar ut raderna i id-ordning även utan `entry.id ASC`, så testet hade blivit grönt oavsett. Tie-breaken testas i stället i servicen, där mutationskollen visade att testet fångar felet. Själva `/api/accounts`-endpointen byggdes inte, den kontrollerades bara.
+- **Spår:** Commits `89ff721`, `8da631c`, `bb54eed` · issue #196, #197, #198
+
+### 2026-09-30 — Frontend i Docker-bygget + dokumentation (#157, #159, #163) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Steg-för-steg-vägledning genom #157, #159 och #163. Jag bad om ett steg i taget och en förklaring av varför innan jag gick vidare, för att förstå multi-stage-byggen, Docker-lagercachning och build context. Fick också hjälp att felsöka när Dockerfilen inte hittades (den ligger i `backend/SebPortal/`, inte i roten), att rätta commit-meddelanden som blivit fel med interaktiv rebase, och att formulera PR-texter.
+- **Genererades:** Förslag på `frontend-build`-stagen och `COPY --from=frontend-build`-raden i Dockerfilen, `.dockerignore`, avsnittet *Så har vi byggt det (team 3)* i DRIFT.md, de frontend-relaterade raderna i README samt commit- och PR-texter.
+- **Hur jag granskade/ändrade:** Testade varje steg innan jag gick vidare. Jag byggde bara frontend-stagen med `--target` och kontrollerade att `dist/` innehöll `index.html` och `assets/`. Sedan byggde jag om för att bekräfta att `npm ci` cachades (171 s → 1,3 s), och listade jar-filen med `jar tf` för att se att React-filerna låg under `BOOT-INF/classes/static/`. När det visade sig att Dockerfilen låg i `backend/SebPortal/` läste jag compose-filen, såg att `context: ..` gör repo-roten till build context och flyttade `.dockerignore` dit. Före dokumentationen läste jag kollegans `SpaFallbackController` och `router.tsx`, så att texten beskriver hur routingen faktiskt fungerar (TanStack Router, max två nivåer). Därefter verifierade jag routingtabellen i webbläsaren mot `docker compose up --build`: `/`, `/attest` + F5, `/finns-inte`, `/api/finns-inte`, `/favicon.svg` och `/a/b/c`. Jag justerade `/api`-raden när svaret visade sig vara 401 i HTML och inte JSON.
+- **Valde bort (om något):** Att flytta Dockerfilen till roten, eftersom compose-filen och CI pekar på nuvarande plats och det låg utanför scope. Att röra `infra/docker-compose.yml`, som är en plattformsfil. Att skriva om hela README:n, som fortfarande beskriver v1. Jag begränsade ändringarna till det som rör frontenden och föreslår en README-uppdatering som eget issue. Flaggade också att testsidan `/uitest` följer med i produktionsbygget.
+- **Spår:** PR #177 · PR #189 · issue #157, #159, #163 (del av #156)
+
+### 2026-09-29 — SPA-fallback, React äger / och rök-test (#160, #161, #162) Jonathan Isaksson
+- **Verktyg:** Claude
+- **Använde AI till:** Att kolla projektets status och granska #153 innan vi byggde vidare på den. Sedan hjälpt till att implementera och verifiera delar av (#160–#162).
+- **Genererades:**
+  - `SpaFallbackController`, som forwardar frontend-routes och `/` till `index.html` men undantar `/api` och filer, samt `SpaFallbackControllerTest` med 10 tester.
+  - `scripts/smoke-spa.mjs`, ett rök-test mot en app som är igång.
+- **Hur jag granskade/ändrade:** Jag bad om en statuskoll och en review av #153 innan någon kod skrevs, och mergade #177 och #153 innan vi byggde vidare. Varje ändring granskades och Korrigerades personligen där det behövdes.
+  - 76/76 backendtester gröna. Mutationskoll: med lösa mönster (`.+`) failade exakt de fyra tester som skyddar `/api` och filer, och utan `/` i mappningen failade root-testet.
+  - Rök-testet gav 18/18 OK mot appen i Docker med riktig Postgres, med och utan inloggning.
+  - I webbläsare: direktlänk och riktig omladdning på `/attest`, samt direktladdning av `/payments/new`, `/my-payments` och `/audit` inloggad som admin.
+- **Valde bort (om något):**
+  - En resource-resolver som skickar alla okända sökvägar till `index.html` oavsett djup. Den är svårare att läsa och testa, och controllern med mönster täcker alla dagens routes. Begränsningen till två nivåer står i koden.
+  - Ett `@SpringBootTest` med riktig databas för att visa att `index.html` faktiskt serveras. Det verifieras i stället av rök-testet mot den byggda appen.
+  - En egen Not Found-sida i React. Den ligger utanför scope och är flaggad i PR:en.
+- **Spår:** Commits `3ff7ed6`, `4c987bb`, `aa5b76a`, issue #160, #161, #162 (del av #156), PR #
+
+### 2026-09-24 — Ta bort v1-kod (Thymeleaf-UI + sessionsinloggning) i backend Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att gå igenom backend och kartlägga vilka filer som är ärvda från v1 och vilka vi byggt i v2, med hjälp av git-historiken (vad som fanns i första commiten `d201ecc` och vad som lagts till sedan). Att kontrollera vad som faktiskt använder de gamla filerna innan något togs bort, och sedan genomföra borttagningen och verifiera att appen fortfarande fungerar.
+- **Genererades:**
+  - Borttagning av `DashboardController`, `SecurityConfig`, `SessionAuthenticationFilter`, `SessionUserContext`, `CurrentUserRoles`, Thymeleaf-mallarna och `style.css`.
+  - Ändringar i `AuthController` och `AuditController`: de gamla sidorna togs bort, och båda är nu `@RestController`. Dessutom ändringar i `Role`, `RoleAccessDeniedHandler`, `JwtSecurityConfig`, `pom.xml` (thymeleaf/jdbc/mail borttagna) och `application.properties`.
+  - Uppdateringar i 4 testklasser, commit-meddelande och PR-beskrivning.
+- **Hur jag granskade/ändrade:** Jag bad först AI:n lista vad som var gammalt och vad som var nytt innan något togs bort, och lät den återställa en första version för att bestämma mig för om det skulle göras nu eller läggas som task till backend-gruppen. Jag kontrollerade att borttagningen stämmer med v2-kraven (Thymeleaf ska ersättas med REST + React), med vår regel i `ways-of-working.md` om att ta bort sårbar gammal kod i stället för att laga den, och med ADR 0002 (v1-dokumentationen bevaras i `docs/v1/` och v1-koden finns kvar i git-historiken). Den viktigaste risken var att `@EnableMethodSecurity` låg i `SecurityConfig`. Den flyttades till `JwtSecurityConfig`, annars hade alla `@PreAuthorize`-kontroller slutat gälla. Det bekräftas av `RoleAuthorizationTest`. Verifiering:
+  - Före ändringen var 67/67 tester gröna, efter ändringen 66/66. Det enda borttagna testet gällde den gamla sessionen.
+  - Hela MVP-flödet kördes mot appen i Docker med riktig Postgres: inloggning, skapa betalning över tröskeln, badge-räknare, godkänn, saldot dras och tidslinjen visar händelserna.
+  - Fel roll ger 403, ingen token ger 401 och `/dashboard` samt `/login` ger nu 404.
+- **Valde bort (om något):**
+  - Att bygga in frontend i Dockerfile nu. Det behövs för att demo:n ska fungera på stage och tas som egen task före live-demon.
+  - Att fixa att ett dubbelgodkännande ger 500 i stället för 409/400. Buggen fanns redan innan och blockeringen fungerar, bara felkoden är fel. Den blir en egen task.
+- **Spår:** Commit `52b6a2c`, branch `cleanup-old-files`, PR #
+
+### 2026-09-21 ADR 0009 Pontus Ingenius
+
+* **Verktyg:** Claude
+* **Använde AI till:** Att renskriva och förbättra formuleringarna i ADR 0009 för att göra innehållet tydligare och mer strukturerat.
+* **Genererades:** En omformulerad version av texten med tydligare språk och struktur.
+* **Hur jag granskade/ändrade:** Jag läste igenom den genererade texten och kontrollerade att innehållet stämde överens med det beslut och den information som skulle dokumenteras.
+* **Valde bort (om något):** Inget.
+
+### 2026-09-15 — Tröskelbelopp backend: order-grind + API-status (#118) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #118 – gick igenom befintlig kod (PaymentService, ApprovalService, Payment/ApprovalStep-entiteterna) tillsammans med AI för att först kartlägga vad som redan var löst från tidigare issues (#43/#45/#46/#50) mot checklistan i #118, innan jag skrev någon kod. Använde AI pedagogiskt för att förstå skillnaden mellan "kö av olika betalningar hos en attestant" och "ordning av flera godkännandesteg på samma betalning" innan jag var redo att skriva villkoret själv. Fick även hjälp att felsöka två egna syntaxfel (saknat kommatecken i PaymentResponse-recordet, samt att jag glömde koppla in de uträknade värdena i return-satsen) genom att läsa kompilatorfelen tillsammans med AI istället för att bara få rättad kod utan förklaring.
+- **Genererades:** Förslag på villkoret i `ApprovalService.approve()` som blockerar godkännande av ett steg om ett tidigare steg (lägre stepNumber) fortfarande är PENDING. Förslag på två nya fält i `PaymentResponse` (`currentStepNumber`, `remainingApprovals`) och `from(...)`-logiken som räknar ut dem. Förslag på testmetoder i `ApprovalServiceTest` och `PaymentServiceTest` som täcker order-grinden respektive gränsfallet vid exakt tröskelbelopp. Förslag på PR-titel/beskrivning.
+- **Hur jag granskade/ändrade:** Körde `mvn compile` och `mvn test` efter varje ändring innan jag gick vidare, inte bara i slutet – alla 8 tester gröna. Verifierade dessutom end-to-end manuellt i Postman mot lokal Docker-miljö: skapade en betalning över tröskeln som Lisa, bekräftade att `currentStepNumber`/`remainingApprovals` faktiskt kom med i svaret, loggade in som Johan (attestant) och godkände steget, och bekräftade att betalningen försvann från hans väntelista efteråt. Förstod och kunde själv förklara varför `twoAttestantThreshold` fortfarande inte används (createPayment skapar bara ett steg oavsett belopp) innan jag bedömde att gränsfallstestet (exakt 5000 kr) fortfarande var relevant att skriva. Bytte testnamn till att följa filens befintliga mönster (`metod_shouldResultat_whenVillkor`) istället för mitt första förslag som bröt konventionen.
+- **Valde bort:** Att bygga en separat `ApprovalChain`-entitet – bedömde att `Payment.approvalSteps` (redan sorterad, redan kopplad) räcker för MVP, ingen anledning till extra indirektion. Att fixa avsaknaden av `GET /api/payments/{id}` – upptäckt under manuell testning men utanför scope för #118, flaggat i PR-beskrivningen istället för att lösa i förbifarten.
+- **Spår:** PR #130 · issue #118
+
+### 2026-09-10 — POST /api/payments endpoint + felhantering (#41) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #41 – design av ny `NewPaymentController` (REST, separat fil från den gamla MVC-baserade `PaymentController`), design av `GlobalExceptionHandler` för strukturerad felhantering, samt felsökning av två separata runtime-buggar som dök upp vid manuell Postman-testning: en NullPointerException i `PaymentService.createPayment` och att `Payment.createdAt` returnerades som null i API-svaret.
+- **Genererades:** Förslag på `NewPaymentController.java` (POST-endpoint, DTO-mappning mot befintlig `CreatePaymentRequest`/`PaymentResponse`), `GlobalExceptionHandler.java` (`@RestControllerAdvice` med handlers för `IllegalArgumentException` → 400 och `NoAttestantAvailableException` → 409), samt vägledning i felsökningen av de två buggarna nedan.
+- **Hur jag granskade/ändrade:** Testade endpointen manuellt i Postman för både happy path (201) och felfall (400) innan commit, i stället för att bara lita på att koden kompilerade. Vid 500-fel läste jag själv stacktracen tillsammans med AI och identifierade att `ApprovalThresholds.getNoAttestantThreshold()` returnerade null – spårade det till att tröskelvärdena i `application.properties` av misstag var skrivna i YAML-syntax i en properties-fil, och fixade genom att skriva om till korrekt `nyckel=värde`-format. Verifierade fixen genom att köra om samma Postman-request och se att statusen ändrades från 500 till 201. Undersökte separat varför `createdAt` blev null i svaret och spårade det till `insertable=false` på fältet i `Payment`-entityn kombinerat med att entityn aldrig läses om efter save – skapade en egen bug-issue för det i stället för att fixa det inom #41:s scope. Körde `mvn test` och `docker compose up --build` samt kollade `git status` innan commit för att säkerställa att inga `target/`-filer eller den kvarglömda lokala `seed.sql` (borttagen från git i #46) råkade checkas in.
+- **Valde bort:** Att lösa auth "på riktigt" nu – `tenantId`/`createdBy` skickas tillfälligt i request-bodyn eftersom JWT-lösningen (#28, #33, #37) inte är klar än; markerat med TODO-kommentar i koden som pekar på #28. Att bygga om den gamla `PaymentController`/`ApprovalController` (v1 MVC-spaghetti) som en del av #41 – bedömde att det är ett separat scope-beslut för epic #31, inte något #41 ska lösa i förbifarten; skapade i stället en ny fil (`NewPaymentController`) bredvid den gamla. Att fixa `Payment.createdAt`-buggen direkt – utanför #41:s scope (rör entity-lagret, inte endpointen), dokumenterad som egen bug-issue i stället.
+- **Spår:** PR #100 · issue #41
+
+### 2026-09-07 — Audit-post CREATE_PAYMENT via AuditService.record (#44) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #44 – bygga audit-lagret (AuditEntry/AuditRepository/AuditService) och koppla in det i PaymentService.createPayment, med egen gransking av förslaget och lite ändringar som kom jag fram till de filerna jag har, samt felsökning av build-fel och Docker/Maven-kommandon körda från fel mapp.
+- **Genererades:** Förslag på AuditEntry.java, AuditRepository.java, AuditService.record(...), kopplingen i PaymentService, samt ett nytt Mockito-test som verifierar att record(...) anropas med rätt värden.
+- **Hur jag granskade/ändrade:** Jämförde AI:s förslag mot den faktiska V4-migrationen och upptäckte att tenant_id saknades i audit_entries – en känd bugg enligt AuditControllers egna kommentarer. Valde att fixa det nu med en ny migration (V6) istället för att skjuta upp. Körde mvn test och docker compose up --build för att verifiera innan commit, och kollade git status för att undvika att checka in target/-byggfiler.
+- **Valde bort:** Att bygga om granskningsloggens visningssida – utanför scope för #44. Att göra action/entityType till enum – onödig komplexitet för en enda action i MVP.
+- **Spår:** PR 68, issue #44
+
+### 2026-09-07 — PaymentService.createPayment (#43) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #43 – ide design av tröskellogik för attestant-krav (0/1/2-attestant-trappa), hur `User`-entity/`Role`-enum/`RoleConverter` skulle byggas ovanpå befintlig `users`-tabell, varför tröskelvärden bör ligga i config (`ApprovalThresholds`) istället för hårdkodade i koden, samt felsökning av tre separata build-fel: saknad `spring-boot-starter-test`-dependency i `pom.xml`, testfil felaktigt placerad i `src/main/java` istället för `src/test/java`, och en saknad `java.util.List`-import.
+- **Genererades:** Ide bollninig och förslag på `Role.java`, `RoleConverter.java`, `User.java`, `CreatePaymentRequest`/`PaymentResponse` (DTO:er), `ApprovalThresholds.java`, `PaymentService.createPayment` samt tre unit-tester i `PaymentServiceTest`.
+- **Hur jag granskade/ändrade:** Byggde och kompilerade (`mvn compile`) efter varje enskild fil istället för allt på en gång, samma metod som i #45, för att isolera fel direkt. Verifierade `UserRepository.findByTenantIdAndRole` mot den faktiska seed-datan (tenant 1, attestant Johan Berg id 2) istället för att bara lita på att signaturen såg rätt ut. Körde `mvn test` och läste igenom stack traces själv för att förstå varje kompileringsfel (t.ex. att `Cannot find symbol: class Test` berodde på fel filplacering, inte fel kod) innan jag åtgärdade – flyttade testfilen till `src/test/java` och markerade den som Test Sources Root i IntelliJ. Gick igenom samtliga IDE-varningar (databasmappning, config-properties, CVE:er från Mend.io) och bedömde själv vilka som var reella problem kontra kosmetiska IDE-begränsningar.
+- **Valde bort:** Att bygga hela 0/1/2-attestant-trappan nu – begränsade #43 till 0/1-attestant-fallet, dokumenterat som TODO i koden, eftersom kundcaset själv listar "dubbel attest" som post-MVP. Att mappa `password_md5`-fältet i `User`-entityn – #43 hanterar inte autentisering, så fältet utelämnades medvetet istället för att mappas "för säkerhets skull". Att bygga en riktig fördelningsalgoritm för attestant-urval vid flera attestanter – valde enklaste möjliga regel (första träffade) och dokumenterade det som avgränsning snarare än att gissa mig till en mer komplex lösning som inte efterfrågats. Att åtgärda CVE-varningarna i `pom.xml` nu – bedömde att de ligger i transitiva Spring Boot-beroenden utanför vår kontroll, dokumenterade som känt problem istället för att lägga tid på en versionsuppgradering utanför scope.
+- **Spår:** PR #67 · issue #43
+
+### 2026-09-04 — Payment/ApprovalStep JPA-entities (#45) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom #45 – felsöka en git-historikfråga när feature/45 skulle byggas ovanpå feature/46 innan PR #59 var godkänd, felsöka Maven-installation/PATH lokalt, samt formulera ADR 0007 och denna logg-post.
+- **Genererades:** Förslag på `Payment.java` och `PaymentStatus`/`PaymentStatusConverter` utifrån vårt befintliga `V3__create_payments_and_approval_steps.sql`. Resten (`ApprovalStep.java`, `ApprovalStepStatus`/`ApprovalStepStatusConverter`, samt `PaymentRepository`/`ApprovalStepRepository`) skrev jag själv utifrån samma mönster/logik som de genererade klasserna.
+- **Hur jag granskade/ändrade:** Kompilerade (`mvn compile`) efter varje enskild fil istället för allt på en gång, för att isolera fel till exakt en fil om något gick sönder. Körde fullständig `docker-compose up --build` mot riktig Postgres från tom volym som slutgiltig verifiering – bekräftade i loggen att alla 5 Flyway-migrationer applicerades och att Hibernates `EntityManagerFactory` initierades utan mappningsfel mot det verkliga schemat. Verifierade själv git-historikfrågan med `git merge-base --is-ancestor` istället för att bara lita på AI:s första förklaring, vilket visade att en tidigare slutsats (att en merge behövdes) faktiskt var fel.
+- **Valde bort:** `@Enumerated(EnumType.STRING)` som enklare alternativ till egna converters – hade skrivit enum-namnet i uppercase till databasen och inte matchat lowercase-värdena i schema/seed-data. Att bygga `Tenant`/`Account`/`User` som riktiga entiteter nu – utanför scope för #45, dokumenterat som avgränsning i ADR 0007 istället. Att lägga till `@Version`/optimistisk låsning redan nu – hör till Epic 3 (Java-2:s PaymentService-arbete) och kräver en migration som inte finns än.
+- **Spår:** PR #60 · issue #45
+
+### 2026-09-03 — Flyway-migration + Java 21/Spring Boot 3.3.4-uppgradering (#46) AdnanZasella
+- **Verktyg:** Claude
+- **Använde AI till:** Vägledning genom hela #46 – förstå Flyway-koncept, planera uppdelning av migrationsfiler (V1–V5), granska säkerhetsvarningar (CVE:er) som IntelliJ flaggade i pom.xml, felsöka kompileringsfel och runtime-fel vid uppgradering till Java 21/Spring Boot 3.3.4, formulera commit-meddelande och PR-beskrivning.
+- **Genererades:** Innehåll i V1–V5 migrationsfilerna (baserat direkt på befintlig seed.sql, ingen ny datamodell), förslag på Dockerfile-ändringar (JDK-version i båda build-stegen), förklaring av varje CVE och bedömning av om den var relevant för projektets scope.
+- **Hur jag granskade/ändrade:** Jämförde varje migrationsfils SQL manuellt mot ursprungliga seed.sql för att säkerställa att inget ändrades i strukturen. Verifierade praktiskt att lösningen fungerade genom docker-compose up --build och läste igenom hela Flyway-loggen för att bekräfta att alla 5 migrationer applicerades korrekt och i rätt ordning. Förstod och kunde själv motivera varför javax→jakarta-bytet behövdes (Spring Boot 3.x namespace-byte) innan jag gjorde ändringen i de 6 controller-filerna. Tog själv beslutet att göra en samlad commit istället för flera, efter att ha förstått att mellanliggande tillstånd inte skulle kompilera.
+- **Valde bort:** Föreslagna CHECK-constraints på payments.status/amount i migrationen – bedömde att valideringslogik hör hemma i applikationslagret (#43), inte i databasschemat, för att hålla #46 avgränsad till sitt syfte. Föreslagen omskrivning av audit_entries.user_id till att inkludera FK mot users – valde att behålla utan FK för att inte riskera att audit-loggning någonsin blockeras.
+- **Spår:** PR #59 · issue #46
+
+### 2026-08-27 Mall för Backlog Pontus.I
+- **Verktyg:** Claude
+- **Använde AI till:** Att snygga till våran backlog.md struktur och stavfel
+- **Genererades:**
+- **Hur jag granskade/ändrade:** Granskning av storys så att inget ändrades ifrån orginal tankar
+- **Valde bort (om något):**
+- **Spår:** PR #, issue #
+
+### 2026-09-08 — Testvektorer för MOD97-sviten  [namn] (C-1)
+- **Verktyg:** Claude
+- **Använde AI till:** Ta fram testvektorer för MOD97-sviten.
+- **Genererades:** 50 IBAN-nummer med förväntat giltigt/ogiltigt-resultat.
+- **Hur jag granskade/ändrade:** Verifierade 10 st manuellt mot officiell MOD97-beräkning, hittade och rättade 2 felaktiga förväntningar, la till 5 svenska IBAN som saknades.
+- **Valde bort:** 
+- **Spår:** PR #42 · issue #16
+
+---
+### 2026-09-9 — Migrering till JPA för Inloggning(Backend) + Endpoint fix — Jonathan Isaksson
+- **Verktyg:** Claude
+- **Använde AI till:** Att få översikt över koden och se till att testa kod flödet samt ge förslag där det behövdes.
+- **Genererades:** Förslag på förbättringar i koden.
+- **Hur jag granskade/ändrade:** Fick översikt med hjälp av AI, gick sedan igenom bitar av koden och började ändra. Sedan fick AI testa flödet och ge mig feedback på förslag av ändringar.
+- **Valde bort (om något):** -
+- **Spår:** PR #95, issue #33
+---
+
+---
+### 2026-09-15 — Migrering och Implementering av JWT — Jonathan Isaksson
+- **Verktyg:** Claude
+- **Använde AI till:** Gav riktning och testade flödet samt hjälpte till med integrationstester.
+- **Genererades:** Tester som prövar flödet, och ändrade i redan etablerade filer.
+- **Hur jag granskade/ändrade:** Testade varje del och ändring att det som ändrades, såg till att inget går sönder och att ändringen ger det resultatet som är förväntat. Om inte görs det om på annat sätt.
+- **Valde bort (om något):** -
+- **Spår:**
+---
+### 2026-08-17 Förståelse för TanStack Query Pontus Ingenius
+
+* **Verktyg:** ChatGPT
+* **Använde AI till:** För att få hjälp att förstå hur TanStack Query fungerar, framför allt hur queries används för att hämta och hantera data från backend samt hur caching, loading states och error states fungerar.
+* **Genererades:** Förklaringar och exempel på hur `useQuery` används, hur `queryKey` och `queryFn` fungerar samt hur TanStack Query hanterar caching och uppdatering av data.
+* **Hur jag granskade/ändrade:** Jag jämförde AI:s förklaringar och kodexempel med vår befintliga kod och testade koncepten i projektet för att säkerställa att jag förstod hur de fungerade i praktiken. Jag anpassade exemplen till projektets struktur istället för att kopiera dem direkt.
+* **Valde bort (om något):** Jag valde bort delar av exemplen som inte var relevanta för projektet och använde främst AI för förståelse snarare än för att generera färdig kod.
+* **Spår:** PR #, issue #
+
+## Tips
+
+- Loggar du löpande  t.ex. samtidigt som du skriver PR-beskrivningen blir det aldrig ett berg att beta av i v12.
+- Föreslog AI något du **valde att inte** använda? Skriv ett block om det ändå. Att avstå med motivering visar omdöme, och det är precis den självständighet examinatorn letar efter.
+- Vill någon se alla sina egna poster? Sök på ditt namn (Ctrl+F) — därför står namnet i varje rubrik.

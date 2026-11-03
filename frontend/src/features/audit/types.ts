@@ -1,0 +1,23 @@
+export type {
+  AuditApiEntry,
+  MyPaymentStatus,
+  PaymentAuditTimelineEntry,
+} from "./schema";
+
+export type AuditEntry = {
+  id: string;
+  paymentId: string | null;
+  beskrivning: string;
+  tid: string;
+  vem: string;
+  handelse: string;
+  status: string;
+  // Betalningens status som den kommer från backend (PENDING_APPROVAL, COMPLETED, REJECTED), för filtret
+  statusKey: string | null;
+  referens: string;
+  belopp: string;
+  saldoFore: string;
+  saldoEfter: string;
+  franKonto: string;
+  betalning: string;
+};

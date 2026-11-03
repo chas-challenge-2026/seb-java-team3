@@ -1,0 +1,664 @@
+package se.comerit.seb.service;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
+import se.comerit.seb.config.ApprovalThresholds;
+import se.comerit.seb.domain.*;
+import se.comerit.seb.dto.CreatePaymentRequest;
+import se.comerit.seb.dto.PaymentResponse;
+import se.comerit.seb.infrastructure.iban.IbanValidatorService;
+import se.comerit.seb.repository.AccountRepository;
+import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.UserRepository;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+
+class PaymentServiceTest {
+
+    @Test
+    void amountUnderThreshold_shouldCompleteImmediately() {
+
+        // ARRANGE: bygg upp testmiljön
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("20000.00"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        // "När paymentRepository.save(...) anropas med vad som helst,
+        //  returnera bara samma objekt tillbaka" - vi testar inte
+        //  databasen här, bara vår egen logik i PaymentService.
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("3000"), "Testfaktura", 1L
+        );
+
+        // ACT: kör koden vi testar
+        PaymentResponse response = service.createPayment(request);
+
+        // ASSERT: verifiera att resultatet är rätt
+        assertEquals(PaymentStatus.COMPLETED, response.status());
+        verify(account).setBalance(new BigDecimal("17000.00"));
+        verify(paymentRepo).save(argThat(payment ->
+                new BigDecimal("20000.00").equals(payment.getBalanceBeforePayment())
+                        && new BigDecimal("17000.00").equals(payment.getBalanceAfterPayment())));
+        verify(userRepo, never()).findByTenantIdAndRoleOrderByIdAsc(any(), any());
+        // ^ vi ska ALDRIG slå upp en attestant för ett belopp under tröskeln
+    }
+
+    @Test
+    void amountOverThreshold_shouldRequireAttestant() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("20000.00"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        // Bygg en "låtsas-attestant" som vår mock ska returnera
+        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
+
+        // "När userRepository.findByTenantIdAndRole anropas med
+        //  tenant 1 och ATTESTANT, ge tillbaka en lista med vår
+        //  låtsas-attestant" - vi testar inte den riktiga databasen,
+        //  bara att PaymentService använder svaret rätt.
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant));
+
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("7500"), "Testfaktura", 1L
+        );
+
+        // ACT
+        PaymentResponse response = service.createPayment(request);
+
+        // ASSERT
+        assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
+    }
+
+    @Test
+    void zeroAmount_shouldThrowException() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("20000.00"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                BigDecimal.ZERO, "Testfaktura", 1L
+        );
+
+        // ACT + ASSERT (i samma rad denna gång - se förklaring nedan)
+        assertThrows(IllegalArgumentException.class, () -> service.createPayment(request));
+    }
+
+    @Test
+    void createPayment_shouldRecordAuditEntry() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("20000.00"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("3000"), "Testfaktura", 1L
+        );
+
+        // ACT
+        service.createPayment(request);
+
+        // ASSERT: bekräfta att audit-loggning faktiskt skedde, med rätt action/entityType
+        verify(auditService).record(
+                eq(1L),                 // tenantId
+                eq(1L),                 // userId (createdBy)
+                eq("CREATE_PAYMENT"),   // action
+                eq("PAYMENT"),          // entityType
+                any(),                  // entityId (vi bryr oss inte om exakt vilket, bara att något skickas)
+                anyString()             // description
+        );
+    }
+
+    @Test
+    void amountEqualToThreshold_shouldCompleteImmediately() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("20000.00"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
+
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant));
+
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        // Beloppet är EXAKT lika med tröskeln - det är själva gränsfallet vi testar
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("5000"), "Testfaktura", 1L
+        );
+
+        // ACT
+        PaymentResponse response = service.createPayment(request);
+
+        // ASSERT: teamets beslut är strikt "> tröskel" - exakt 5000 kräver INTE attest
+        assertEquals(PaymentStatus.COMPLETED, response.status());
+        verify(account).setBalance(new BigDecimal("15000.00"));
+        verify(accountRepo).findByIdAndTenantIdForUpdate(1, 1L);
+        verify(userRepo, never()).findByTenantIdAndRoleOrderByIdAsc(any(), any());
+    }
+
+    @Test
+    void amountJustOverThreshold_shouldRequireAttestant() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(accountRepo.existsByIdAndTenantId(anyInt(), anyLong())).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("20000.00"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("10000"));
+
+        User attestant = new User(1L, "Johan Berg", "johan@malmobygg.se", null, Role.ATTESTANT);
+
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant));
+
+        when(paymentRepo.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        // Ett öre över tröskeln - andra sidan av gränsfallet
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003",
+                new BigDecimal("5000.01"), "Testfaktura", 1L
+        );
+
+        // ACT
+        PaymentResponse response = service.createPayment(request);
+
+        // ASSERT: 5000.01 är strikt över tröskeln => attestant krävs
+        assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
+        verify(account, never()).setBalance(any());
+        verify(accountRepo).findByIdAndTenantIdForUpdate(1, 1L);
+        verify(userRepo, times(1)).findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT);
+    }
+
+    @Test
+    void fromAccountBelongingToOtherTenant_shouldBeRejected() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+
+        // Konto 4 finns, men tillhör INTE tenant 1 -> databasen svarar false
+        when(accountRepo.existsByIdAndTenantId(4, 1L)).thenReturn(false);
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        // Användaren på tenant 1 försöker betala från konto 4 (ett annat företags konto)
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 4L, "SE8550000000054910000003",
+                new BigDecimal("7500"), "Försök från fel konto", 1L
+        );
+
+        // ACT + ASSERT
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.createPayment(request));
+        assertEquals("Från-kontot finns inte eller tillhör inte ditt företag", ex.getMessage());
+
+        // Kontrollen ska ha gjorts mot användarens tenant
+        verify(accountRepo).existsByIdAndTenantId(4, 1L);
+        // Inget får sparas, ingen attestant tilldelas, inget loggas som "skapad"
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(userRepo, auditService);
+    }
+
+    @Test
+    void missingFromAccount_shouldBeRejected() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        // fromAccountId = null
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, null, "SE8550000000054910000003",
+                new BigDecimal("7500"), "Utan konto", 1L
+        );
+
+        // ACT + ASSERT
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.createPayment(request));
+        assertEquals("Från-konto måste anges", ex.getMessage());
+
+        // Ingen databasfråga behövs, och inget sparas eller loggas
+        verifyNoInteractions(accountRepo, paymentRepo, auditService);
+    }
+
+    @Test
+    void fromAccountIdOutOfRange_shouldBeRejectedWithoutDatabaseLookup() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        // Long.MAX_VALUE ryms inte i INT - utan kontrollen skulle intValue() "slå runt"
+        // till -1 och tyst slå upp ett helt annat id
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, Long.MAX_VALUE, "SE8550000000054910000003",
+                new BigDecimal("7500"), "För stort id", 1L
+        );
+
+        // ACT + ASSERT
+        assertThrows(IllegalArgumentException.class, () -> service.createPayment(request));
+        verifyNoInteractions(accountRepo, paymentRepo, auditService);
+    }
+
+    @Test
+    void missingTenant_shouldBeRejectedWithoutDatabaseLookup() {
+
+        // ARRANGE
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+
+        // tenantId = null: utan företag får frågan aldrig köras, annars matchar "ingen tenant"
+        // konton som saknar företag (null blir "tenant_id IS NULL" i den härledda frågan)
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                null, 1L, "SE8550000000054910000003",
+                new BigDecimal("7500"), "Utan företag", 1L
+        );
+
+        // ACT + ASSERT
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.createPayment(request));
+        assertEquals("Från-kontot finns inte eller tillhör inte ditt företag", ex.getMessage());
+        verifyNoInteractions(accountRepo, paymentRepo, auditService);
+    }
+
+
+    @Test
+    void directPaymentWithMissingBalance_shouldNotBeSavedOrAudited() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(accountRepo.existsByIdAndTenantId(1, 1L)).thenReturn(true);
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L))
+                .thenReturn(java.util.Optional.of(mock(Account.class)));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("5000"), "Test", 1L);
+
+        assertThrows(IllegalStateException.class, () -> service.createPayment(request));
+        verifyNoInteractions(paymentRepo, auditService, userRepo);
+    }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"5000", "6000"})
+    void insufficientBalance_shouldRejectBeforeSavingOrAssigningAttestant(String amount) {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(accountRepo.existsByIdAndTenantId(1, 1L)).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal("4999.99"));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        PaymentService service = new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal(amount), "Test", 1L);
+        assertThrows(IllegalArgumentException.class, () -> service.createPayment(request));
+        verify(account, never()).setBalance(any());
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService, userRepo);
+    }
+
+    // Reservation: betalningar som väntar på attest håller sina pengar, så en ny betalning får bara använda
+    // det som är kvar. Annars kunde två väntande betalningar tillsammans överstiga saldot, och den andra
+    // fastnade i attestkorgen utan att kunna godkännas.
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"4000", "6000"})
+    void amountOverWhatIsLeftAfterReservations_shouldBeRejected(String amount) {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, accountRepo, auditService, "10000");
+        // 7 000 kr väntar redan på attest: 3 000 kr finns kvar att betala med
+        when(paymentRepo.sumPendingAmountForAccount(1L, 1L)).thenReturn(new BigDecimal("7000"));
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal(amount), "Test", 1L);
+
+        IllegalArgumentException error =
+                assertThrows(IllegalArgumentException.class, () -> service.createPayment(request));
+        assertEquals("Beloppet överstiger tillgängligt saldo.", error.getMessage());
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void amountWithinWhatIsLeftAfterReservations_shouldBeAccepted() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, accountRepo, auditService, "10000");
+        when(paymentRepo.sumPendingAmountForAccount(1L, 1L)).thenReturn(new BigDecimal("7000"));
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Exakt det som finns kvar går bra (under tröskeln, så den dras direkt)
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("3000"), "Test", 1L);
+
+        PaymentResponse response = service.createPayment(request);
+
+        assertEquals(PaymentStatus.COMPLETED, response.status());
+    }
+
+    // ADR 0016: samma regel som för den första tröskeln, strikt över. Exakt tröskelbeloppet räcker med en attestant.
+    @Test
+    void amountEqualToTwoAttestantThreshold_shouldRequireOneAttestant() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                mock(AuditService.class), "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(21L), attestant(22L)));
+
+        service.createPayment(paymentOf("50000"));
+
+        List<ApprovalStep> steps = savedSteps(paymentRepo);
+        assertEquals(1, steps.size());
+        assertEquals(21L, steps.get(0).getAttestantId());
+    }
+
+    @Test
+    void amountJustOverTwoAttestantThreshold_shouldRequireTwoDifferentAttestantsInOrder() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                mock(AuditService.class), "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(21L), attestant(22L), attestant(23L)));
+
+        PaymentResponse response = service.createPayment(paymentOf("50000.01"));
+
+        assertEquals(PaymentStatus.PENDING_APPROVAL, response.status());
+        List<ApprovalStep> steps = savedSteps(paymentRepo);
+        assertEquals(2, steps.size());
+        assertEquals(21L, steps.get(0).getAttestantId());
+        assertEquals(1, steps.get(0).getStepNumber());
+        assertEquals(22L, steps.get(1).getAttestantId());
+        assertEquals(2, steps.get(1).getStepNumber());
+    }
+
+    // Annars hade betalningen reserverat pengarna i väntan på ett andra godkännande som ingen kan ge
+    @Test
+    void tooFewAttestantsForTwoSteps_shouldRejectBeforeSavingOrAuditing() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                auditService, "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(21L)));
+
+        assertThrows(NoAttestantAvailableException.class, () -> service.createPayment(paymentOf("50000.01")));
+
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService);
+    }
+
+    // En initiator som just blivit attestant kan ha kvar en initiator-token en stund och skapa en betalning. Hen
+    // får aldrig sig själv som attestant: skaparen får inte godkänna sin egen betalning, så den skulle fastna.
+    @Test
+    void attestantSelection_skipsTheCreatorOfThePayment() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, accountRepo, mock(AuditService.class), "20000.00");
+
+        User creator = new User(1L, "Lisa Persson", "lisa@example.com", "hash", Role.ATTESTANT);
+        User other = new User(1L, "Johan Berg", "johan@example.com", "hash", Role.ATTESTANT);
+        ReflectionTestUtils.setField(creator, "id", 10L);
+        ReflectionTestUtils.setField(other, "id", 20L);
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT)).thenReturn(List.of(creator, other));
+
+        service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("7500"), "Test", 10L));
+
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepo).save(saved.capture());
+        assertEquals(List.of(20L),
+                saved.getValue().getApprovalSteps().stream().map(ApprovalStep::getAttestantId).toList());
+    }
+
+    @Test
+    void attestantSelection_whenTheCreatorIsTheOnlyAttestant_isRefusedAndSavesNothing() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AccountRepository accountRepo = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, accountRepo, auditService, "20000.00");
+
+        User creator = new User(1L, "Lisa Persson", "lisa@example.com", "hash", Role.ATTESTANT);
+        ReflectionTestUtils.setField(creator, "id", 10L);
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT)).thenReturn(List.of(creator));
+
+        assertThrows(NoAttestantAvailableException.class, () -> service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("7500"), "Test", 10L)));
+
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService);
+    }
+
+    // Dubbel attest (ADR 0016) och skaparregeln (ADR 0017) tillsammans: skaparen räknas bort först, så de
+    // två stegen går till de två första av de övriga attestanterna, i id-ordning.
+    @Test
+    void twoStepPayment_skipsTheCreator_andPicksTheNextTwoAttestantsInOrder() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                mock(AuditService.class), "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(10L), attestant(21L), attestant(22L), attestant(23L)));
+
+        service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("50000.01"), "Test", 10L));
+
+        assertEquals(List.of(21L, 22L),
+                savedSteps(paymentRepo).stream().map(ApprovalStep::getAttestantId).toList());
+    }
+
+    // Räknar man bort skaparen räcker inte attestanterna till två steg: betalningen stoppas redan här.
+    @Test
+    void twoStepPayment_whenTheCreatorLeavesTooFewAttestants_isRefusedAndSavesNothing() {
+        PaymentRepository paymentRepo = mock(PaymentRepository.class);
+        UserRepository userRepo = mock(UserRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        PaymentService service = serviceWithBalance(paymentRepo, userRepo, mock(AccountRepository.class),
+                auditService, "100000");
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT))
+                .thenReturn(List.of(attestant(10L), attestant(21L)));
+
+        assertThrows(NoAttestantAvailableException.class, () -> service.createPayment(new CreatePaymentRequest(
+                1L, 1L, "SE8550000000054910000003", new BigDecimal("50000.01"), "Test", 10L)));
+
+        verify(paymentRepo, never()).save(any());
+        verifyNoInteractions(auditService);
+    }
+
+    private static CreatePaymentRequest paymentOf(String amount) {
+        return new CreatePaymentRequest(1L, 1L, "SE8550000000054910000003", new BigDecimal(amount), "Test", 1L);
+    }
+
+    private static User attestant(Long id) {
+        User attestant = new User(1L, "Attestant " + id, id + "@example.com", "hash", Role.ATTESTANT);
+        ReflectionTestUtils.setField(attestant, "id", id);
+        return attestant;
+    }
+
+    private static List<ApprovalStep> savedSteps(PaymentRepository paymentRepo) {
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepo).save(saved.capture());
+        return saved.getValue().getApprovalSteps();
+    }
+
+    private static PaymentService serviceWithBalance(PaymentRepository paymentRepo, UserRepository userRepo,
+                                                     AccountRepository accountRepo, AuditService auditService,
+                                                     String balance) {
+        IbanValidatorService ibanValidator = mock(IbanValidatorService.class);
+        when(ibanValidator.normalize(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(ibanValidator.validateIban(anyString())).thenReturn(true);
+        when(accountRepo.existsByIdAndTenantId(1, 1L)).thenReturn(true);
+        Account account = mock(Account.class);
+        when(account.getBalance()).thenReturn(new BigDecimal(balance));
+        when(accountRepo.findByIdAndTenantIdForUpdate(1, 1L)).thenReturn(java.util.Optional.of(account));
+        User attestant = new User(1L, "Johan Berg", "johan@example.com", "hash", Role.ATTESTANT);
+        when(userRepo.findByTenantIdAndRoleOrderByIdAsc(1L, Role.ATTESTANT)).thenReturn(List.of(attestant));
+        when(paymentRepo.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ApprovalThresholds thresholds = new ApprovalThresholds();
+        thresholds.setNoAttestantThreshold(new BigDecimal("5000"));
+        thresholds.setTwoAttestantThreshold(new BigDecimal("50000"));
+        return new PaymentService(paymentRepo, userRepo, accountRepo, thresholds, auditService, ibanValidator);
+    }
+}

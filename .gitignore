@@ -1,0 +1,30 @@
+# Maven
+target/
+*.class
+*.jar
+*.war
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Logs
+*.log
+
+# OS-filer
+.DS_Store
+Thumbs.db
+
+# Miljö- / secrets-filer (lägg INTE in riktiga lösenord i repot)
+application-local.properties
+.env
+
+# Byggstatus
+backend/SebPortal/target/maven-status/
+# Native build
+native/build/
+native/*/build/
+native/iban/test_simple

@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN payments_seen_at TIMESTAMP;

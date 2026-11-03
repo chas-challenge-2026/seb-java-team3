@@ -1,12 +1,46 @@
-FROM maven:3.8-openjdk-11 AS build
+# ---- Stage 1: build native libraries (IBAN, CSV, audit signer) (jammy, matches runtime glibc) ----
+FROM ubuntu:22.04 AS native-build
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /native
+COPY native/ ./
+RUN make lib
+
+# ---- Stage 2: build React frontend (Vite) ----
+FROM node:22-alpine AS frontend-build
+WORKDIR /frontend
+
+# Kopiera bara beroendefilerna först, så att npm ci-lagret cachas
+# så länge package.json och package-lock.json inte ändras
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+# Kopiera resten av källkoden och bygg, output hamnar i /frontend/dist
+COPY frontend/ ./
+RUN npm run build
+
+# ---- Stage 3: build Java application ----
+FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
-COPY pom.xml .
+COPY backend/SebPortal/pom.xml .
 RUN mvn dependency:resolve -q
-COPY src ./src
+COPY backend/SebPortal/src ./src
+
+# Lägg in den byggda React-appen i Springs static/ så att den paketeras in i jar-filen
+COPY --from=frontend-build /frontend/dist ./src/main/resources/static/
+
 RUN mvn package -DskipTests -q
 
-FROM eclipse-temurin:11-jre-jammy
+# ---- Stage 4: runtime ----
+FROM eclipse-temurin:21-jre-jammy
+# libauditsigner.so är länkad mot libcrypto.so.3 (libssl3, matchar libssl-dev i native-build)
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+RUN mkdir -p /app/audit
 COPY --from=build /app/target/seb-portal-1.0-SNAPSHOT.jar app.jar
+COPY --from=native-build /native/build/lib/libiban.so /app/native/libiban.so
+COPY --from=native-build /native/build/lib/libcsvparser.so /app/native/libcsvparser.so
+COPY --from=native-build /native/build/lib/libauditsigner.so /app/native/libauditsigner.so
 EXPOSE 8084
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Djna.library.path=/app/native", "-jar", "app.jar"]

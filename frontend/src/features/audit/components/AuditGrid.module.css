@@ -1,0 +1,512 @@
+.card {
+    overflow: hidden;
+    border: 1px solid var(--border-default);
+    border-radius: 1.25rem;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-card);
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.75rem 1.75rem 1.5rem;
+    border-bottom: 1px solid var(--border-default);
+    background: var(--bg-muted);
+}
+
+.header h2 {
+    color: var(--btn-dark);
+    font-size: 1.45rem;
+    line-height: 1.2;
+}
+
+.description {
+    margin-top: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.count {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-heading);
+    font-size: 0.8rem;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.count span {
+    font-weight: 800;
+}
+
+/* Anledningen när en betalning avvisats (Mina betalningar) */
+.rejectionReason {
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    font-style: italic;
+    white-space: normal;
+}
+
+/* Statusfiltret i auditloggen */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.filterButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.filterButton span {
+    color: var(--text-muted);
+    font-weight: 800;
+}
+
+.filterButton:hover {
+    background: var(--bg-subtle);
+}
+
+.filterButton:focus-visible {
+    outline: 3px solid var(--focus-attention);
+    outline-offset: 2px;
+}
+
+.filterButton[aria-pressed="true"] {
+    border-color: var(--btn-primary);
+    background: var(--btn-primary);
+    color: var(--text-on-primary);
+}
+
+.filterButton[aria-pressed="true"] span {
+    color: var(--text-on-primary);
+}
+
+.tableWrap {
+    overflow-x: auto;
+}
+
+.grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+/* Auditloggen och Mina betalningar: kolumnerna får den bredd innehållet behöver i stället för lika delar,
+   och celler med .noWrap (datum, belopp, konton, status) bryts aldrig. Får tabellen inte plats scrollar
+   den i sidled (.tableWrap). */
+.contentSizedGrid {
+    table-layout: auto;
+}
+
+/* .grid.contentSizedGrid väger tyngre än .grid td längre ned, som annars skriver över marginalerna */
+.grid.contentSizedGrid th,
+.grid.contentSizedGrid td {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+}
+
+.contentSizedGrid th,
+.noWrap {
+    white-space: nowrap;
+}
+
+.grid th,
+.grid td {
+    text-align: left;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.grid td {
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+}
+
+.grid td > * {
+    min-width: 0;
+}
+
+.grid th {
+    padding-top: 0.8rem;
+    padding-bottom: 0.8rem;
+    background: var(--bg-muted);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 750;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.grid tbody tr {
+    transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.grid tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.clickableRow {
+    cursor: pointer;
+}
+
+.clickableRow:hover {
+    background: var(--bg-surface-nav);
+    box-shadow: inset 3px 0 0 var(--btn-primary);
+}
+
+.clickableRow:focus-visible {
+    outline: 3px solid var(--focus-attention);
+    outline-offset: -2px;
+}
+
+.date,
+.reference {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.actor {
+    color: var(--text-primary);
+    font-weight: 650;
+}
+
+.actorContent {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.actorContent > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.actorAvatar {
+    display: grid;
+    flex: 0 0 1.8rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--btn-primary-hover);
+    color: var(--text-on-primary);
+    font-size: 0.68rem;
+    font-weight: 750;
+    line-height: 1;
+    user-select: none;
+}
+
+.eventCell {
+    color: var(--text-heading);
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.status {
+    display: inline-block;
+    padding: 0.28rem 0.55rem;
+    border-radius: 0.4rem;
+    background: var(--bg-subtle);
+    color: var(--text-navigation);
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.reference {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem;
+}
+
+.amount {
+    color: var(--text-primary);
+    font-weight: 750;
+}
+
+.paymentCell {
+    color: var(--btn-primary);
+    font-weight: 600;
+}
+
+.paymentLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82rem;
+}
+
+.detailsRow td {
+    padding: 0;
+    background: var(--bg-muted);
+}
+
+.detailsPanel {
+    margin: 0.75rem;
+    padding: 1rem 1.25rem 1.25rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 0.85rem;
+    background: var(--bg-primary);
+}
+
+.stateText {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.timelineItem {
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.875rem;
+    align-items: flex-start;
+}
+
+.order {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--btn-primary);
+    color: var(--text-on-primary);
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.timelineContent {
+    min-width: 0;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.timelineItem:last-child .timelineContent {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.paymentSummary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: 0.75rem 1.25rem;
+    margin: 0 0 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.paymentSummary dt {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.paymentSummary dd {
+    margin: 0.15rem 0 0;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.iban {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+
+.meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.875rem;
+    margin: 0.2rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.stepHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+    margin-top: 0.35rem;
+}
+
+.event {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+/* Attestantens meddelande på en avvisning. Texten kommer från en användare, så den
+   bryts var som helst och radbrytningar i den bevaras. */
+.comment {
+    margin: 0.5rem 0 0;
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--border-default);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.commentLabel {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 650;
+}
+
+.stepBadge {
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.4rem;
+    background: var(--bg-subtle);
+    color: var(--text-navigation);
+    font-size: 0.75rem;
+    font-weight: 650;
+}
+
+@media (max-width: 640px) {
+    .header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1.25rem;
+    }
+
+    .header h2 {
+        font-size: 1.3rem;
+    }
+
+    .count {
+        align-self: flex-start;
+    }
+
+    .grid th,
+    .grid td {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+@media (max-width: 760px) {
+    .tableWrap {
+        overflow: visible;
+    }
+
+    .grid,
+    .grid tbody,
+    .grid tr,
+    .grid td {
+        display: block;
+        width: 100%;
+    }
+
+    .grid thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+    }
+
+    .grid tbody {
+        display: grid;
+        gap: 0.75rem;
+        padding: 0.75rem;
+    }
+
+    .grid tbody tr {
+        overflow: hidden;
+        border: 1px solid var(--border-default);
+        border-radius: 0.85rem;
+        background: var(--bg-primary);
+    }
+
+    .grid tbody tr:hover {
+        box-shadow: none;
+    }
+
+    .grid td {
+        display: grid;
+        grid-template-columns: minmax(6.75rem, 0.8fr) minmax(0, 1.2fr);
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.7rem 0.85rem;
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    .grid td::before {
+        content: attr(data-label);
+        color: var(--text-secondary);
+        font-size: 0.7rem;
+        font-weight: 750;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .grid td:last-child {
+        border-bottom: 0;
+    }
+
+    .detailsRow {
+        margin-top: -0.75rem;
+        border-top: 0;
+    }
+
+    .detailsRow td {
+        display: block;
+        padding: 0;
+    }
+
+    .detailsRow td::before {
+        display: none;
+    }
+
+    .detailsPanel {
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .stepHeader {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .date,
+    .reference,
+    .amount,
+    .paymentLabel,
+    .eventCell,
+    .noWrap {
+        white-space: normal;
+    }
+}

@@ -1,58 +1,50 @@
 package se.comerit.seb.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.http.HttpSession;
 import java.util.List;
-import java.util.Map;
 
-// SPAGHETTI: ported straight from AuditLog.cshtml.cs — all data access inline, no service layer.
-@Controller
+import se.comerit.seb.dto.AuditEntryResponse;
+import se.comerit.seb.dto.MyPaymentStatusResponse;
+import se.comerit.seb.dto.PaymentAuditTimelineEntryResponse;
+import se.comerit.seb.security.AuthenticatedUserContext;
+import se.comerit.seb.security.JwtUserContext;
+import se.comerit.seb.service.AuditService;
+
+@RestController
 public class AuditController {
 
-    // TODO: this should be in a service/repository layer, but inline works for now
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private final AuditService auditService;
+    private final JwtUserContext jwtUserContext;
 
-    // BUG-010: hardcoded connection string duplicated across controllers (fifth occurrence)
-    // TODO: read from config, not a constant in every file
-    static final String JDBC_FALLBACK =
-        "Host=localhost;Port=5432;Database=seb;Username=seb;Password=seb123";
+    public AuditController(AuditService auditService,
+                           JwtUserContext jwtUserContext) {
+        this.auditService = auditService;
+        this.jwtUserContext = jwtUserContext;
+    }
 
-    @GetMapping("/audit")
-    public String auditLog(HttpSession session, Model model) {
-        if (session.getAttribute("userId") == null) {
-            return "redirect:/login";
-        }
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @GetMapping("/api/audit")
+    public List<AuditEntryResponse> getAuditEntries() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        return auditService.getAuditEntries(user);
+    }
 
-        // SPAGHETTI: tenantId is fetched from session but never actually used to filter the
-        // query below — audit_entries has no tenant_id column, so we can't filter properly.
-        // A user from a different tenant could see this data if they guessed the URL.
-        Object tenantId = session.getAttribute("tenantId");
+    @PreAuthorize("hasAnyRole('ATTESTANT', 'ADMIN')")
+    @GetMapping("/api/payments/{paymentId}/audit")
+    public List<PaymentAuditTimelineEntryResponse> getPaymentAuditTimeline(@PathVariable Long paymentId) {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        return auditService.getPaymentAuditTimeline(user, paymentId);
+    }
 
-        // BUG-008: Reads from DB only — but the audit log is ALSO written to /tmp/audit.log
-        // (BatchController's BATCH_PAYMENT, ApprovalController's PARTIAL_APPROVE, etc).
-        // Those file-only entries never exist in audit_entries, so they never appear here.
-        // This makes the audit log fundamentally incomplete in the UI.
-        try {
-            // SPAGHETTI: No tenant filtering on audit_entries — shows ALL users' entries
-            String sql = "SELECT ae.id, ae.action, ae.entity_type, ae.entity_id, ae.description, ae.created_at, "
-                    + "COALESCE(u.name, 'Systemet') as user_name "
-                    + "FROM audit_entries ae "
-                    + "LEFT JOIN users u ON u.id = ae.user_id "
-                    + "ORDER BY ae.created_at DESC LIMIT 200";
-
-            List<Map<String, Object>> entries = jdbcTemplate.queryForList(sql);
-            model.addAttribute("entries", entries);
-        } catch (Exception e) {
-            // SPAGHETTI: Raw exception in UI
-            model.addAttribute("errorMessage", "Kunde inte hämta loggdata: " + e.getMessage());
-        }
-
-        return "audit-log";
+    // Initiatorns egna betalningar. ADMIN skapar inga betalningar och ser i stället allt via /api/audit.
+    @PreAuthorize("hasRole('INITIATOR')")
+    @GetMapping("/api/my-payments")
+    public List<MyPaymentStatusResponse> getMyPaymentStatuses() {
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        return auditService.getMyPaymentStatuses(user);
     }
 }

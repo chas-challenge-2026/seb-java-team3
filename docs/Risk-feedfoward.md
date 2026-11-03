@@ -1,0 +1,23 @@
+       
+    1. CIA, tunn behövs det mer? Tänk CIA där, confidentiality, integrity, availability. Vilka saker kan ni hitta på alla de här olika ställena? Ni behöver ju såklart se över de riskerna som är kvar. 
+       Det är ganska mycket som inte är fixat då. Så såklart behöver ju det vara på plats innan man vågar gå live med den här.
+       
+    2. Authorization versus authentication (Roller) - Läsa på om vertikal, horizontal authentication. 
+       
+    3. Autoincrementerande ID. Läs om GUID. PRIO. Implementera. /Backend Adnan
+       
+    4. Accessmatris som listar alla roller, vilka actions de har får lov att göra. Finns det permission escalation. Tid – 2.10 – Lågt – Lista över actions på roller i /docs. -- LÖST: accessmatrisen finns i `docs/accessmatris.md` och ADR 0017. 
+    Status 2026-11-02: finns i `docs/accessmatris.md`, med vertikal och horisontell behörighet (punkt 2). Eskaleringshålet där en admin kunde godkänna sin egen betalning (R-03) är stängt i #242 (ADR 0017).
+
+    5. Ehm MD5 hashar inte säkert heller. Det kommer ni behöva byta ut till en starkare om ni inte har gjort det redan. - MD5 borttaget, nu använder vi Bcrypt -- LÖST
+
+    6. Problem med SQL injections, lösningen är ju att använda prepared statements – LÖST, (Kolla hur och lägg till här)
+
+    7. unittester i sin CICD pipeline – npm audit. Kolla test CVE, slår mot npm sårbarheter, failar den, failar unittestet.  ← kolla hur vår CICD pipeline är uppbyggd. Säkerhetsgaranti vi lovar. - lågt, breddning
+       
+    8.  Titta över symmetriska versus asymmetrisk  JWT-nyckel, då kan ni isolera vilken del av systemet som får lov att signera nya JWT. Tänk på hur de kanske behöver roteras över tid. Eh, hur hur kommer det gå till om man byter ut om den blir läckt liksom? Hur kan man rotera den JWT nyckel. - Hög. Prio. / Jonathan. 
+    httpOnly i backend. Jwt i variabl 15 min i frontend. Refresh med httpOnly
+    Status 2026-11-02: nyckeln slumpas vid start (ADR 0011, accepterad och mergad). Refresh token med rotation är byggd och mergad: backend i PR #214 och frontend med 15 minuters access-token i minnet (ADR 0012, accepterad). Asymmetrisk nyckel är medvetet bortvald så länge en enda tjänst signerar och verifierar, och nyckeln roteras genom omstart eller redeploy (ADR 0011). Återstår: verifiering på stage, som svarade 503 vid kontroll 2026-11-02.
+       
+    9. Kolla igenom databastransaktion om ni inte har det redan så att ni har atomic commits genom systemet så att den inte bryter halvvägs. Kolla igenom eh vilken data som spottas tillbaka till klienten. Man vill inte ha fulla stack traces på serverside hos klienten till exempel. - läs på om atomic commits, fulla stack tracers. @transactional. -- LÖST.
+    Status 2026-11-02: saldo, status och audit sparas i samma transaktion (R-02; rollback-test för avvisning kommer med PR #244). Klienten får varken stack traces eller interna id:n: felsvaren har fasta texter, detaljerna går till serverloggen, och en catch-all fångar oväntade fel (R-18, `GlobalExceptionHandlerTest`). 

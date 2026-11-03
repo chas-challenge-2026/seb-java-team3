@@ -16,7 +16,7 @@ Denna katalog innehåller (i v2) tre prestandakritiska och säkerhetskritiska mo
 
 ## Modul 1: CSV-batchparser
 
-**Fil:** `csv_parser.c` / `csv_parser.h`  
+**Fil:** `csv/csv_parser.c` / `csv/csv_parser.h`  
 **Kompilering:** `gcc -O2 -fopenmp -shared -fPIC -o libcsvparser.so csv_parser.c`
 
 ### API
@@ -81,35 +81,93 @@ public interface CsvParserLib extends Library {
 
 ## Modul 2: IBAN/BIC-validator
 
-**Fil:** `iban_validator.c` / `iban_validator.h`  
-**Kompilering:** `gcc -O2 -shared -fPIC -o libiban.so iban_validator.c`
+**Filer (i `native/iban/`):** 
+- `iban_validator.h` — API-definition
+- `iban_validator.c` — Implementering (ISO 13616 MOD97 + ISO 9362 BIC-validering)
+- `iban_validator_test.c` — Enhetstester (Check framework)
+- `test_simple.c` — Fristående testprogram utan Check
+- `Makefile` — Bygg- och testskript för modulen (anropas från `native/Makefile`)
+
+### Status
+- ✅ **IMPLEMENTERAD** — MOD97-algoritm, BIC-validering, enhetstester
+- ✅ **IMPLEMENTERAD** — JNA-integrering mot betalningsformuläret
+- **Issue #73:** MOD97-algoritm implementering
+- **Issue #74:** Enhetstester (denna fil)
+- **Issue #75:** JNA-integrering mot betalningsformuläret (`backend/SebPortal/src/main/java/se/comerit/seb/infrastructure/iban/`)
 
 ### API
 
 ```c
 // Returnerar 1 om IBAN är giltig (format + MOD97), annars 0
 // error_out: om 0 returneras, sätts till felkod
-//   1 = för kort/lång
-//   2 = ogiltigt landskod
-//   3 = felaktigt tecken
-//   4 = MOD97-fel (fel kontrollsiffror)
+//   1 = för kort/lång (längd < 15 eller > 34)
+//   2 = ogiltigt landskod (första 2 tecken måste vara A-Z)
+//   3 = felaktigt tecken (endast A-Z, 0-9, mellanslag, bindestrecks är tillåtna)
+//   4 = MOD97-fel (fel kontrollsiffror eller ogiltig checksumma)
 int validate_iban(const char* iban, int* error_out);
 
 // Returnerar 1 om BIC är giltig (ISO 9362), annars 0
+// Format: AAAA BB CC [DDD]
+//   - 4 bokstäver: bankkod
+//   - 2 bokstäver: landskod (ISO 3166-1 alpha-2)
+//   - 2 tecken (bokstäver eller siffror): ortskod
+//   - 3 tecken valfritt (bokstäver eller siffror): filialskod
 int validate_bic(const char* bic);
-
-// MOD97-kontrollsiffra — returnerar beräknad checksumma (0-97)
-int iban_mod97(const char* iban);
 ```
 
 ### Algoritm (ISO 13616 MOD97)
 
-1. Flytta de första 4 tecknen sist
-2. Ersätt varje bokstav med dess numeriska värde (A=10, B=11, ..., Z=35)
-3. Beräkna MOD 97 på den resulterande heltalssträngen
-4. Resultatet ska vara 1
+1. Normalisering: ta bort mellanslag och bindestreck, konvertera till versaler
+2. Flytta de första 4 tecknen (landskod + kontrollsiffror) till slutet
+3. Ersätt varje bokstav med dess numeriska värde (A=10, B=11, ..., Z=35)
+4. Beräkna MOD 97 på den resulterande heltalssträngen
+5. Om MOD 97 == 1 är IBAN giltig; annars felaktig kontrollsumma
 
-### Java JNA-wrapper (ska implementeras)
+### Testning
+
+```bash
+# Installera Check-ramverk (om det inte redan är installerat)
+# Ubuntu/Debian:
+sudo apt-get install check
+
+# macOS:
+brew install check
+
+# Bygga och köra tester:
+cd native/
+make check-deps    # Verifiera beroenden
+make test          # Kör alla enhetstester
+make lib           # Bygga endast bibliotek
+make clean         # Rensa upp
+```
+
+Testsviten (`iban_validator_test.c`) täcker:
+- ✅ Giltiga IBAN:er från Sverige, Tyskland, Frankrike, UK, Spanien
+- ✅ Normalisering: mellanslag, bindestrecks, versaler/gemener
+- ✅ Felaktig längd: för korta, för långa, tomma
+- ✅ Felaktig landskod: siffror i stället för bokstäver
+- ✅ Felaktiga kontrollsiffror: måste vara siffror
+- ✅ Felaktiga tecken: specialtecken avvisas
+- ✅ MOD97-felkontroll: ändring av någon siffra descobert
+- ✅ Giltiga BIC:er (8 och 11 tecken)
+- ✅ Felaktiga BIC:er (längd, format, tecken)
+- ✅ NULL-pekare och felhantering
+
+### Kompilering & bibliotek
+
+```bash
+# Bygga delad bibliotek (.so):
+gcc -O2 -shared -fPIC -o native/build/lib/libiban.so native/iban/iban_validator.c
+
+# Länka test (kräver Check-ramverk):
+gcc -std=c99 -Wall -Wextra native/iban/iban_validator_test.c native/iban/iban_validator.c \
+    $(pkg-config --cflags --libs check) -o native/build/test/iban_validator_test
+./native/build/test/iban_validator_test
+```
+
+### Java JNA-wrapper (implementerad)
+
+Se `backend/SebPortal/src/main/java/se/comerit/seb/infrastructure/iban/IbanLib.java` och `IbanValidatorService.java`.
 
 ```java
 import com.sun.jna.*;
@@ -117,18 +175,20 @@ import com.sun.jna.ptr.IntByReference;
 
 public interface IbanLib extends Library {
     IbanLib INSTANCE = Native.load("iban", IbanLib.class);
+    
     int validate_iban(String iban, IntByReference errorOut);
     int validate_bic(String bic);
-    int iban_mod97(String iban);
 }
 
-// Anrop med graceful fallback om biblioteket saknas (matchar v1-beteendet):
+// Anrop med graceful fallback om biblioteket saknas — till skillnad från v1
+// (BUG-003) kör fallbacken en riktig Java MOD97-kontroll, inte bara ett
+// formatcheck, så ogiltiga kontrollsiffror stoppas även utan .so-filen:
 public boolean validateIban(String iban) {
-    if (!nativeLibraryAvailable) {
-        return fallbackValidateIban(iban); // regex fallback (= v1 BUG-003-läget)
+    if (!nativeLibAvailable) {
+        return validateIbanMod97(iban); // Java MOD97-fallback
     }
     IntByReference err = new IntByReference();
-    return IbanLib.INSTANCE.validate_iban(iban.replace(" ", ""), err) == 1;
+    return IbanLib.INSTANCE.validate_iban(iban, err) == 1;
 }
 ```
 
@@ -136,22 +196,32 @@ public boolean validateIban(String iban) {
 
 ## Modul 3: Audit-signering (append-only, tamper-evident)
 
-**Fil:** `audit_signer.c` / `audit_signer.h`  
-**Kompilering:** `gcc -O2 -shared -fPIC -o libauditsigner.so audit_signer.c -lssl -lcrypto`
+**Filer:** `audit/audit_signer.h`, `audit/audit_signer.c`, `audit/audit_signer_test.c` (39 Check-tester), `audit/Makefile`  
+**Bibliotek:** `libauditsigner.so` (länkar mot OpenSSL: `libssl-dev` vid bygge, `libssl3` i runtime)
+
+### Status
+- ✅ **IMPLEMENTERAD** — C-biblioteket med enhetstester
+- ✅ **IMPLEMENTERAD** — JNA-wrapper, koppling mot `AuditService`, verifiering vid start och hälsokontroll
 
 ### Format
 
-Varje loggrad: `TIMESTAMP|USER_ID|ACTION|ENTITY_ID|DESCRIPTION|PREV_HASH|HMAC`
+Varje loggrad slutar med `\n`: `TIMESTAMP|USER_ID|ACTION|ENTITY_ID|DESCRIPTION|PREV_HASH|HMAC`
 
-- `PREV_HASH`: SHA256 av föregående rads hela innehåll (hex)
-- `HMAC`: HMAC-SHA256(rad_utan_hmac, secret_key) (hex)
-- Första radens `PREV_HASH` = `0000...0000` (64 nollor)
+- `TIMESTAMP`: sätts av biblioteket, UTC, `YYYY-MM-DDTHH:MM:SSZ`
+- `PREV_HASH`: SHA-256 (gemena hex) av hela föregående rad, inklusive dess HMAC och utan radbrytningen. Första radens `PREV_HASH` = 64 nollor
+- `HMAC`: HMAC-SHA256 (gemena hex) med `secret_key` över raden fram till, men utan, `|` framför HMAC-fältet
+- `ACTION` och `DESCRIPTION` escapas: `|` blir `\|` och `\` blir `\\`. CR och LF är inte tillåtna (anropet misslyckas)
+- Gränser: `ACTION` högst 64 tecken, `DESCRIPTION` högst 1024 tecken (före escapning). För långa värden avvisas, de kapas inte
+- Filen skapas med rättigheterna 0600 och öppnas med `O_APPEND | O_SYNC`
+- Samtidiga anrop (trådar och processer) serialiseras med `flock`, så kedjan kan inte grenas
 
 ### API
 
 ```c
-// Lägg till en loggrad. Hämtar föregående hash från log_path automatiskt.
-// Returnerar 0 vid lyckat skrivande, -1 vid fel.
+// Lägg till en signerad loggrad. Hämtar föregående hash från log_path automatiskt.
+// Returnerar 0 (AUDIT_OK) vid lyckat skrivande, -1 (AUDIT_ERROR) vid fel. Vid fel skrivs ingenting.
+// Fel: NULL-argument, tom nyckel eller tom action, för långa fält, CR/LF i fält,
+// filen kan inte öppnas, eller sista raden i filen saknar radbrytning (avbruten skrivning).
 int audit_append(
     const char* log_path,
     const char* secret_key,
@@ -161,30 +231,38 @@ int audit_append(
     const char* description
 );
 
-// Verifiera hela loggfilen. Returnerar -1 om ok, annars radnummer för
-// första trasiga posten (1-indexerat).
+// Verifiera hela loggfilen. Returnerar:
+//   -1 (AUDIT_VERIFY_OK)       hela kedjan stämmer. Saknad eller tom fil räknas som en intakt, tom logg
+//   n >= 1                     radnummer (1-indexerat) för första trasiga posten: fel hash/HMAC,
+//                              felformaterad rad, blank rad eller sista raden utan radbrytning
+//   0 (AUDIT_VERIFY_IO_ERROR)  NULL-argument eller filen kan inte läsas (t.ex. en katalog)
 int audit_verify(const char* log_path, const char* secret_key);
 ```
 
-### Java JNA-wrapper (ska implementeras)
+### Begränsningar
+- Rader som tas bort **i slutet** av loggen upptäcks inte av en hashkedja ensam (inget senare finns som märker det). Skydda genom att spara senaste hashen på annat ställe, t.ex. i databasen
+- Den som känner till `secret_key` kan skapa en giltig kedja
 
-```java
-import com.sun.jna.*;
+### Java-integration (implementerad)
 
-public interface AuditSignerLib extends Library {
-    AuditSignerLib INSTANCE = Native.load("auditsigner", AuditSignerLib.class);
-    int audit_append(String logPath, String secretKey, int userId,
-                     String action, int entityId, String description);
-    int audit_verify(String logPath, String secretKey);
-}
-// secret_key läses från miljövariabel AUDIT_SIGNING_KEY (aldrig i källkod) —
-// i Spring t.ex. via @Value("${audit.signing-key}") bundet mot env.
-```
+Se `backend/SebPortal/src/main/java/se/comerit/seb/infrastructure/audit/`:
+
+- `AuditSignerLib` — JNA-interfacet. Till skillnad från `IbanLib` finns ingen statisk `INSTANCE`: ett misslyckat statiskt laddningsförsök hade förstört klassen för resten av JVM:en. Ladda med `AuditSignerLib.load()`
+- `AuditSignerService` — läser `audit.signing-key`, `audit.log-path` och `audit.signing-required`, skriver rader (`append`) och verifierar kedjan (`verify`)
+- `AuditSignerHealthIndicator` — visar kedjans skick i `/actuator/health`
+
+Så fungerar kopplingen:
+- `AuditService.record()` sparar databasraden som vanligt och skriver den signerade raden **efter commit**. En händelse som rullas tillbaka hamnar alltså aldrig i den signerade loggen
+- Ett signeringsfel stoppar inte betalningen. Det loggas, räknas, och hälsokontrollen blir DOWN tills appen startas om
+- Kedjan verifieras vid appstart och därefter högst en gång i minuten när hälsokontrollen frågar. DOWN betyder trasig kedja, oläsbar fil eller saknade rader. UNKNOWN betyder att signering är avstängd (inget bibliotek eller ingen nyckel)
+- Javasidan kapar `action` till 64 och `description` till 1024 byte (UTF-8) och byter CR/LF/NUL mot mellanslag, eftersom C-biblioteket annars avvisar raden
+- `audit.signing-required=true` (`AUDIT_SIGNING_REQUIRED=true`) gör att appen vägrar starta utan biblioteket, utan nyckel eller med dev-nyckeln. Sätt det i stage och produktion
+- Den signerade raden innehåller användare, action, entitets-id och beskrivning, men inte tenant eller entitetstyp (C-API:t har inga fält för dem). Dessa finns kvar i databastabellen `audit_entries`
 
 ### Säkerhetskrav
-- `secret_key` ska aldrig lagras i källkod — läses från miljövariabel `AUDIT_SIGNING_KEY`
-- Filen ska öppnas med `O_APPEND | O_SYNC` för att förhindra partiella skrivningar
-- Verifiering ska köras vid applikationsstart (t.ex. `@PostConstruct` / `ApplicationRunner`) och rapporteras i healthcheck (Spring Actuator `HealthIndicator`)
+- `secret_key` lagras aldrig i källkod i produktion — läses från miljövariabel `AUDIT_SIGNING_KEY` (dev-defaulten i `application.properties` är bara för lokal körning)
+- Filen öppnas med `O_APPEND | O_SYNC` för att förhindra partiella skrivningar
+- Verifiering körs vid applikationsstart och rapporteras i healthcheck
 
 ---
 
@@ -192,29 +270,12 @@ public interface AuditSignerLib extends Library {
 
 ```bash
 cd native/
-make all   # kompilerar alla tre .so-filer
-make test  # kör enhetstester (kräver check.h eller cmocka)
+make lib          # bygger alla .so-filer till native/build/lib/
+make test         # kör enhetstester för alla moduler (kräver Check)
+make test-iban    # kör bara en moduls tester
+make iban         # bygger bara en modul
 ```
 
-`.so`-filerna måste ligga på `jna.library.path` (eller `java.library.path`) i runtime — t.ex. starta JVM med `-Djna.library.path=native/` eller kopiera in dem i Docker-imagen.
+Varje modul ligger i en egen mapp (`native/iban/`, `native/csv/`, `native/audit/`) med en egen `Makefile`. Toppnivå-`Makefile` loopar över modulerna i `MODULES` — lägg till nya moduler där. Mellanfiler hamnar i `native/build/<modul>/` och alla bibliotek i `native/build/lib/`.
 
-Makefile (ska skapas i v2):
-```makefile
-CC = gcc
-CFLAGS = -O2 -Wall -fPIC
-LDFLAGS = -shared
-
-all: libcsvparser.so libiban.so libauditsigner.so
-
-libcsvparser.so: csv_parser.c
-	$(CC) $(CFLAGS) -fopenmp $(LDFLAGS) -o $@ $<
-
-libiban.so: iban_validator.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
-
-libauditsigner.so: audit_signer.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -lssl -lcrypto
-
-clean:
-	rm -f *.so
-```
+`.so`-filerna måste ligga på `jna.library.path` (eller `java.library.path`) i runtime — t.ex. starta JVM med `-Djna.library.path=native/build/lib` eller kopiera in dem i Docker-imagen.

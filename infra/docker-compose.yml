@@ -21,7 +21,6 @@ services:
       POSTGRES_PASSWORD: seb123
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U seb -d seb"]
       interval: 5s
@@ -32,14 +31,21 @@ services:
 
   app:
     build:
-      context: ../backend/SebPortal
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/SebPortal/Dockerfile
     expose:
       - "8084"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/seb
       - SPRING_DATASOURCE_USERNAME=seb
       - SPRING_DATASOURCE_PASSWORD=seb123
+      # Skickas vidare från värdens/driftmiljöns env om satt, annars används dev-defaulten
+      # i application.properties. Sätt alltid en riktig nyckel i produktion.
+      - AUDIT_SIGNING_KEY
+      - AUDIT_SIGNING_REQUIRED
+      - AUDIT_LOG_PATH=/app/audit/audit.log
+    volumes:
+      - auditlog:/app/audit
     depends_on:
       db:
         condition: service_healthy
@@ -47,3 +53,4 @@ services:
 
 volumes:
   pgdata:
+  auditlog:

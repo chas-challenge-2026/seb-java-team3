@@ -1,0 +1,379 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { getAccounts } from "../accounts/api";
+import PaymentForm from "./PaymentForm";
+import { createPayment, getPaymentConfig } from "./api";
+import { ApiError } from "../../error/api.error";
+
+vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => vi.fn(),
+}));
+
+vi.mock("./api", () => ({
+  createPayment: vi.fn(),
+  getPaymentConfig: vi.fn(),
+}));
+
+vi.mock("../accounts/api", async (importOriginal) => ({
+  // availableBalanceOf är ren logik och används på riktigt; bara hämtningen mockas
+  ...(await importOriginal<typeof import("../accounts/api")>()),
+  getAccounts: vi.fn(),
+  accountsQueryOptions: { queryKey: ["accounts"], queryFn: () => getAccounts() },
+}));
+function render(ui: React.ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
+const mockedCreatePayment = vi.mocked(createPayment);
+const mockedGetPaymentConfig = vi.mocked(getPaymentConfig);
+
+function renderForm(queryClient = new QueryClient()) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PaymentForm />
+    </QueryClientProvider>,
+  );
+}
+
+async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
+  await selectAccount(user, "Driftkonto");
+  await user.type(
+    screen.getByLabelText(/^Mottagar-IBAN/),
+    "SE45 5000 0000 0583 9825 7466",
+  );
+  await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1000.00");
+}
+
+async function confirmPayment(user: ReturnType<typeof userEvent.setup>) {
+  const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+  await user.click(within(dialog).getByRole("button", { name: "Bekräfta och skicka betalning" }));
+}
+
+async function selectAccount(
+  user: ReturnType<typeof userEvent.setup>,
+  accountName: string,
+) {
+  await user.click(screen.getByRole("combobox"));
+  await user.click(await screen.findByRole("option", { name: new RegExp(accountName, "i") }));
+}
+
+describe("PaymentForm", () => {
+  it("warns and blocks payment above the selected balance, then allows an equal amount", async () => {
+    vi.mocked(getAccounts).mockResolvedValue([{ id: 42, name: "Driftkonto", iban: "SE4550000000058398257466", balance: 1000, currency: "SEK" }]);
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+    await fillValidForm(user);
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "1 000,01");
+    expect(screen.getByText("Beloppet överstiger tillgängligt saldo.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeDisabled();
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "1000");
+    expect(screen.queryByText("Beloppet överstiger tillgängligt saldo.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeEnabled();
+  });
+  it("only lets the payment use what is left after reservations for payments awaiting approval", async () => {
+    vi.mocked(getAccounts).mockResolvedValue([{
+      id: 42, name: "Driftkonto", iban: "SE4550000000058398257466",
+      balance: 1000, reserved: 700, availableBalance: 300, currency: "SEK",
+    }]);
+    const user = userEvent.setup();
+    render(<PaymentForm />);
+    await fillValidForm(user);
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "300,01");
+    expect(screen.getByText("Beloppet överstiger tillgängligt saldo.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeDisabled();
+    await user.clear(screen.getByLabelText(/^Belopp/));
+    await user.type(screen.getByLabelText(/^Belopp/), "300");
+    expect(screen.queryByText("Beloppet överstiger tillgängligt saldo.")).not.toBeInTheDocument();
+  });
+
+  it("blocks submission when accounts cannot be loaded", async () => {
+    vi.mocked(getAccounts).mockRejectedValue(new Error("offline"));
+    render(<PaymentForm />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Kontona kunde inte hämtas");
+    expect(screen.getByRole("button", { name: /skicka betalning/i })).toBeDisabled();
+  });
+  it("shows an empty account list without placeholder accounts", async () => {
+    vi.mocked(getAccounts).mockResolvedValue([]);
+    render(<PaymentForm />);
+    expect(await screen.findByText("Företaget har inga konton att betala från.")).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toBeDisabled();
+  });
+  beforeEach(() => {
+    vi.mocked(getAccounts).mockReset();
+    vi.mocked(getAccounts).mockResolvedValue([{ id: 42, name: "Driftkonto", iban: "SE4550000000058398257466", balance: 10000, currency: "SEK" }]);
+    mockedCreatePayment.mockReset();
+    mockedGetPaymentConfig.mockReset();
+    mockedGetPaymentConfig.mockResolvedValue({ approvalThreshold: 5000, twoAttestantThreshold: 50000 });
+  });
+
+  it("shows the approval thresholds loaded from the backend", async () => {
+    renderForm();
+
+    expect(
+      await screen.findByText(/betalningar över 5 000 kr behöver attesteras,\s+och över 50 000 kr av två attestanter/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a validation error and does not submit for an invalid IBAN", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await selectAccount(user, "Driftkonto");
+    await user.type(screen.getByLabelText(/^Mottagar-IBAN/), "not-an-iban");
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1000.00");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    expect(await screen.findByText("Ange en giltig IBAN.")).toBeInTheDocument();
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+  });
+
+  it("shows a validation error when no account is selected", async () => {
+    const user = userEvent.setup();
+    const { container } = renderForm();
+
+    await user.type(
+      screen.getByLabelText(/^Mottagar-IBAN/),
+      "SE45 5000 0000 0583 9825 7466",
+    );
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1000.00");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    await waitFor(() => {
+      expect(container.querySelector('[class*="fieldError"]')).toHaveTextContent(
+        "Välj vilket konto betalningen ska dras från.",
+      );
+    });
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+  });
+
+  it("moves focus to the first invalid field when submitting", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText(/^Mottagar-IBAN/), "not-an-iban");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox")).toHaveFocus();
+    });
+
+    await selectAccount(user, "Driftkonto");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^Mottagar-IBAN/)).toHaveFocus();
+    });
+  });
+
+  it("marks the required fields", () => {
+    renderForm();
+
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^Mottagar-IBAN/)).toBeRequired();
+    expect(screen.getByLabelText(/^Belopp \(SEK\)/)).toBeRequired();
+    expect(screen.getByLabelText(/^Referens/)).not.toBeRequired();
+  });
+
+  it("submits the normalized data and shows the confirmation on success", async () => {
+    mockedCreatePayment.mockResolvedValue({
+      id: 1,
+      amount: 1000,
+      toIban: "SE4550000000058398257466",
+      status: "COMPLETED",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.type(screen.getByLabelText(/^Referens/), "Faktura 1042");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+    expect(within(dialog).getByText(/^1\s000,00 SEK$/)).toBeInTheDocument();
+    expect(within(dialog).getByText("SE45 5000 0000 0583 9825 7466")).toBeInTheDocument();
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Bekräfta och skicka betalning" }));
+
+    await waitFor(() => expect(mockedCreatePayment).toHaveBeenCalledTimes(1));
+
+    expect(mockedCreatePayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account: "42",
+        recipientIban: "SE45 5000 0000 0583 9825 7466",
+        amount: "1000.00",
+      }),
+    );
+
+    const resultDialog = await screen.findByRole("dialog", { name: "Betalningen har skickats" });
+    expect(within(resultDialog).getByText("Din betalning har registrerats och genomförts.")).toBeInTheDocument();
+    expect(resultDialog.querySelector(".lucide-party-popper")).toBeInTheDocument();
+    expect(within(resultDialog).getByText(/1\s000,00\s?kr/)).toBeInTheDocument();
+    expect(within(resultDialog).getByText("Driftkonto")).toBeInTheDocument();
+    expect(within(resultDialog).getByText("SE4550000000058398257466")).toBeInTheDocument();
+    expect(within(resultDialog).getByText("Faktura 1042")).toBeInTheDocument();
+    expect(within(resultDialog).getByRole("button", { name: "Ny betalning" })).toBeInTheDocument();
+    expect(within(resultDialog).getByRole("button", { name: "Gå till Översikt" })).toBeInTheDocument();
+  });
+
+  it("does not create a payment when the initiator cancels the confirmation", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Avbryt" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockedCreatePayment).not.toHaveBeenCalled();
+  });
+
+  it("accepts an amount written in Swedish format", async () => {
+    mockedCreatePayment.mockResolvedValue({
+      id: 1,
+      amount: 1500.5,
+      toIban: "SE4550000000058398257466",
+      status: "COMPLETED",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+
+    const user = userEvent.setup();
+    renderForm();
+
+    await selectAccount(user, "Driftkonto");
+    await user.type(
+      screen.getByLabelText(/^Mottagar-IBAN/),
+      "SE45 5000 0000 0583 9825 7466",
+    );
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "1 500,50");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
+
+    await waitFor(() =>
+      expect(mockedCreatePayment).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: "1500.50" }),
+      ),
+    );
+  });
+
+  it("shows an approval notice for a payment awaiting approval", async () => {
+    mockedCreatePayment.mockResolvedValue({
+      id: 2,
+      amount: 5000,
+      toIban: "DE10535600287154123082",
+      status: "PENDING_APPROVAL",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.clear(screen.getByLabelText(/^Belopp \(SEK\)/));
+    await user.type(screen.getByLabelText(/^Belopp \(SEK\)/), "5000");
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
+
+    const resultDialog = await screen.findByRole("dialog", { name: "Betalningen har skickats" });
+    expect(within(resultDialog).getByText("Väntar på attest")).toBeInTheDocument();
+    expect(
+      within(resultDialog).getByText("Betalningen behöver godkännas innan den genomförs."),
+    ).toBeInTheDocument();
+  });
+
+  // Dashboarden cachar Mina betalningar vid inloggning; utan invalidering syns inte
+  // den nya betalningen där förrän cachen blivit inaktuell (E2E-testet fångade det)
+  it("refreshes cached payment lists after the payment is created", async () => {
+    mockedCreatePayment.mockResolvedValue({
+      id: 3,
+      amount: 1000,
+      toIban: "SE4550000000058398257466",
+      status: "COMPLETED",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const user = userEvent.setup();
+    renderForm(queryClient);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
+
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["audit"] }),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["approvals"] });
+  });
+
+  it("shows the API error when creating the payment fails", async () => {
+    mockedCreatePayment.mockRejectedValue(
+      new ApiError(409, "Ingen attestant finns tillgänglig."),
+    );
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ingen attestant finns tillgänglig.",
+    );
+  });
+
+  it("does not claim a payment was unsent when a proxy error hides the outcome", async () => {
+    mockedCreatePayment.mockRejectedValue(
+      new ApiError(502, "Kunde inte nå servern. Kontrollera din anslutning och försök igen om en stund."),
+    );
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("vi vet inte om betalningen registrerades");
+    expect(alert).not.toHaveTextContent("Betalningen har inte skickats");
+    expect(alert).not.toHaveTextContent("502");
+  });
+
+  it("asks the user to check before retrying when the outcome is uncertain", async () => {
+    mockedCreatePayment.mockRejectedValue(
+      new ApiError(500, "Något gick fel hos oss. Försök igen om en stund."),
+    );
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+    await confirmPayment(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kontrollera under Mina betalningar innan du försöker igen.",
+    );
+  });
+
+  it("disables the submit button while the payment is being created", async () => {
+    mockedCreatePayment.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderForm();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /skicka betalning/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Bekräfta betalning" });
+    await user.click(within(dialog).getByRole("button", { name: "Bekräfta och skicka betalning" }));
+    expect(within(dialog).getByRole("button", { name: /skickar/i })).toBeDisabled();
+  });
+});

@@ -1,0 +1,14 @@
+@import url(https://db.onlinewebfonts.com/c/430a1a5763e20669c43bf9a19aa3009e?family=SEB+SansSerif+Regular);
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    /* font-family: "SEB SansSerif Regular"; */
+    font-family: "system-ui", "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}

@@ -1,0 +1,38 @@
+.appLayout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    z-index: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* margin-top: 4rem; */
+    background-color: var(--bg-surface);
+}
+
+.pageTransition {
+    width: 100%;
+    padding-top: 1rem;
+    animation: pageEnter 180ms ease-out both;
+}
+
+@media (max-width: 1000px) {
+    .appLayout {
+        flex-direction: column;
+    }
+}
+
+@keyframes pageEnter {
+    from { opacity: 0; transform: translateY(0.25rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pageTransition { animation: none; }
+}

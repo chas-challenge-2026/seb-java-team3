@@ -1,0 +1,79 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+    - name: Install dependencies
+      run: npm ci
+    - name: Lint
+      run: npm run lint
+    - name: Test
+      run: npm run test:run
+    - name: Build (tsc + vite)
+      run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+    - name: Install dependencies and Chromium
+      working-directory: frontend
+      run: |
+        npm ci
+        npx playwright install --with-deps chromium
+    - name: Start isolated app and database
+      run: |
+        docker compose -p seb-e2e -f infra/docker-compose.yml -f infra/docker-compose.override.yml up --build --detach
+        timeout 120 bash -c 'until curl --fail --silent http://localhost:8084/actuator/health > /dev/null; do sleep 2; done'
+    - name: Browser flows and SPA smoke test
+      env:
+        CI: 'true'
+        E2E_BASE_URL: http://localhost:8084
+        SMOKE_EMAIL: lisa@malmobygg.se
+        SMOKE_PASSWORD: password123
+      run: |
+        npm --prefix frontend run test:e2e
+        node scripts/smoke-spa.mjs http://localhost:8084
+    - name: Keep browser reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: |
+          frontend/playwright-report/
+          frontend/test-results/
+        retention-days: 7
+    - name: Stack logs on failure
+      if: failure()
+      run: docker compose -p seb-e2e -f infra/docker-compose.yml -f infra/docker-compose.override.yml logs --no-color
+    - name: Remove test stack
+      if: always()
+      run: docker compose -p seb-e2e -f infra/docker-compose.yml -f infra/docker-compose.override.yml down --volumes
