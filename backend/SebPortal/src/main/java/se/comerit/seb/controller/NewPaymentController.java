@@ -1,10 +1,13 @@
 package se.comerit.seb.controller;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,22 +16,29 @@ import se.comerit.seb.dto.PaymentResponse;
 import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtUserContext;
+import se.comerit.seb.service.CsvPaymentImportService;
 import se.comerit.seb.service.PaymentService;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/payments")
 public class NewPaymentController {
 
     private final PaymentService paymentService;
+    private final CsvPaymentImportService csvPaymentImportService;
     private final JwtUserContext jwtUserContext;
     private final ApprovalThresholds approvalThresholds;
 
     public NewPaymentController(PaymentService paymentService,
+                                CsvPaymentImportService csvPaymentImportService,
                                 JwtUserContext jwtUserContext,
                                 ApprovalThresholds approvalThresholds) {
         this.paymentService = paymentService;
+        this.csvPaymentImportService = csvPaymentImportService;
         this.jwtUserContext = jwtUserContext;
         this.approvalThresholds = approvalThresholds;
     }
@@ -57,5 +67,30 @@ public class NewPaymentController {
 
         PaymentResponse response = paymentService.createPayment(authenticatedRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<List<PaymentResponse>> importPayments(
+            @RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("Välj en CSV-fil att ladda upp.");
+        }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase(java.util.Locale.ROOT).endsWith(".csv")) {
+            throw new IllegalArgumentException("Filen måste ha filändelsen .csv.");
+        }
+        if (file.getSize() > CsvPaymentImportService.MAX_FILE_BYTES) {
+            throw new IllegalArgumentException("CSV-filen får vara högst 1 MB.");
+        }
+
+        AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
+        try {
+            List<PaymentResponse> response = csvPaymentImportService.importCsv(
+                    file.getBytes(), user.tenantId(), user.userId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Kunde inte läsa den uppladdade CSV-filen.", ex);
+        }
     }
 }
