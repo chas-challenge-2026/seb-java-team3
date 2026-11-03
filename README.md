@@ -6,6 +6,8 @@ Det här är v2, en ombyggnad av det avsiktligt trasiga v1-systemet. Backend är
 
 **Läs först:** [docs/README.md](docs/README.md) är kartan över all dokumentation, [docs/mvp.md](docs/mvp.md) beskriver vad som ingår i MVP och vad som medvetet skjutits upp, och [DRIFT.md](DRIFT.md) beskriver deploy.
 
+Frontendens installation, kodstruktur, session och testkommandon finns i [frontend/README.md](frontend/README.md). Åtgärder och kvarstående produktbegränsningar från kodgenomgången 2026-11-03 finns i [docs/project-review.md](docs/project-review.md).
+
 ---
 
 ## MVP-flödet
@@ -20,7 +22,7 @@ Det här är v2, en ombyggnad av det avsiktligt trasiga v1-systemet. Backend är
 | Följa status på egna betalningar | initiator | `/my-payments` |
 | Godkänna eller avvisa betalning, badge visar antal väntande | attestant | `/attest` |
 | Granskningslogg och tidslinje per betalning | attestant, admin | `/audit` |
-| Lista, skapa och ta bort användare, byta roll | admin | `/api/admin/users` |
+| Lista, skapa och ta bort användare, byta roll | admin | `/admin/users` (API: `/api/admin/users`) |
 
 Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest, och betalningar över `payment.approval.two-attestant-threshold` (50 000 kr) kräver två olika attestanter i tur och ordning (ADR 0016). Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den. Admin är en administrativ roll som inte skapar, godkänner eller avvisar betalningar (ADR 0017).
 
@@ -92,7 +94,9 @@ Dev-värdena i `application.properties` får aldrig användas i stage eller prod
 
 ## Arkitektur
 
-Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V9). Inloggning ger en JWT som frontend håller i minnet och skickar i `Authorization`-headern, och en refresh-token i HttpOnly-cookie förnyar den (ADR 0009, ADR 0012). Rollerna kontrolleras med `@PreAuthorize`.
+Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V14). Inloggning ger en JWT som frontend håller i minnet och skickar i `Authorization`-headern, och en refresh-token i HttpOnly-cookie förnyar den (ADR 0009, ADR 0012). Rollerna kontrolleras med `@PreAuthorize`.
+
+Frontend skickar `Idempotency-Key` vid betalningsskapande. Samma nyckel och uppgifter inom samma användare och företag returnerar samma betalning utan ny debitering eller audithändelse. Ändrade uppgifter med samma nyckel ger 409. Headern är valfri för kompatibilitet med äldre API-klienter; de måste skicka den för att få skyddet vid omförsök. Referenser stöds upp till 140 tecken och backend avvisar belopp som inte kan representeras exakt i ören.
 
 Frontend (React, TanStack Router och Query) byggs i Dockerfilen och serveras av Spring från jar-filen. `SpaFallbackController` skickar frontend-routes till `index.html`, medan `/api/**` fortsätter vara API.
 
@@ -105,7 +109,6 @@ React-appen och API:t serveras från samma port. Frontenden byggs i Docker och p
 
 ```
 seb-java-team3/
-ChasChallenge/
 ├── .dockerignore                 — Utesluter node_modules, target, .git m.m. från Docker-bygget
 ├── backend/
 │   └── SebPortal/                — Spring Boot 3.3 (Java 21), REST API
@@ -121,26 +124,19 @@ ChasChallenge/
 │       │   └── infrastructure/   — JNA-wrappers mot native bibliotek (iban, audit)
 │       ├── src/main/resources/
 │       │   ├── db/migration/     — Flyway-migrationer
-│       │   ├── templates/        — Thymeleaf-vyer
 │       │   ├── static/           — Statiska filer (React-bygget kopieras hit i Docker)
 │       │   └── application.properties
 │       ├── src/test/             — JUnit-tester
 │       ├── Dockerfile            — Bygger native libs, frontend och jar i fyra steg
 │       └── pom.xml
 ├── frontend/                     — React 19, TypeScript, Vite
-│   ├── src/features/             — attest, audit, auth, dashboard, payment
+│   ├── src/features/             — accounts, attest, audit, auth, confirmation, dashboard, payment, users
 │   ├── src/components/, lib/     — Delade komponenter och API-klient
 │   └── e2e/                      — Playwright-tester
 ├── native/                       — C-moduler med egna Makefiles och Check-tester
 │   ├── iban/                     — IBAN (MOD97) och BIC (ISO 9362)
 │   ├── csv/                      — CSV-parser (RFC 4180, OpenMP)
 │   └── audit/                    — Signerad granskningslogg (HMAC-SHA256-kedja)
-├── docs/
-│   ├── architecture.md           — Hur v1 är byggd
-│   ├── known-bugs.md             — Lista med 12 kända buggar (avsiktliga)
-│   ├── README-pain-points.md     — Vad som fungerar vs. går sönder
-│   └── v2-targets.md             — Vad ni ska bygga
-├── frontend/                     — React + TypeScript (Vite), byggs in i backend-imagen
 ├── infra/
 │   ├── docker-compose.yml        — Plattformsfil, se DRIFT.md
 │   └── docker-compose.override.yml — Lokala portar
@@ -179,7 +175,7 @@ cd frontend && npm run test:e2e
 node scripts/smoke-spa.mjs
 ```
 
-GitHub Actions kör `mvn package` (Maven) och lint, Vitest och build (frontend) vid push och PR mot `develop`. Native-sviten, E2E och rök-testet körs inte i CI ännu.
+GitHub Actions kör native-sviten och `mvn package` med native-integration, samt lint, Vitest och build för frontend, vid push och PR mot `develop`. Ett separat jobb startar en isolerad Docker-stack och kör E2E och SPA-röktestet.
 
 ---
 
@@ -226,9 +222,11 @@ Det här är medvetet inte byggt i MVP (ADR 0003, [docs/mvp.md](docs/mvp.md)):
 - Förfallodatum på betalningar (ADR 0013)
 - Compliance-export, 2FA och valutaomvandling (allt hanteras i SEK)
 
-Kända brister:
+Kända brister (se [projektgenomgången](docs/project-review.md) för kodstöd och föreslagen uppföljning):
 
 - Bara en av seed-datans IBAN:er (`SE4550000000058398257466`) klarar MOD97, så betalningar till de andra stoppas av valideringen.
+- Omtilldelning vid frånvarande attestant, inaktivering av användare och lösenordsbyte saknas.
+- Auditlistan visar de senaste 200 händelserna och saknar sidindelning.
 
 Kända brister i testerna står i [docs/test-status.md](docs/test-status.md).
 

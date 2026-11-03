@@ -137,7 +137,9 @@ public class AuditService {
 
         return entries.stream()
                 .map(entry -> {
-                    Optional<Payment> payment = Optional.ofNullable(paymentsById.get(entry.getEntityId()));
+                    Optional<Payment> payment = "PAYMENT".equalsIgnoreCase(entry.getEntityType())
+                            ? Optional.ofNullable(paymentsById.get(entry.getEntityId()))
+                            : Optional.empty();
 
                     return AuditEntryResponse.from(
                             entry,

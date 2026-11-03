@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { auditApiEntrySchema } from "../schema";
-import { toAuditEntry } from "./mappers";
+import { latestAuditEntryByPayment, toAuditEntry } from "./mappers";
 import type { AuditApiEntry } from "../types";
 
 function apiEntry(overrides: Partial<AuditApiEntry>): AuditApiEntry {
@@ -26,6 +26,20 @@ function apiEntry(overrides: Partial<AuditApiEntry>): AuditApiEntry {
 }
 
 describe("toAuditEntry", () => {
+  it("keeps all user events and the latest payment when their entity IDs collide", () => {
+    const paymentCreated = apiEntry({ id: 1, entityId: 100 });
+    const paymentApproved = apiEntry({ id: 4, entityId: 100, action: "APPROVE_PAYMENT" });
+    const userCreated = apiEntry({ id: 2, entityId: 100, entityType: "USER", action: "CREATE_USER" });
+    const userChanged = apiEntry({ id: 3, entityId: 100, entityType: "USER", action: "UPDATE_USER_ROLE" });
+    expect(latestAuditEntryByPayment([paymentCreated, userCreated, userChanged, paymentApproved])
+      .map((entry) => entry.id)).toEqual([4, 3, 2]);
+    const mapped = toAuditEntry(userChanged);
+    expect(mapped.paymentId).toBeNull();
+    expect(mapped.handelse).toBe("Användarroll ändrad");
+    expect(mapped.betalning).toBe("Användare #100");
+    expect(mapped.belopp).toBe("-");
+    expect(mapped.statusKey).toBeNull();
+  });
   it("shows a payment under the threshold as automatically approved", () => {
     expect(toAuditEntry(apiEntry({ autoApproved: true })).handelse).toBe("Automatiskt godkänd");
   });

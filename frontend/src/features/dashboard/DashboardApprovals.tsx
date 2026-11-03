@@ -7,7 +7,7 @@ import styles from "./DashboardApprovals.module.css";
 
 const MAX_VISIBLE_APPROVALS = 3;
 
-export default function DashboardApprovals() {
+export default function DashboardApprovals({ readOnly = false }: { readOnly?: boolean }) {
   const { data, isPending, isError, isFetching, refetch } = useApprovals();
 
   if (isPending) {
@@ -51,7 +51,7 @@ export default function DashboardApprovals() {
         <div>
           <h2 id="dashboard-approvals-title">Betalningar som väntar på attest</h2>
           <p>
-            {data.length === 1
+            {readOnly ? "Företagets betalningar som väntar på attest." : data.length === 1
               ? "Du har en betalning att granska."
               : `Du har ${data.length} betalningar att granska.`}
           </p>

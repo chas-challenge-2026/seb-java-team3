@@ -44,7 +44,7 @@ function approvedText(step: AttestSteg): string {
     : `Betalningen till ${step.mottagare} på ${amount} är godkänd.`;
 }
 
-export default function AttestGrid() {
+export default function AttestGrid({ readOnly = false }: { readOnly?: boolean }) {
   const { data, isLoading, isError, isFetching, refetch, approve, reject } = useApprovals();
   const [feedback, setFeedback] = useState<ApprovalFeedback | null>(null);
   // Steget som granskas i rutan, och om avvisningen håller på att fyllas i
@@ -80,6 +80,7 @@ export default function AttestGrid() {
   }
 
   function handleReject(step: AttestSteg) {
+    if (readOnly) return;
     setFeedback(null);
     reject.mutate({ stepId: step.id, comment: rejectComment }, {
       onSuccess: () => {
@@ -101,6 +102,7 @@ export default function AttestGrid() {
   }
 
   function handleApprove(step: AttestSteg) {
+    if (readOnly) return;
     setFeedback(null);
     approve.mutate(step.id, {
       onSuccess: () => {
@@ -159,8 +161,10 @@ export default function AttestGrid() {
       <section className={styles.card} aria-label="Väntande attesteringar">
         <header className={styles.header}>
           <div>
-            <h2>Väntar på din attest</h2>
-            <p className={styles.description}>Granska betalningarna och fatta beslut när du är redo.</p>
+            <h2>{readOnly ? "Väntande betalningar i företaget" : "Väntar på din attest"}</h2>
+            <p className={styles.description}>{readOnly
+              ? "Här ser du företagets attestkorg. Beslut fattas av den tilldelade attestanten."
+              : "Granska betalningarna och fatta beslut när du är redo."}</p>
           </div>
           <div className={styles.count} aria-label={`${data.length} väntande attesteringar`}>
             <Clock3 size={18} aria-hidden="true" />
@@ -234,7 +238,7 @@ export default function AttestGrid() {
         </div>
         <footer className={styles.footer}>
           <CircleCheck size={17} aria-hidden="true" />
-          Kontrollera alltid mottagare och belopp innan du godkänner.
+          {readOnly ? "Översikten är skrivskyddad." : "Kontrollera alltid mottagare och belopp innan du godkänner."}
           Beräknat saldo gäller efter denna betalning och kan ändras av andra transaktioner.
         </footer>
       </section>
@@ -254,7 +258,24 @@ export default function AttestGrid() {
     const rejectPending = reject.isPending && reject.variables?.stepId === step.id;
     const busy = approvePending || rejectPending;
 
-    if (isRejecting) {
+    if (readOnly) {
+      reviewModal = (
+        <Modal title="Betalningsöversikt" description="Beslut fattas av den tilldelade attestanten." onClose={closeReview}>
+          <dl className={styles.reviewSummary}>
+            {[
+              { label: "Belopp", value: formatAmount(step.belopp, step.currency) },
+              { label: "Till", value: step.mottagare },
+              { label: "Från konto", value: step.fromAccountName ?? "–" },
+              { label: "Skapad av", value: step.initiatorName ?? "–" },
+              { label: "Referens", value: step.reference || "–" },
+              ...(formatStepProgress(step) ? [{ label: "Attest", value: formatStepProgress(step) }] : []),
+              ...previousApprovalDetails(step),
+            ].map((detail) => <div key={detail.label}><dt>{detail.label}</dt><dd>{detail.value}</dd></div>)}
+          </dl>
+          <Button onClick={closeReview}>Tillbaka till attestöversikten</Button>
+        </Modal>
+      );
+    } else if (isRejecting) {
       reviewModal = (
         <Modal
           title="Avvisa betalning"

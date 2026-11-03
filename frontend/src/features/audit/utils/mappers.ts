@@ -8,19 +8,21 @@ import {
 } from "./formatters";
 
 export function toAuditEntry(raw: AuditApiEntry): AuditEntry {
+  const isPayment = raw.entityType.toUpperCase() === "PAYMENT";
   return {
     id: String(raw.id),
-    paymentId: String(raw.entityId),
+    paymentId: isPayment ? String(raw.entityId) : null,
+    beskrivning: raw.description,
     tid: formatDateTime(raw.createdAt),
     vem: raw.userName,
     handelse: formatHandelse(raw),
-    status: formatAuditStatus(raw.status),
-    statusKey: raw.status,
+    status: isPayment ? formatAuditStatus(raw.status) : "-",
+    statusKey: isPayment ? raw.status : null,
     referens: raw.reference?.trim() || "-",
-    belopp: formatAmount(raw.amount, raw.currency),
-    saldoFore: formatHistoricalBalance(raw.balanceBeforePayment, raw),
-    saldoEfter: formatHistoricalBalance(raw.balanceAfterPayment, raw),
-    franKonto: raw.fromAccountName ?? "-",
+    belopp: isPayment ? formatAmount(raw.amount, raw.currency) : "-",
+    saldoFore: isPayment ? formatHistoricalBalance(raw.balanceBeforePayment, raw) : "-",
+    saldoEfter: isPayment ? formatHistoricalBalance(raw.balanceAfterPayment, raw) : "-",
+    franKonto: isPayment ? raw.fromAccountName ?? "-" : "-",
     betalning: formatEntityLabel(raw.entityType, raw.entityId),
   };
 }
@@ -32,8 +34,13 @@ function formatHistoricalBalance(balance: number | null, entry: AuditApiEntry): 
 
 export function latestAuditEntryByPayment(entries: AuditApiEntry[]): AuditApiEntry[] {
   const latestByPayment = new Map<string, AuditApiEntry>();
+  const otherEvents: AuditApiEntry[] = [];
 
   for (const entry of entries) {
+    if (entry.entityType.toUpperCase() !== "PAYMENT") {
+      otherEvents.push(entry);
+      continue;
+    }
     const paymentKey = `${entry.entityType}:${entry.entityId}`;
     const current = latestByPayment.get(paymentKey);
 
@@ -42,7 +49,7 @@ export function latestAuditEntryByPayment(entries: AuditApiEntry[]): AuditApiEnt
     }
   }
 
-  return [...latestByPayment.values()].sort(compareNewestFirst);
+  return [...latestByPayment.values(), ...otherEvents].sort(compareNewestFirst);
 }
 
 // En betalning under tröskeln genomförs direkt när den skapas, utan attest. Skapandet är då också
@@ -59,6 +66,7 @@ function formatEntityLabel(entityType: string, entityId: number): string {
   if (entityType.toUpperCase() === "PAYMENT") {
     return `Betalning #${entityId}`;
   }
+  if (entityType.toUpperCase() === "USER") return `Användare #${entityId}`;
 
   return `${entityType} #${entityId}`;
 }

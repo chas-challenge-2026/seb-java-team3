@@ -100,6 +100,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(PaymentRequestConflictException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequestConflict(PaymentRequestConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.CONFLICT.value(), "Conflict", ex.getMessage()));
+    }
+
     @ExceptionHandler(RoleChangeConflictException.class)
     public ResponseEntity<ErrorResponse> handleRoleChangeConflict(RoleChangeConflictException ex) {
         ErrorResponse body = new ErrorResponse(

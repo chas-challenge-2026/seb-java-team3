@@ -21,8 +21,8 @@ import { usePendingApprovalCount } from "../../../features/attest/useApprovals";
 
 const SideBar = () => {
   const { data: user } = useUser();
-  const canApprove = user?.role === "ATTESTANT" || user?.role === "ADMIN";
-  const { data: approvalCount } = usePendingApprovalCount(canApprove);
+  const canReadApprovals = user?.role === "ATTESTANT" || user?.role === "ADMIN";
+  const { data: approvalCount } = usePendingApprovalCount(canReadApprovals);
   const handleLogout = useLogout();
   const [theme, setTheme] = useState<Theme>(getSavedTheme);
 
@@ -50,7 +50,7 @@ const SideBar = () => {
             route="/"
             active={currentPath === "/"}
           />
-          {user && user.role !== "ATTESTANT" && (
+          {user?.role === "INITIATOR" && (
             <SideBarItem
               label="Ny Betalning"
               icon={<CreditCard size={iconSize} />}
@@ -60,7 +60,7 @@ const SideBar = () => {
           )}
           {user && user.role !== "INITIATOR" && (
             <SideBarItem
-              label="Attestera"
+              label={user.role === "ADMIN" ? "Attestöversikt" : "Attestera"}
               badge={approvalCount && approvalCount > 0 ? approvalCount : undefined}
               icon={<CreditCardCheck size={iconSize} />}
               route={"/attest"}

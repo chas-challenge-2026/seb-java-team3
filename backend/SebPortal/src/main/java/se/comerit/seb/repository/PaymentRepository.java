@@ -17,6 +17,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByTenantId(Long tenantId);
 
+    Optional<Payment> findByTenantIdAndCreatedByAndIdempotencyKey(
+            Long tenantId, Long createdBy, String idempotencyKey);
+
     // Har användaren skapat någon betalning? Används innan en användare tas bort.
     boolean existsByCreatedBy(Long createdBy);
 

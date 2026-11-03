@@ -1,6 +1,6 @@
 # Accessmatris
 
-Vilka roller som får göra vad i systemet, och om det går att eskalera sin behörighet. Matrisen är kontrollerad mot koden 2026-11-02. Adminrollens delar är uppdaterade i #242 (ADR 0017). Uppdatera den när en endpoint eller roll ändras.
+Vilka roller som får göra vad i systemet, och om det går att eskalera sin behörighet. Matrisen är kontrollerad mot koden 2026-11-03. Adminrollens delar är uppdaterade i #242 (ADR 0017). Uppdatera den när en endpoint eller roll ändras.
 
 ## Kort sammanfattning
 
@@ -43,7 +43,7 @@ Allt under `/api/**` kräver giltig JWT, utom de tre öppna auth-endpointsen. Sa
 | Åtgärd | Endpoint | Initiatör | Attestant | Admin | Teststöd |
 |---|---|---|---|---|---|
 | Läsa konton och saldon | `GET /api/accounts` | Företaget | Företaget | Företaget | `AccountControllerSecurityTest`, `TenantIsolationIntegrationTest` |
-| Läsa tröskelvärdena | `GET /api/payments/config` | Ja | Nej | Nej | `DualApprovalIntegrationTest`, `RoleAuthorizationTest` (nekad admin; nekad attestant saknar test) |
+| Läsa tröskelvärdena | `GET /api/payments/config` | Ja | Nej | Nej | `DualApprovalIntegrationTest`, `RoleAuthorizationTest` (nekad admin och attestant) |
 | Skapa betalning | `POST /api/payments` | Från företagets konton | Nej | Nej | `RoleAuthorizationTest`, `TenantIsolationIntegrationTest` |
 | Läsa mina betalningar | `GET /api/my-payments` | Egna | Nej | Nej | `RoleAuthorizationTest`, `AuditServiceMyPaymentsTest` |
 | Räkna mina ändrade betalningar | `GET /api/payments/changed-count` | Egna | Nej | Nej | `RoleAuthorizationTest` |
@@ -63,7 +63,7 @@ Allt under `/api/**` kräver giltig JWT, utom de tre öppna auth-endpointsen. Sa
 | Åtgärd | Endpoint | Initiatör | Attestant | Admin | Teststöd |
 |---|---|---|---|---|---|
 | Läsa auditloggen (senaste 200) | `GET /api/audit` | Nej | Företagets skapade, godkända och avvisade betalningar | Företaget | `RoleAuthorizationTest`, `TenantIsolationIntegrationTest` |
-| Läsa en betalnings tidslinje | `GET /api/payments/{paymentId}/audit` | Nej | Företagets skapade, godkända och avvisade betalningar | Företaget | `RoleAuthorizationTest` (nekad initiatör saknar test), `TenantIsolationIntegrationTest` |
+| Läsa en betalnings tidslinje | `GET /api/payments/{paymentId}/audit` | Nej | Företagets skapade, godkända och avvisade betalningar | Företaget | `RoleAuthorizationTest` (även nekad initiator), `TenantIsolationIntegrationTest` |
 
 ### Användaradministration
 
@@ -99,12 +99,13 @@ Spärrarna i `frontend/src/router.tsx` styr bara navigeringen. Skyddet ligger i 
 |---|---|---|---|---|---|
 | Inloggning | `/login` | Ja | Ja | Ja | Ja |
 | Översikt | `/` | Nej | Ja | Ja | Ja |
-| Testsida för UI-komponenter | `/uitest` | Nej | Ja | Ja | Ja |
-| Ny betalning | `/payments/new` | Nej | Ja | Nej | Ja, men API:t nekar (tas bort i #243) |
-| Mina betalningar | `/my-payments` | Nej | Ja | Nej | Ja, men API:t nekar (tas bort i #243) |
-| Attestkorg | `/attest` | Nej | Nej | Ja | Ja, som översikt (API:t nekar knapparna, ändras i #243) |
+| Ny betalning | `/payments/new` | Nej | Ja | Nej | Nej |
+| Mina betalningar | `/my-payments` | Nej | Ja | Nej | Nej |
+| Attestkorg | `/attest` | Nej | Nej | Ja | Ja, skrivskyddad översikt utan beslutsknappar |
 | Auditlogg | `/audit` | Nej | Nej | Ja | Ja |
-| Användaradministration | `/admin/users` | Nej | Nej | Nej | Ja (mot en mock tills #243 kopplar API:t) |
+| Användaradministration | `/admin/users` | Nej | Nej | Nej | Ja, kopplad till `/api/admin/users` för lista, skapa, rollbyte och borttagning |
+
+`/uitest` är bortkommenterad i routern och ingår inte i det aktiva routeträdet. Admins navigation och dashboard använder bara tillåtna vyer och anrop. `frontend/e2e/admin.spec.ts` verifierar omdirigering från initiatorns routes, att förbjudna API-anrop uteblir och att attestöversikten saknar beslutsknappar. Användarhändelser i historiken kan inte öppna en betalningstidslinje. Se [projektgenomgången](project-review.md).
 
 ## Permission escalation
 
@@ -136,7 +137,5 @@ Spärrarna i `frontend/src/router.tsx` styr bara navigeringen. Skyddet ligger i 
 
 ## Öppna punkter
 
-1. **Lägg till rolltester** för nekad attestant på `/api/payments/config` och ett nekat-test för initiatören på tidslinjen. (`/api/payments/changed-count` och `/seen` har rolltest.)
-2. **Ta bort `approve(stepId, actorId)` och `reject(stepId, actorId, comment)` i `ApprovalService`.** De saknar företags- och ägarkontroll för inloggad användare. Ingen controller anropar dem, så de går inte att nå via API:t.
-3. **Ta bort `/uitest`** från produktionsbygget. Alla inloggade kan öppna testsidan.
-4. **Ta ställning till attestantens läsrätt.** En attestant kan läsa alla företagets konton, saldon och betalningshändelser, inte bara sina egna steg. Det kan vara rimligt för uppgiften, men det är bredare än minsta möjliga behörighet.
+1. **Ta bort `approve(stepId, actorId)` och `reject(stepId, actorId, comment)` i `ApprovalService`.** De saknar företags- och ägarkontroll för inloggad användare. Ingen controller anropar dem, så de går inte att nå via API:t.
+2. **Ta ställning till attestantens läsrätt.** En attestant kan läsa alla företagets konton, saldon och betalningshändelser, inte bara sina egna steg. Det kan vara rimligt för uppgiften, men det är bredare än minsta möjliga behörighet.

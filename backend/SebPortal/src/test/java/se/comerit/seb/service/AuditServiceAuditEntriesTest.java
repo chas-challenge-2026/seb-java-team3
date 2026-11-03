@@ -127,6 +127,25 @@ class AuditServiceAuditEntriesTest {
     }
 
     @Test
+    void userEvent_neverBorrowsPaymentDetails_whenTheirIdsCollide() {
+        Payment payment = payment(100L, PaymentStatus.COMPLETED);
+        AuditEntry paymentEvent = new AuditEntry(TENANT, INITIATOR_ID, "CREATE_PAYMENT", "PAYMENT", 100L, "Betalning");
+        AuditEntry userEvent = new AuditEntry(TENANT, INITIATOR_ID, "UPDATE_USER_ROLE", "USER", 100L, "Rollbyte");
+        when(auditRepository.findTop200ByTenantIdOrderByCreatedAtDesc(TENANT))
+                .thenReturn(List.of(userEvent, paymentEvent));
+        when(paymentRepository.findByTenantIdAndIdInWithApprovalSteps(TENANT, List.of(100L)))
+                .thenReturn(List.of(payment));
+
+        List<AuditEntryResponse> entries = auditService.getAuditEntries(admin);
+        assertNull(entries.get(0).amount());
+        assertNull(entries.get(0).status());
+        assertNull(entries.get(0).fromAccountName());
+        assertNull(entries.get(0).reference());
+        assertFalse(entries.get(0).autoApproved());
+        assertEquals(payment.getAmount(), entries.get(1).amount());
+    }
+
+    @Test
     void noEvents_noPaymentQuery() {
         when(auditRepository.findTop200ByTenantIdOrderByCreatedAtDesc(TENANT)).thenReturn(List.of());
 

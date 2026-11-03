@@ -144,7 +144,7 @@ function PaymentForm() {
     setIsSubmitting(true);
     try {
       const payment = await createPayment(paymentConfirmation);
-      // Dashboarden har redan cachat Mina betalningar och saldot, och en ADMIN ser även attestkön
+      // Dashboarden har redan cachat Mina betalningar och saldot.
       void queryClient.invalidateQueries({ queryKey: ["audit"] });
       void queryClient.invalidateQueries({ queryKey: ["approvals"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -383,10 +383,7 @@ function PaymentForm() {
   );
 }
 
-const SERVER_UNREACHABLE_MESSAGE =
-  "Kunde inte nå servern. Betalningen har inte skickats. Försök igen om en stund.";
-
-// Används när betalningen kan ha registrerats trots felet, så att den inte skickas två gånger
+// Även ett nätverksfel kan inträffa efter commit. Omförsöket återanvänder samma betalningsnyckel.
 const UNCERTAIN_OUTCOME_MESSAGE =
   "Något gick fel och vi vet inte om betalningen registrerades. Kontrollera under Mina betalningar innan du försöker igen.";
 
@@ -397,16 +394,7 @@ function getSubmitErrorMessage(error: unknown): string {
   }
 
   if (isApiError(error)) {
-    // Inget svar, eller 502/503 från proxyn när backend är nere: inget har registrerats
-    if (
-      error.status === NETWORK_ERROR_STATUS ||
-      error.status === 502 ||
-      error.status === 503
-    ) {
-      return SERVER_UNREACHABLE_MESSAGE;
-    }
-
-    if (error.status >= 500) {
+    if (error.status === NETWORK_ERROR_STATUS || error.status >= 500) {
       return UNCERTAIN_OUTCOME_MESSAGE;
     }
 

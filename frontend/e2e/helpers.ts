@@ -6,6 +6,7 @@ export const USERS = {
   attestant: { name: "Johan Berg", email: "johan@malmobygg.se" },
   // Attest 2 vid dubbel attest (backend: V13__add_second_seed_attestant.sql)
   secondAttestant: { name: "Eva Holm", email: "eva@malmobygg.se" },
+  admin: { name: "Sara Ek", email: "sara@malmobygg.se" },
 } as const;
 
 const SEED_PASSWORD = "password123";

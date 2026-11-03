@@ -331,7 +331,7 @@ describe("PaymentForm", () => {
     );
   });
 
-  it("shows a friendly message instead of 502 when the backend is down", async () => {
+  it("does not claim a payment was unsent when a proxy error hides the outcome", async () => {
     mockedCreatePayment.mockRejectedValue(
       new ApiError(502, "Kunde inte nå servern. Kontrollera din anslutning och försök igen om en stund."),
     );
@@ -343,7 +343,8 @@ describe("PaymentForm", () => {
     await confirmPayment(user);
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Kunde inte nå servern. Betalningen har inte skickats.");
+    expect(alert).toHaveTextContent("vi vet inte om betalningen registrerades");
+    expect(alert).not.toHaveTextContent("Betalningen har inte skickats");
     expect(alert).not.toHaveTextContent("502");
   });
 

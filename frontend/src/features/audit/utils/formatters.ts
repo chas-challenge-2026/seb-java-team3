@@ -76,6 +76,12 @@ export function formatAmount(amount: number | null, currency: string | null): st
 
 export function formatEventType(eventType: string): string {
   switch (eventType) {
+    case "CREATE_USER":
+      return "Användare skapad";
+    case "UPDATE_USER_ROLE":
+      return "Användarroll ändrad";
+    case "DELETE_USER":
+      return "Användare borttagen";
     case "CREATE_PAYMENT":
       return "Betalning skapad";
     case "APPROVE_STEP":

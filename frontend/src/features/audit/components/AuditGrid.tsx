@@ -50,7 +50,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
         <div>
           <h2>Auditlogg</h2>
           <p className={styles.description}>
-            Senaste händelsen per betalning. Öppna en rad för saldon, referens och historik.
+            Senaste händelsen per betalning samt användarhändelser. Öppna en betalning för saldon, referens och historik.
           </p>
           <div className={styles.filters} role="group" aria-label="Filtrera på status">
             {STATUS_FILTERS.map((filter) => (
@@ -82,7 +82,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
               <th>Status</th>
               <th>Belopp</th>
               <th>Från konto</th>
-              <th>Betalning</th>
+              <th>Gäller</th>
             </tr>
           </thead>
           <tbody>
@@ -94,8 +94,8 @@ export default function AuditGrid({ entries }: AuditGridProps) {
               </tr>
             ) : (
               visibleEntries.map((entry) => {
-                const isExpanded = expandedPayments.has(entry.paymentId);
-                const detailsId = `payment-audit-${entry.paymentId}`;
+                const isExpanded = entry.paymentId !== null && expandedPayments.has(entry.paymentId);
+                const detailsId = `payment-audit-${entry.id}`;
 
                 return (
                   <AuditGridRow
@@ -103,7 +103,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
                     entry={entry}
                     detailsId={detailsId}
                     isExpanded={isExpanded}
-                    onToggle={() => togglePayment(entry.paymentId)}
+                    onToggle={() => { if (entry.paymentId !== null) togglePayment(entry.paymentId); }}
                   />
                 );
               })

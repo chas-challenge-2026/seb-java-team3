@@ -7,6 +7,8 @@
 - **Relaterade issues:** #242, #243, #80
 - **Relaterat:** [ADR 0012](0012-refresh-token-i-httponly-cookie-med-rotation.md), kundbehov 1 och 7 i `docs/kravtolkning.md`, CTO-feedbacken punkt 2 och 4 i `docs/Risk-feedfoward.md`
 
+**Uppföljning 2026-11-03:** frontendens route-spärrar, navigation och dashboard är anpassade och admins attestvy är skrivskyddad. Användarsidan är API-kopplad. Audit-vyn skiljer användarhändelser från betalningar. Backendens Postgres-svit och frontendens admin-E2E passerar; se [projektgenomgången](../project-review.md) och [teststatus](../test-status.md). Beslutets ursprungliga konsekvenser och uppföljningslista nedan beskriver läget när det fattades.
+
 ## Kontext
 
 Kundens första behov är att rätt person godkänner rätt betalning i rätt ordning, och att det går att visa svart på vitt (`docs/kravtolkning.md`, behov 1 och 6). Vi har tre roller: initiator, attestant och admin.

@@ -23,7 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.password=",
         "spring.flyway.enabled=false",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "audit.signing-required=false"
+        "audit.signing-required=false",
+        "audit.signing-key="
 })
 @AutoConfigureMockMvc
 class AuditSignerWiringTest {
@@ -35,8 +36,8 @@ class AuditSignerWiringTest {
     private AuditSignerService signer;
 
     @Test
-    void signerBeanIsWiredAndDoesNotBreakStartupWithoutNativeLibrary() {
-        // No jna.library.path in this test, so signing is simply disabled
+    void signerBeanIsWiredAndDoesNotBreakStartupWithoutSigningConfiguration() {
+        // Explicitly unconfigured, so the result is independent of whether native libraries are built.
         assertFalse(signer.isEnabled());
     }
 

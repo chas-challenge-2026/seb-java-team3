@@ -7,6 +7,7 @@ import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.domain.*;
 import se.comerit.seb.dto.CreatePaymentRequest;
 import se.comerit.seb.dto.PaymentResponse;
+import se.comerit.seb.exception.PaymentRequestConflictException;
 import se.comerit.seb.infrastructure.iban.IbanValidatorService;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.repository.AccountRepository;
@@ -72,6 +73,12 @@ public class PaymentService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Beloppet måste vara större än noll");
         }
+        if (amount.stripTrailingZeros().scale() > 2) {
+            throw new IllegalArgumentException("Beloppet får ha högst två decimaler.");
+        }
+        if (amount.compareTo(new BigDecimal("9999999999999.99")) > 0) {
+            throw new IllegalArgumentException("Beloppet är för stort.");
+        }
     }
 
     private void validateFromAccountBelongsToTenant(Long fromAccountId, Long tenantId) {
@@ -133,9 +140,43 @@ public class PaymentService {
     @PreAuthorize("hasRole('INITIATOR')")
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
+        return createPayment(request, null);
+    }
+
+    @PreAuthorize("hasRole('INITIATOR')")
+    @Transactional
+    public PaymentResponse createPayment(CreatePaymentRequest request, String idempotencyKey) {
 
         String normalizedIban = normalizeAndValidateIban(request);
         validateAmount(request.amount());
+        String reference = request.reference() == null ? "" : request.reference();
+        if (reference.codePointCount(0, reference.length()) > 140) {
+            throw new IllegalArgumentException("Referensen får vara högst 140 tecken.");
+        }
+        if (reference.indexOf('\0') >= 0) {
+            throw new IllegalArgumentException("Referensen får inte innehålla NUL.");
+        }
+        if (idempotencyKey != null) {
+            if (!idempotencyKey.matches("[A-Za-z0-9_-]{1,128}")) {
+                throw new IllegalArgumentException("Ogiltig Idempotency-Key.");
+            }
+            // Lås skaparen före uppslagningen. Då serialiseras samma nyckel även om anropen anger
+            // olika konton. Låset och betalningen ingår i samma transaktion; rollback lämnar ingen nyckel.
+            userRepository.findByIdAndTenantIdForUpdate(request.createdBy(), request.tenantId())
+                    .orElseThrow(() -> new IllegalArgumentException("Användaren finns inte i företaget."));
+            var previous = paymentRepository.findByTenantIdAndCreatedByAndIdempotencyKey(
+                    request.tenantId(), request.createdBy(), idempotencyKey);
+            if (previous.isPresent()) {
+                Payment payment = previous.get();
+                if (!Objects.equals(payment.getFromAccountId(), request.fromAccountId())
+                        || !Objects.equals(payment.getToIban(), normalizedIban)
+                        || payment.getAmount().compareTo(request.amount()) != 0
+                        || !Objects.equals(payment.getReference(), reference)) {
+                    throw new PaymentRequestConflictException();
+                }
+                return PaymentResponse.from(payment);
+            }
+        }
         validateFromAccountBelongsToTenant(request.fromAccountId(), request.tenantId());
 
         Account account = accountRepository
@@ -158,9 +199,10 @@ public class PaymentService {
                 request.fromAccountId(),
                 normalizedIban,
                 request.amount(),
-                request.reference(),
+                reference,
                 request.createdBy()
         );
+        payment.setIdempotencyKey(idempotencyKey);
 
         if (request.amount().compareTo(thresholds.getNoAttestantThreshold()) <= 0) {
             // Upp till och med tröskeln (strikt > krävs för attest): ingen attestant

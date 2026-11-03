@@ -7,6 +7,9 @@ Det här är kartan över all vår dokumentation. Vet du inte var något ska lig
 | Fil / plats | Innehåll | Uppdateras |
 |---|---|---|
 | /README.md (repo-roten) | Installation, körning, testning, kända brister, avgränsningar. Det första en examinator läser. | Löpande |
+| frontend/README.md | Frontendens snabbstart, roller, API/session, kodstruktur, tester och felsökning. | När frontend ändras |
+| DRIFT.md | Docker, lokala portar, deploy och SPA-routing. | När drift eller byggflöde ändras |
+| docs/project-review.md | Kodgenomgång 2026-11-03: större kvarstående luckor, kodstöd och verifiering. | Vid uppföljning av fynden |
 | docs/mvp.md | MVP-flödet + vad vi medvetet skjuter till efter MVP (avgränsningar). | När scope ändras |
 | docs/backlog.md | Epics → User Stories → Tasks. Vår nedbrytning av arbetet. | Varje sprint |
 | docs/ways-of-working.md | Hur vi jobbar: ScrumBan-tavla, DoR, DoD, roller, mötesrytm. | Vid behov |

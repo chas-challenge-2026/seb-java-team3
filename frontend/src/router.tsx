@@ -54,7 +54,7 @@ const authRoute = createRoute({
 const newPaymentRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/payments/new",
-  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR"]),
   component: NewPayment,
 });
 
@@ -74,7 +74,7 @@ const auditRoute = createRoute({
 const myPaymentsRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/my-payments",
-  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR"]),
   component: MyPaymentsPage,
 });
 

@@ -58,4 +58,14 @@ describe("Attestera-badge", () => {
     expect(within(attestLink).queryByText(/\d/)).not.toBeInTheDocument();
     expect(attestLink).toHaveTextContent(/^Attestera$/);
   });
+
+  it("shows admin an overview and user administration, without payment creation", () => {
+    mockedUseUser.mockReturnValue({ data: { name: "Admin", role: "ADMIN" } } as ReturnType<typeof useUser>);
+    mockedUsePendingApprovalCount.mockReturnValue({ data: 2 } as ReturnType<typeof usePendingApprovalCount>);
+    render(<QueryClientProvider client={new QueryClient()}><SideBar /></QueryClientProvider>);
+    expect(screen.getByRole("link", { name: "Attestöversikt" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Användare" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Ny Betalning" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Mina betalningar" })).not.toBeInTheDocument();
+  });
 });

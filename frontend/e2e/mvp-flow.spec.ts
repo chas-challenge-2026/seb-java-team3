@@ -39,6 +39,8 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     ).toBeVisible();
     await expect(initiator.getByRole("dialog", { name: "Betalningen har skickats" })
       .getByText("Väntar på attest", { exact: true })).toBeVisible();
+    await initiator.getByRole("dialog", { name: "Betalningen har skickats" })
+      .getByRole("button", { name: "Gå till Översikt", exact: true }).click();
   });
 
   await test.step("betalningen väntar på attest i Mina betalningar", async () => {
@@ -114,13 +116,14 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     await expect(row).not.toContainText("Ej utförd");
   });
 
-  // Saldot läses från GET /api/accounts, eftersom dashboarden fortfarande visar mockade konton.
-  // Lägg till en kontroll i UI:t när saldovyn hämtar från backend.
+  // API-kontrollen verifierar det lagrade saldot före och efter betalningen.
   await test.step("saldot på kontot har dragits med exakt beloppet", async () => {
     const balanceAfter = await accountBalanceInOre(initiator, ACCOUNT_NAME);
 
     expect(balanceBefore - balanceAfter).toBe(AMOUNT_ORE);
   });
+  await attestant.context().close();
+  await initiator.context().close();
 });
 
 // Hämtar saldot med initiatörens egen token, så tenant-filtret i backend gäller som i appen.

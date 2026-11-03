@@ -265,6 +265,18 @@ class RoleAuthorizationTest {
     }
 
     @Test
+    void attestantCannotReadPaymentConfig() throws Exception {
+        mockMvc.perform(get("/api/payments/config").header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void initiatorCannotReadPaymentAuditTimeline() throws Exception {
+        mockMvc.perform(get("/api/payments/1/audit").header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void adminCannotViewChangedPaymentCount() throws Exception {
         mockMvc.perform(get("/api/payments/changed-count")
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))

@@ -47,7 +47,9 @@ public class NewPaymentController {
 
     @PreAuthorize("hasRole('INITIATOR')")
     @PostMapping
-    public ResponseEntity<?> createPayment(@RequestBody CreatePaymentRequest request) {
+    public ResponseEntity<?> createPayment(@RequestBody CreatePaymentRequest request,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "Idempotency-Key", required = false)
+            String idempotencyKey) {
         AuthenticatedUserContext user = jwtUserContext.requireAuthenticated();
 
         CreatePaymentRequest authenticatedRequest = new CreatePaymentRequest(
@@ -59,7 +61,9 @@ public class NewPaymentController {
                 user.userId()
         );
 
-        PaymentResponse response = paymentService.createPayment(authenticatedRequest);
+        PaymentResponse response = idempotencyKey == null
+                ? paymentService.createPayment(authenticatedRequest)
+                : paymentService.createPayment(authenticatedRequest, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

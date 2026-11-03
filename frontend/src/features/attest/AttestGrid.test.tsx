@@ -66,6 +66,24 @@ describe("AttestGrid", () => {
     mockedUseApprovals.mockReset();
   });
 
+  it("lets admin inspect a payment without approving or rejecting it", async () => {
+    const approve = vi.fn();
+    const reject = vi.fn();
+    mockApprovals(approve, { reject });
+    const user = userEvent.setup();
+    render(<AttestGrid readOnly />);
+
+    expect(screen.getByText("Väntande betalningar i företaget")).toBeInTheDocument();
+    await openReview(user);
+    const dialog = screen.getByRole("dialog", { name: "Betalningsöversikt" });
+    expect(within(dialog).getByText("Faktura 1042")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /Godkänn|Avvisa/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Tillbaka till attestöversikten" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(approve).not.toHaveBeenCalled();
+    expect(reject).not.toHaveBeenCalled();
+  });
+
   it("shows which account is drawn from and who created the payment", () => {
     mockApprovals(vi.fn());
     render(<AttestGrid />);
