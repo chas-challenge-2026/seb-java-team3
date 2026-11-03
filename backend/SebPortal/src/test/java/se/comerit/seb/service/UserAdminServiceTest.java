@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,8 +23,11 @@ import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.exception.EmailAlreadyInUseException;
 import se.comerit.seb.exception.RoleChangeConflictException;
 import se.comerit.seb.exception.UserAdminRefusedException;
+import se.comerit.seb.exception.UserDeleteConflictException;
 import se.comerit.seb.exception.UserNotFoundException;
 import se.comerit.seb.repository.ApprovalStepRepository;
+import se.comerit.seb.repository.PaymentRepository;
+import se.comerit.seb.repository.RefreshTokenRepository;
 import se.comerit.seb.repository.UserRepository;
 import se.comerit.seb.security.AuthenticatedUserContext;
 
@@ -38,6 +42,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,8 +63,11 @@ class UserAdminServiceTest {
     private final AuditService auditService = mock(AuditService.class);
     private final PasswordEncoder passwordEncoder = new PasswordEncoderConfig().passwordEncoder();
     private final ApprovalStepRepository approvalStepRepository = mock(ApprovalStepRepository.class);
-    private final UserAdminService service =
-            new UserAdminService(userRepository, approvalStepRepository, passwordEncoder, auditService);
+    private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+    private final RefreshTokenRepository refreshTokenRepository = mock(RefreshTokenRepository.class);
+    private final UserAdminService service = new UserAdminService(
+            userRepository, approvalStepRepository, paymentRepository, refreshTokenRepository,
+            passwordEncoder, auditService);
 
     @BeforeEach
     void savedUsersGetAnId() {
@@ -330,6 +339,107 @@ class UserAdminServiceTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> service.changeRole(withoutCompany, 5L, new ChangeUserRoleRequest("ATTESTANT")));
+
+        verifyNoInteractions(userRepository, auditService);
+    }
+
+    // --- Ta bort -------------------------------------------------------------------------------------
+
+    @Test
+    void deleteUser_removesAUserWithoutHistory_theirTokensFirst_andWritesAnAuditRow() {
+        User lisa = userWithId(5L, Role.INITIATOR);
+        givenInTheAdminsCompany(lisa);
+
+        service.deleteUser(admin, 5L);
+
+        InOrder order = inOrder(refreshTokenRepository, userRepository, auditService);
+        order.verify(refreshTokenRepository).deleteAllForUser(5L);
+        order.verify(userRepository).delete(lisa);
+        order.verify(userRepository).flush();
+        order.verify(auditService).record(TENANT, 99L, "DELETE_USER", "USER", 5L,
+                "Användare borttagen: Lisa Persson (lisa@malmobygg.se), roll initiator");
+    }
+
+    @Test
+    void deleteUser_refusesAUserWhoHasCreatedAPayment_andChangesNothing() {
+        User lisa = userWithId(5L, Role.INITIATOR);
+        givenInTheAdminsCompany(lisa);
+        when(paymentRepository.existsByCreatedBy(5L)).thenReturn(true);
+
+        assertDeleteRefusedAndNothingChanged(lisa);
+    }
+
+    @Test
+    void deleteUser_refusesAnAttestantWhoHasBeenAssignedAStep_evenAnAlreadyDecidedOne() {
+        User johan = userWithId(6L, Role.ATTESTANT);
+        givenInTheAdminsCompany(johan);
+        when(approvalStepRepository.existsByAttestantId(6L)).thenReturn(true);
+
+        assertDeleteRefusedAndNothingChanged(johan);
+    }
+
+    @Test
+    void deleteUser_refusesAUserWhoHasDecidedAStep() {
+        User johan = userWithId(6L, Role.ATTESTANT);
+        givenInTheAdminsCompany(johan);
+        when(approvalStepRepository.existsByDecidedBy(6L)).thenReturn(true);
+
+        assertDeleteRefusedAndNothingChanged(johan);
+    }
+
+    private void assertDeleteRefusedAndNothingChanged(User user) {
+        UserDeleteConflictException refused = assertThrows(UserDeleteConflictException.class,
+                () -> service.deleteUser(admin, user.getId()));
+
+        assertEquals(UserAdminService.DELETE_BLOCKED_BY_HISTORY, refused.getMessage());
+        verify(userRepository, never()).delete(any());
+        verifyNoInteractions(refreshTokenRepository, auditService);
+    }
+
+    // Databasens främmande nycklar är sista skyddet om något hann kopplas till användaren efter kontrollen
+    @Test
+    void deleteUser_whenTheDatabaseRefusesTheDelete_isRefusedWith409_andWritesNoAudit() {
+        User lisa = userWithId(5L, Role.INITIATOR);
+        givenInTheAdminsCompany(lisa);
+        doThrow(new DataIntegrityViolationException("fk")).when(userRepository).flush();
+
+        assertThrows(UserDeleteConflictException.class, () -> service.deleteUser(admin, 5L));
+
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void deleteUser_ofAnAdministrator_isRefused_includingTheAdminsOwn() {
+        User otherAdmin = userWithId(7L, Role.ADMIN);
+        User theAdminThemselves = userWithId(99L, Role.ADMIN);
+        givenInTheAdminsCompany(otherAdmin);
+        givenInTheAdminsCompany(theAdminThemselves);
+
+        for (User administrator : List.of(otherAdmin, theAdminThemselves)) {
+            UserAdminRefusedException refused = assertThrows(UserAdminRefusedException.class,
+                    () -> service.deleteUser(admin, administrator.getId()));
+            assertEquals("En administratör kan inte tas bort.", refused.getMessage());
+        }
+        verify(userRepository, never()).delete(any());
+        verifyNoInteractions(refreshTokenRepository, auditService, paymentRepository, approvalStepRepository);
+    }
+
+    // Ett annat företags användare hittas inte av frågan, och ser därför ut som en som inte finns
+    @Test
+    void deleteUser_ofAUserNotInTheAdminsCompany_looksLikeAMissingUser() {
+        assertThrows(UserNotFoundException.class, () -> service.deleteUser(admin, 5L));
+
+        verify(userRepository).findByIdAndTenantIdForUpdate(5L, TENANT);
+        verify(userRepository, never()).findById(any());
+        verify(userRepository, never()).delete(any());
+        verifyNoInteractions(refreshTokenRepository, auditService);
+    }
+
+    @Test
+    void deleteUser_anAdminWithoutACompany_isRefused() {
+        AuthenticatedUserContext withoutCompany = new AuthenticatedUserContext(1L, null, Role.ADMIN);
+
+        assertThrows(AccessDeniedException.class, () -> service.deleteUser(withoutCompany, 5L));
 
         verifyNoInteractions(userRepository, auditService);
     }

@@ -10,13 +10,12 @@ vi.mock("./api", () => ({
   listUsers: vi.fn(),
   createUser: vi.fn(),
   updateUserRole: vi.fn(),
-  deleteUser: vi.fn(),
 }));
 
 const mockedCreateUser = vi.mocked(createUser);
 
 async function fillForm(user: ReturnType<typeof userEvent.setup>, overrides: { name?: string; email?: string; role?: string; password?: string } = {}) {
-  const { name = "Kalle Kula", email = "kalle@foretag.se", role = "Initiator", password = "hemligt123" } = overrides;
+  const { name = "Kalle Kula", email = "kalle@foretag.se", role = "Initiator", password = "hemligt-lösen-123" } = overrides;
 
   if (name) await user.type(screen.getByLabelText(/^Namn/), name);
   if (email) await user.type(screen.getByLabelText(/^E-post/), email);
@@ -54,7 +53,7 @@ describe("CreateUserModal", () => {
     expect(screen.getByText("Ange namn.")).toBeInTheDocument();
     expect(screen.getByText("Ange din e-postadress.")).toBeInTheDocument();
     expect(screen.getByText("Välj en roll.")).toBeInTheDocument();
-    expect(screen.getByText("Startlösenordet måste vara minst 8 tecken.")).toBeInTheDocument();
+    expect(screen.getByText("Startlösenordet måste vara minst 12 tecken.")).toBeInTheDocument();
     expect(mockedCreateUser).not.toHaveBeenCalled();
   });
 
@@ -91,7 +90,7 @@ describe("CreateUserModal", () => {
       name: "Kalle Kula",
       email: "kalle@foretag.se",
       role: "INITIATOR",
-      password: "hemligt123",
+      password: "hemligt-lösen-123",
     });
   });
 

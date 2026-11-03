@@ -77,4 +77,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
               )
             """)
     int deleteExpiredOrRevokedForUser(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    // Tar bort ALLA en användares token, levande som spärrade. Används bara när användaren själv tas bort
+    // (refresh_tokens.user_id pekar på users), och gör att en borttagen användare inte kan förnya sin session.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM RefreshToken token WHERE token.userId = :userId")
+    int deleteAllForUser(@Param("userId") Long userId);
 }

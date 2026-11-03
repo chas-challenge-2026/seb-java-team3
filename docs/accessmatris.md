@@ -72,6 +72,7 @@ Allt under `/api/**` kräver giltig JWT, utom de tre öppna auth-endpointsen. Sa
 | Lista användare | `GET /api/admin/users` | Nej | Nej | Företaget | `AdminUserControllerTest`, `UserAdministrationIntegrationTest` |
 | Skapa användare (INITIATOR eller ATTESTANT) | `POST /api/admin/users` | Nej | Nej | I det egna företaget | `AdminUserControllerTest`, `UserAdministrationIntegrationTest`, `UserAdminServiceTest` |
 | Byta roll mellan INITIATOR och ATTESTANT | `PATCH /api/admin/users/{userId}/role` | Nej | Nej | I det egna företaget, aldrig en administratör | `AdminUserControllerTest`, `UserAdministrationIntegrationTest`, `UserAdminServiceTest` |
+| Ta bort en användare (bara utan historik) | `DELETE /api/admin/users/{userId}` | Nej | Nej | I det egna företaget, aldrig en administratör | `AdminUserControllerTest`, `UserAdministrationIntegrationTest`, `UserAdminServiceTest` |
 
 ### Utanför `/api`
 
@@ -84,7 +85,8 @@ Allt under `/api/**` kräver giltig JWT, utom de tre öppna auth-endpointsen. Sa
 
 Det finns ingen endpoint som låter någon roll göra följande:
 
-- ta bort eller inaktivera en användare, eller byta lösenord
+- inaktivera en användare, eller byta lösenord
+- ta bort en användare som har betalningar eller atteststeg kopplade till sig, eller ta bort en administratör
 - ge någon rollen ADMIN, eller ändra en administratörs roll
 - ändra eller ta bort en betalning, ett atteststeg eller en auditrad
 - ändra saldo eller tröskelvärden direkt

@@ -10,7 +10,6 @@ vi.mock("./api", () => ({
   listUsers: vi.fn(),
   createUser: vi.fn(),
   updateUserRole: vi.fn(),
-  deleteUser: vi.fn(),
 }));
 
 const mockedUpdateUserRole = vi.mocked(updateUserRole);

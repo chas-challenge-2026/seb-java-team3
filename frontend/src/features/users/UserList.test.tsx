@@ -119,6 +119,22 @@ describe("UserList", () => {
       await vi.waitFor(() => expect(screen.queryByText("Erik Eriksson")).not.toBeInTheDocument());
     });
 
+    it("explains that a user with payment history cannot be deleted (409)", async () => {
+      mockedDeleteUser.mockRejectedValue(
+        new ApiError(409, "Användaren har betalningar eller atteststeg kopplade till sig och kan inte tas bort, eftersom historiken måste bevaras."),
+      );
+      const user = userEvent.setup();
+      renderWithClient(<UserList />);
+
+      await user.click(await screen.findByRole("button", { name: "Ta bort Erik Eriksson" }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Ja, ta bort permanent" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("historiken måste bevaras");
+      // Användaren finns kvar i listan bakom modalen
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getAllByText("Erik Eriksson").length).toBeGreaterThan(0);
+    });
+
     it("keeps the modal open and shows the error when deleting fails", async () => {
       mockedDeleteUser.mockRejectedValue(new ApiError(403, "Administratören kan inte tas bort."));
       const user = userEvent.setup();

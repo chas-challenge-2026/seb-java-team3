@@ -8,18 +8,25 @@ export const creatableRoleSchema = z.enum(["ATTESTANT", "INITIATOR"], {
 
 export type CreatableRole = z.infer<typeof creatableRoleSchema>;
 
+// Samma gränser som backend (ADR 0017). Backend är fortfarande den som avgör.
+export const PASSWORD_MIN_LENGTH = 12;
+const PASSWORD_MAX_BYTES = 72; // BCrypt ignorerar allt efter 72 byte
+
 export const createUserFormSchema = z.object({
   name: z
     .string()
     .trim()
     .min(1, "Ange namn.")
     .max(100, "Namnet får vara högst 100 tecken."),
-  email: loginInputSchema.shape.email,
+  email: loginInputSchema.shape.email.max(100, "E-postadressen får vara högst 100 tecken."),
   role: creatableRoleSchema,
   password: z
     .string()
-    .min(8, "Startlösenordet måste vara minst 8 tecken.")
-    .max(72, "Startlösenordet får vara högst 72 tecken."),
+    .min(PASSWORD_MIN_LENGTH, `Startlösenordet måste vara minst ${PASSWORD_MIN_LENGTH} tecken.`)
+    .refine(
+      (value) => new TextEncoder().encode(value).length <= PASSWORD_MAX_BYTES,
+      "Startlösenordet är för långt.",
+    ),
 });
 
 export type CreateUserInput = z.infer<typeof createUserFormSchema>;

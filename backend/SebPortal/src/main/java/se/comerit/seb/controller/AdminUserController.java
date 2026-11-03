@@ -3,6 +3,7 @@ package se.comerit.seb.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -57,5 +58,15 @@ public class AdminUserController {
     public UserResponse changeRole(@PathVariable Long userId, @RequestBody ChangeUserRoleRequest request) {
         AuthenticatedUserContext admin = jwtUserContext.requireAuthenticated();
         return userAdminService.changeRole(admin, userId, request);
+    }
+
+    // 204 utan innehåll. 403 för andra än ADMIN och när målet är en administratör, 404 om användaren inte finns
+    // i företaget och 409 om användaren har betalningar eller atteststeg kopplade till sig (historiken bevaras).
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
+        AuthenticatedUserContext admin = jwtUserContext.requireAuthenticated();
+        userAdminService.deleteUser(admin, userId);
+        return ResponseEntity.noContent().build();
     }
 }

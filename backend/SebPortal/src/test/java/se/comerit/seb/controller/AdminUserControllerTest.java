@@ -17,6 +17,7 @@ import se.comerit.seb.dto.UserResponse;
 import se.comerit.seb.exception.EmailAlreadyInUseException;
 import se.comerit.seb.exception.RoleChangeConflictException;
 import se.comerit.seb.exception.UserAdminRefusedException;
+import se.comerit.seb.exception.UserDeleteConflictException;
 import se.comerit.seb.exception.UserNotFoundException;
 import se.comerit.seb.security.AuthenticatedUserContext;
 import se.comerit.seb.security.JwtService;
@@ -29,13 +30,16 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -285,6 +289,75 @@ class AdminUserControllerTest {
         mockMvc.perform(patch("/api/admin/users/{userId}/role", 5L)
                         .header("Authorization", bearer(Role.ADMIN))
                         .contentType(APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(userAdminService);
+    }
+
+    // --- Ta bort -------------------------------------------------------------------------------------
+
+    @Test
+    void delete_asAdmin_returns204WithoutBody_andPassesTheIdAndTheCompany() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/{userId}", 5L).header("Authorization", bearer(Role.ADMIN)))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        ArgumentCaptor<AuthenticatedUserContext> admin = ArgumentCaptor.forClass(AuthenticatedUserContext.class);
+        verify(userAdminService).deleteUser(admin.capture(), eq(5L));
+        assertEquals(new AuthenticatedUserContext(ADMIN_ID, TENANT, Role.ADMIN), admin.getValue());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"INITIATOR", "ATTESTANT"})
+    void delete_asAnyOtherRole_returns403_andNeverReachesTheService(Role role) throws Exception {
+        mockMvc.perform(delete("/api/admin/users/{userId}", 5L).header("Authorization", bearer(role)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(userAdminService);
+    }
+
+    @Test
+    void delete_withoutAToken_returns401() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/{userId}", 5L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userAdminService);
+    }
+
+    @Test
+    void delete_whenTheUserIsNotInTheCompany_returns404() throws Exception {
+        doThrow(new UserNotFoundException()).when(userAdminService).deleteUser(any(), any());
+
+        mockMvc.perform(delete("/api/admin/users/{userId}", 5L).header("Authorization", bearer(Role.ADMIN)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Användaren finns inte."));
+    }
+
+    @Test
+    void delete_whenTheTargetIsAnAdministrator_returns403WithTheMessage() throws Exception {
+        doThrow(new UserAdminRefusedException("En administratör kan inte tas bort."))
+                .when(userAdminService).deleteUser(any(), any());
+
+        mockMvc.perform(delete("/api/admin/users/{userId}", 5L).header("Authorization", bearer(Role.ADMIN)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("En administratör kan inte tas bort."));
+    }
+
+    @Test
+    void delete_whenTheUserHasHistory_returns409WithTheMessage() throws Exception {
+        doThrow(new UserDeleteConflictException("Användaren har betalningar kopplade till sig."))
+                .when(userAdminService).deleteUser(any(), any());
+
+        mockMvc.perform(delete("/api/admin/users/{userId}", 5L).header("Authorization", bearer(Role.ADMIN)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Användaren har betalningar kopplade till sig."));
+    }
+
+    @Test
+    void delete_withANonNumericId_returns400_andNeverReachesTheService() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/{userId}", "abc").header("Authorization", bearer(Role.ADMIN)))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(userAdminService);

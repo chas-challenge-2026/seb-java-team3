@@ -5,7 +5,7 @@ const valid = {
   name: "Kalle Kula",
   email: "kalle@foretag.se",
   role: "INITIATOR",
-  password: "hemligt123",
+  password: "hemligt-lösen-123",
 };
 
 describe("createUserFormSchema", () => {
@@ -29,7 +29,21 @@ describe("createUserFormSchema", () => {
     expect(createUserFormSchema.safeParse({ ...valid, role: "ADMIN" }).success).toBe(false);
   });
 
-  it("kräver minst 8 tecken i lösenordet", () => {
-    expect(createUserFormSchema.safeParse({ ...valid, password: "kort" }).success).toBe(false);
+  it("kräver minst 12 tecken i lösenordet", () => {
+    expect(createUserFormSchema.safeParse({ ...valid, password: "elvatecken1" }).success).toBe(false);
+    expect(createUserFormSchema.safeParse({ ...valid, password: "tolvtecken12" }).success).toBe(true);
+  });
+
+  it("avvisar lösenord över 72 byte, räknat i byte och inte tecken", () => {
+    expect(createUserFormSchema.safeParse({ ...valid, password: "a".repeat(72) }).success).toBe(true);
+    expect(createUserFormSchema.safeParse({ ...valid, password: "a".repeat(73) }).success).toBe(false);
+    // 40 tecken men 80 byte
+    expect(createUserFormSchema.safeParse({ ...valid, password: "å".repeat(40) }).success).toBe(false);
+  });
+
+  it("avvisar namn och e-post över 100 tecken", () => {
+    expect(createUserFormSchema.safeParse({ ...valid, name: "n".repeat(101) }).success).toBe(false);
+    expect(createUserFormSchema.safeParse({ ...valid, email: `${"a".repeat(95)}@x.se` }).success).toBe(true); // 100 tecken
+    expect(createUserFormSchema.safeParse({ ...valid, email: `${"a".repeat(96)}@x.se` }).success).toBe(false); // 101 tecken
   });
 });
