@@ -1,0 +1,26 @@
+.page {
+  width: 100%;
+}
+
+.modes {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 auto 1rem;
+  padding: 0 1rem;
+}
+
+.modes button {
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: 0.6rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.modes .selected {
+  border-color: var(--text-navigation);
+  background: var(--bg-muted);
+  font-weight: 650;
+}
