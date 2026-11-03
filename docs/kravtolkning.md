@@ -45,23 +45,6 @@ tröskeltrappa, påminnelser via e-post (kö, retry), native C/C++-moduler, mani
 logg (HMAC), compliance-export, 2FA. Alla är motiverade av kunden
 men underordnade kärnans "det får inte gå fel".
 
-## B. Öppna tolkningsfrågor att bekräfta med kund/PL
-
-Filmen ger inget entydigt svar på dessa. Vi antar ett rimligt default och bekräftar,
-hellre det än att bygga på en tyst gissning.
-
-**Ser en initiator historik?** Filmen nämner bara spårbarhet ur bankens och attestantens
-perspektiv, aldrig initiatorns. Default: initiator ser sina egna betalningars status,
-men inte audit-loggen och inte andras betalningar. Spärras i backend (403), inte bara i UI.
-Bekräftas med PL.
-
-**Tröskel: strikt `>` eller `>=`?** Vad som händer på exakt tröskelbeloppet avgör om en
-betalning kan slinka igenom oattesterad. Besvarad: strikt `>`, se ADR 0015. Gränsfallen
-är testade i `PaymentServiceTest`.
-
-**Tröskeltrappa:** "en eller flera" godkännare, vilken beloppsnivå kräver hur många
-attestanter (attestant 1 plus VD)? Bekräftas innan breddningen byggs.
-
 ## Hur detta används
 
 - Vid demo och slutpresentation: visar spårbarheten från kundens ord till levererad funktion.
