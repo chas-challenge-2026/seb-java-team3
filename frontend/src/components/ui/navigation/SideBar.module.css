@@ -1,110 +1,145 @@
+/* Grundutseendet är navbaren överst. Sidoläget gäller bara på bred skärm och när
+   användaren inte valt "alltid överst" (data-nav="top" på <html>, se lib/navPosition.ts). */
 .sideBar {
     position: sticky;
     top: 0;
     z-index: 10;
-    flex: 0 0 16rem;
-    align-self: flex-start;
-    width: 16rem;
-    height: 100vh;
-    height: 100dvh;
-    overflow-y: auto;
-    padding: 1rem;
-    border-right: 1px solid var(--border-default);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "brand actions"
+        "navigation navigation";
+    gap: 0.25rem 0.5rem;
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 100%;
+    height: auto;
+    padding: 0.4rem 0.75rem 0;
+    overflow: visible;
+    border-bottom: 1px solid var(--border-default);
     background: var(--bg-primary);
     box-shadow: var(--shadow-sidebar);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+}
+
+.sideBar > div:first-child {
+    display: contents;
 }
 
 .brand {
+    grid-area: brand;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    min-height: 4rem;
-    padding: 0.85rem 0.75rem 1.35rem;
-    margin-bottom: 0.85rem;
-    border-bottom: 1px solid var(--border-subtle);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.25rem 0.35rem;
+    margin: 0;
 }
 
-.brand h2 { color: var(--text-heading); font-size: 0.95rem; font-weight: 500; letter-spacing: -0.01em; }
+.brand h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-heading);
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
 .brand h2 span { margin-right: 0.3rem; color: var(--btn-primary); font-size: 1.12rem; font-weight: 800; letter-spacing: -0.04em; }
-.navList { display: flex; flex-direction: column; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
-.bottomArea { padding-top: 1rem; }
-.divider { height: 1px; margin: 1rem 0; background: var(--border-subtle); }
 
-@media (max-width: 1000px) {
-    .sideBar {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas:
-            "brand actions"
-            "navigation navigation";
-        gap: 0.25rem 0.5rem;
-        flex: 0 0 auto;
-        align-self: stretch;
-        width: 100%;
-        height: auto;
-        padding: 0.4rem 0.75rem 0;
-        overflow: visible;
-        border-right: 0;
-        border-bottom: 1px solid var(--border-default);
-    }
+.sideBar > div:first-child > nav {
+    grid-area: navigation;
+    min-width: 0;
+}
 
-    .sideBar > div:first-child {
-        display: contents;
-    }
+.navList {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0 0 0.45rem;
+    overflow-x: auto;
+    list-style: none;
+    scrollbar-width: none;
+}
 
-    .brand {
-        grid-area: brand;
-        min-width: 0;
-        min-height: 2.75rem;
-        padding: 0.25rem 0.35rem;
-        margin: 0;
-        border: 0;
-    }
+.navList::-webkit-scrollbar {
+    display: none;
+}
 
-    .brand h2 {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-size: 0.9rem;
-    }
+.bottomArea {
+    grid-area: actions;
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0;
+}
 
-    .sideBar > div:first-child > nav {
-        grid-area: navigation;
-        min-width: 0;
-    }
+.bottomArea .navList {
+    gap: 0.1rem;
+    padding: 0;
+    overflow: visible;
+}
 
-    .navList {
-        flex-direction: row;
-        align-items: center;
-        gap: 0.2rem;
-        padding: 0 0 0.45rem;
-        overflow-x: auto;
-        scrollbar-width: none;
-    }
+.divider { display: none; height: 1px; margin: 1rem 0; background: var(--border-subtle); }
 
-    .navList::-webkit-scrollbar {
-        display: none;
-    }
-
-    .bottomArea {
-        grid-area: actions;
+@media (min-width: 1001px) {
+    :global(:root:not([data-nav="top"])) .sideBar {
         display: flex;
-        align-items: center;
-        gap: 0.2rem;
-        padding: 0;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 0;
+        flex: 0 0 16rem;
+        align-self: flex-start;
+        width: 16rem;
+        height: 100vh;
+        height: 100dvh;
+        overflow-y: auto;
+        padding: 1rem;
+        border-right: 1px solid var(--border-default);
+        border-bottom: 0;
     }
 
-    .bottomArea .navList {
-        gap: 0.1rem;
+    :global(:root:not([data-nav="top"])) .sideBar > div:first-child {
+        display: block;
+    }
+
+    :global(:root:not([data-nav="top"])) .brand {
+        min-height: 4rem;
+        padding: 0.85rem 0.75rem 1.35rem;
+        margin-bottom: 0.85rem;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    :global(:root:not([data-nav="top"])) .brand h2 {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        font-size: 0.95rem;
+    }
+
+    :global(:root:not([data-nav="top"])) .navList {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.3rem;
         padding: 0;
+        overflow-x: visible;
+    }
+
+    :global(:root:not([data-nav="top"])) .bottomArea {
+        display: block;
+        padding-top: 1rem;
+    }
+
+    :global(:root:not([data-nav="top"])) .bottomArea .navList {
+        gap: 0.3rem;
         overflow: visible;
     }
 
-    .divider {
-        display: none;
+    :global(:root:not([data-nav="top"])) .divider {
+        display: block;
     }
 }
