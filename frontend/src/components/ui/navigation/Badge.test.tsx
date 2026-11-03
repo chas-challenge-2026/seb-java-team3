@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import SideBar from "./SideBar";
 import { useUser } from "../../../features/auth/useUser";
 import { usePendingApprovalCount } from "../../../features/attest/useApprovals";
+import { useChangedPaymentCount } from "../../../features/audit/useChangedPaymentCount";
 
 // Badgen renderas av SideBarItem, men regeln "visa bara vid > 0" ligger i SideBar,
 // så det är SideBar som renderas här. Datan kommer från mockade hooks.
@@ -22,6 +23,10 @@ vi.mock("../../../features/auth/useUser", () => ({
 
 vi.mock("../../../features/attest/useApprovals", () => ({
   usePendingApprovalCount: vi.fn(),
+}));
+
+vi.mock("../../../features/audit/useChangedPaymentCount", () => ({
+  useChangedPaymentCount: vi.fn(() => ({ data: 0 })),
 }));
 
 const mockedUseUser = vi.mocked(useUser);
@@ -67,5 +72,47 @@ describe("Attestera-badge", () => {
     expect(screen.getByRole("link", { name: "Användare" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Ny Betalning" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Mina betalningar" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Mina betalningar-badge", () => {
+  const mockedUseChangedPaymentCount = vi.mocked(useChangedPaymentCount);
+
+  function renderInitiatorWithCount(count: number) {
+    mockedUseUser.mockReturnValue({
+      data: { name: "Ivan Initiator", role: "INITIATOR" },
+    } as ReturnType<typeof useUser>);
+    mockedUsePendingApprovalCount.mockReturnValue({ data: undefined } as ReturnType<typeof usePendingApprovalCount>);
+    mockedUseChangedPaymentCount.mockReturnValue({ data: count } as ReturnType<typeof useChangedPaymentCount>);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SideBar />
+      </QueryClientProvider>,
+    );
+
+    return screen.getByRole("link", { name: /^Mina betalningar/ });
+  }
+
+  it("shows how many payments have been decided since the initiator last looked", () => {
+    const myPaymentsLink = renderInitiatorWithCount(2);
+
+    expect(within(myPaymentsLink).getByText("2")).toBeInTheDocument();
+    expect(mockedUseChangedPaymentCount).toHaveBeenCalledWith(true);
+  });
+
+  it("shows no badge when nothing has changed", () => {
+    const myPaymentsLink = renderInitiatorWithCount(0);
+
+    expect(myPaymentsLink).toHaveTextContent(/^Mina betalningar$/);
+  });
+
+  it("is never fetched for an attestant, who has no changed-count endpoint", () => {
+    mockedUseUser.mockReturnValue({
+      data: { name: "Anna Attestant", role: "ATTESTANT" },
+    } as ReturnType<typeof useUser>);
+    render(<QueryClientProvider client={new QueryClient()}><SideBar /></QueryClientProvider>);
+
+    expect(mockedUseChangedPaymentCount).toHaveBeenLastCalledWith(false);
   });
 });

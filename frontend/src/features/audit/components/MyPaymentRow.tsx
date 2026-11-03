@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { MyPaymentStatus } from "../schema";
 import {
   formatAmount,
@@ -16,11 +16,20 @@ export default function MyPaymentRow({ payment }: { payment: MyPaymentStatus }) 
   const detailsId = useId();
   const isRejected = payment.status === "REJECTED";
   const reason = isRejected ? formatRejectionReason(payment)?.trim() : null;
-  const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
+  const ChevronIcon = isExpanded ? ChevronUp : ChevronDown;
+
+  function toggle() {
+    setIsExpanded((expanded) => !expanded);
+  }
 
   return (
     <>
-      <tr>
+      {/* Klick var som helst på en avvisad rad fäller ut orsaken. Tangentbord och skärmläsare
+          använder knappen i statuskolumnen, så raden behåller sin tabellsemantik. */}
+      <tr
+        className={isRejected ? styles.clickableRow : undefined}
+        onClick={isRejected ? toggle : undefined}
+      >
         <td data-label="Skapad" className={`${styles.date} ${styles.noWrap}`}>
           {formatDateTime(payment.createdAt)}
         </td>
@@ -37,22 +46,25 @@ export default function MyPaymentRow({ payment }: { payment: MyPaymentStatus }) 
           {payment.toIban ?? "-"}
         </td>
         <td data-label="Status" className={styles.noWrap}>
-          <div className={rowStyles.statusContent}>
+          {isRejected ? (
+            <button
+              type="button"
+              className={`${styles.status} ${rowStyles.statusToggle}`}
+              aria-expanded={isExpanded}
+              aria-controls={isExpanded ? detailsId : undefined}
+              aria-label={`${isExpanded ? "Dölj" : "Visa"} avvisningsorsak för betalning #${payment.paymentId}`}
+              onClick={(event) => {
+                // Raden hanterar också klick, så annars skulle den fällas ut och ihop direkt
+                event.stopPropagation();
+                toggle();
+              }}
+            >
+              {formatMyPaymentStatus(payment)}
+              <ChevronIcon size={14} aria-hidden="true" />
+            </button>
+          ) : (
             <span className={styles.status}>{formatMyPaymentStatus(payment)}</span>
-            {isRejected && (
-              <button
-                type="button"
-                className={rowStyles.toggle}
-                aria-expanded={isExpanded}
-                aria-controls={isExpanded ? detailsId : undefined}
-                aria-label={`${isExpanded ? "Dölj" : "Visa"} avvisningsorsak för betalning #${payment.paymentId}`}
-                onClick={() => setIsExpanded((expanded) => !expanded)}
-              >
-                <ChevronIcon size={16} aria-hidden="true" />
-                {isExpanded ? "Dölj orsak" : "Visa orsak"}
-              </button>
-            )}
-          </div>
+          )}
         </td>
         <td data-label="Attestant" className={styles.date}>
           {formatAttestant(payment)}

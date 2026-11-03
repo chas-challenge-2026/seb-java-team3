@@ -56,6 +56,11 @@ export const myPaymentStatusListSchema = z.array(myPaymentStatusSchema);
 
 export type MyPaymentStatus = z.infer<typeof myPaymentStatusSchema>;
 
+// Svaret från /api/payments/changed-count: initiatorns betalningar som fått ett beslut sedan senaste besöket
+export const changedPaymentCountSchema = z.object({
+  count: z.number(),
+});
+
 export const paymentAuditTimelineEntrySchema = z.object({
   order: z.number(),
   sequence: z.string(),

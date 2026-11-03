@@ -24,6 +24,10 @@ vi.mock("../../../features/attest/useApprovals", () => ({
   usePendingApprovalCount: () => ({ data: 0 }),
 }));
 
+vi.mock("../../../features/audit/useChangedPaymentCount", () => ({
+  useChangedPaymentCount: () => ({ data: 0 }),
+}));
+
 const mockedUseUser = vi.mocked(useUser);
 
 function renderAs(role: UserRole) {

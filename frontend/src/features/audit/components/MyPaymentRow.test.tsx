@@ -57,6 +57,22 @@ describe("MyPaymentRow", () => {
     expect(screen.queryByText("Kontrollera fakturans referens.")).not.toBeInTheDocument();
   });
 
+  it("opens from anywhere on the row, including the status badge", async () => {
+    const user = userEvent.setup();
+    renderRows(payment());
+    const toggle = screen.getByRole("button", { name: "Visa avvisningsorsak för betalning #233" });
+
+    expect(toggle).toHaveTextContent("Avvisad");
+    expect(screen.queryByText("Visa orsak")).not.toBeInTheDocument();
+    await user.click(screen.getByText("Driftkonto"));
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Kontrollera fakturans referens.")).toBeInTheDocument();
+    await user.click(screen.getByText("Avvisad"));
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByText("Testfaktura 233"));
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("supports Tab, Enter and Space and keeps focus on the toggle", async () => {
     const user = userEvent.setup();
     renderRows(payment());

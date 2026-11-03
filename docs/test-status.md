@@ -10,7 +10,7 @@ Här finns en samlad bild av vad som är testat och vilka luckor som återstår.
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
 | Backend · JUnit | 55 klasser, 550 tester | Alla passerade 2026-11-03 med `mvn package` i Maven-container, native-bibliotek byggda och Postgres 12 via Testcontainers. Inga överhoppade tester. |
-| Frontend · Vitest | 30 filer, 259 tester | Alla passerade 2026-11-03; `npm run lint` och `npm run build` passerade också. |
+| Frontend · Vitest | 33 filer, 274 tester | Alla passerade 2026-11-03, även efter ändringarna i Mina betalningar, initiatorns badge och genvägen till attestvyn; `npm run lint` och `npm run build` passerade också. |
 | Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla passerade 2026-11-03 i gcc-container med Check. Maven-CI kör nu samma svit före Java-testerna. |
 | Rök-test · byggd app | `scripts/smoke-spa.mjs`, 18 kontroller | Alla passerade mot Docker 2026-11-03, inklusive kontrollerna med token. |
 | E2E · Playwright | 6 filer, 9 tester: admin, dubbel attest, MVP, avvisningsorsak, session och smoke | Alla passerade mot isolerad Docker-stack 2026-11-03 med en Chromium-worker. |
@@ -96,7 +96,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 - H2-tabellen har inget unikt index på e-post (det finns bara i Postgres, V1). Dubblettfångsten vid två samtidiga anrop bevisas därför bara av ett enhetstest med en mockad databas, och radlåset i `findByIdAndTenantIdForUpdate` är inte testat mot Postgres.
 - En rolländring samtidigt som en betalning skapas är inte testad. `PaymentServiceTest` visar att en betalning aldrig tilldelas sin skapare, men inte tävlingen mellan de två.
 - E-postadressen är unik i hela databasen, så en admin kan se om en adress finns hos ett annat företag (409). Testet dokumenterar det.
-- Frontend för användaradministration är API-kopplad och har tester i `features/users/`: `api.test.ts`, `schema.test.ts`, `CreateUserModal.test.tsx`, `UserList.test.tsx` och `UserRoleCell.test.tsx`. De ingår i den gröna Vitest-körningen 2026-11-03. Borttagningsdialogen har inget eget test och användarflödet saknar E2E-test. Admins rollanpassning är verifierad i `frontend/e2e/admin.spec.ts`; användarhändelser i audit är inte längre expanderbara och blandas inte ihop med betalningar med samma id.
+- Frontend för användaradministration är API-kopplad och har tester i `features/users/`: `api.test.ts`, `schema.test.ts`, `CreateUserModal.test.tsx`, `UserList.test.tsx` och `UserRoleCell.test.tsx`. De ingår i den gröna Vitest-körningen 2026-11-03. Borttagningsdialogen har inget eget test och användarflödet saknar E2E-test. Felet vid rolländring (t.ex. 409 för en attestant med väntande steg) radbryts sedan 2026-11-03 inom rollkolumnen; det är en ren CSS-ändring som inte täcks av något test. Admins rollanpassning är verifierad i `frontend/e2e/admin.spec.ts`; användarhändelser i audit är inte längre expanderbara och blandas inte ihop med betalningar med samma id.
 
 ### Betalning och godkännande
 
@@ -155,11 +155,16 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | --- | --- | --- | --- |
 | Badge visar väntande steg för inloggad attestant och döljs vid noll (BUG-007) | Komp | Grön | `components/ui/navigation/Badge.test.tsx` · 2 |
 | Bara den aktuella attestantens steg räknas | Unit + Int | Grön | `ApprovalServiceTest.countPendingByAttestant_shouldReturnNumberOfPendingStepsForUser`; `ApprovalApiControllerCountTest` · 4 (`/api/approvals/count`, delad betalning, noll väntande, admin inom sitt företag) |
+| Initiatorns badge på Mina betalningar visar antalet betalningar som godkänts eller avvisats sedan senaste besöket (`GET /api/payments/changed-count`, #230), döljs vid noll och hämtas aldrig för andra roller | Komp + Unit | Grön | `Badge.test.tsx` (blocket "Mina betalningar-badge") · 3; `useChangedPaymentCount.test.tsx` · 5 |
+| Badgen nollas när Mina betalningar har laddats (`POST /api/payments/changed-count/seen`), men inte om listan inte gick att hämta. Ett nytt beslut gör listan inaktuell så att den hämtas om | Komp + Unit | Grön | `MyPaymentsPage.test.tsx` · 2; `useChangedPaymentCount.test.tsx` |
+| Attestantens dashboard har en genväg direkt till attestvyn; admin och en tom attestkorg får ingen | Komp | Grön | `DashboardApprovals.test.tsx` · 3 |
 
 **Avgränsningar och kvar att testa**
 
 - `Badge.test.tsx` renderar `SideBar`, där regeln "visa bara vid fler än noll" ligger, med mockade hooks. Att badgen räknas ned efter ett godkännande verifieras i E2E-testet.
 - Servicetestet frågar på rätt tenant och attestant, och `ApprovalApiControllerCountTest` testar `/api/approvals/count` på webbnivå.
+- Initiatorns räknare hämtas om var 30:e sekund (`refetchInterval`), så ett beslut syns utan omladdning. Attestantens räknare har ingen sådan intervall och uppdateras vid fokus och navigering. Frontendtesterna mockar API:t; endpoints prövades för hand mot Docker 2026-11-03 (räknare, nollställning med 204 och 403 för attestant), men hela flödet med ett beslut som tänder badgen saknar E2E-test.
+- Nollställningen sker när listan har hämtats, inte när initiatorn faktiskt läst den. Fattas ett beslut mellan hämtningen och anropet till `/seen` (millisekunder) syns det inte i badgen förrän listan hämtas om.
 
 ### Audit och spårbarhet
 
@@ -176,6 +181,8 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Hälsokontroll visar trasig kedja eller saknade rader; `/actuator/health` är öppen utan detaljer | Unit + Int | Grön | `AuditSignerHealthIndicatorTest` · 5; `AuditSignerWiringTest` · 3 (hela appen på H2) |
 | Användarhändelser med samma id som en betalning får inga betalningsuppgifter, öppnar ingen tidslinje och behålls utan gruppering | Unit + Komp | Grön | `AuditServiceAuditEntriesTest.userEvent_neverBorrowsPaymentDetails_whenTheirIdsCollide`; `mappers.test.ts`; `AuditGrid.test.tsx` |
 | Mina betalningar visar vilket konto betalningen dras från och vem som ska attestera, godkände eller avvisade (UX-feedback) | Unit + Int | Grön | `AuditServiceMyPaymentsTest` · 7; `AuditControllerMyPaymentsTest` (`fromAccountName` och `approvalSteps` i svaret); `features/audit/utils/formatters.test.ts` (`formatAttestant`) · 6 |
+| Mina betalningar: avvisningsorsaken fälls ut med klick på hela den avvisade raden eller på knappen "Avvisad" med pil, som också nås med Tab, Enter och Space. Andra statusar går inte att fälla ut (UX-feedback) | Komp | Grön | `MyPaymentRow.test.tsx` · 12 (`opens from anywhere on the row, including the status badge`) |
+| Statusfilter (Alla, Väntar attest, Genomförda, Avvisade) i både Historik och Mina betalningar, via den delade `StatusFilter` (UX-feedback) | Komp | Grön | `AuditGrid.test.tsx` (Historik); `MyPaymentsPage.test.tsx` (`filters the list by status, with a count per status`) |
 | Historiken visar attestantens meddelande (#228): `/api/audit` och `/api/payments/{id}/audit` returnerar det, schemat släpper igenom det och dropdownen visar det under beslutet. Admin ser det en gång: raden "Atteststeg avvisat" bär samma text i API:et men visar den inte | Unit + Komp | Grön | `AuditServiceAuditEntriesTest` (`decisionWithAMessage_*`, `eventWithoutAMessage_*`); `AuditServiceTimelineTest` · 2; `AuditControllerTest` (`comment` i JSON); `features/audit/schema.test.ts` · 4; `formatters.test.ts` (`formatTimelineComment`) · 3; `PaymentAuditStep.test.tsx` · 3; `PaymentAuditDetails.test.tsx` · 2 |
 
 **Avgränsningar och kvar att testa**
@@ -188,6 +195,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
   - Användarnamnen i auditloggen och tidslinjen slogs upp utan tenant-villkor. Nu namnges bara det egna företagets användare, och en användare från ett annat företag visas som "Systemet", på samma sätt som en okänd användare (`AuditService.userNamesInTenant`).
   - Godkänn och avvisa kontrollerade betalningens status före företaget, så ett annat företags steg gav 403 om det väntade och 409 om det var behandlat. Nu kontrolleras företaget först, och ett annat företags steg ger samma 400 som ett steg som inte finns (`ApprovalService.findPaymentOfStepForUpdate`).
 - Mina betalningar: attestantnamnen slås upp en gång för hela listan, och namn på användare och konton från andra företag visas aldrig (`AuditServiceMyPaymentsTest.aUserFromAnotherCompany_isNeverNamed`, `anAccountOutsideTheCompany_isNeverNamed`). Repositoryt är mockat där; frågan `findByTenantIdAndCreatedByWithApprovalSteps` (betalningar och steg i en fråga) körs mot Postgres i `TenantIsolationIntegrationTest`.
+- Knappen "Visa orsak" i Mina betalningar ersattes 2026-11-03 av klickbar rad och knappen "Avvisad". Raden behåller sin tabellroll, så `frontend/e2e/rejection-reason-233.spec.ts` hittar fortfarande knappen med namnet "Visa avvisningsorsak". E2E-sviten är inte omkörd efter ändringen, och det nya utseendet är inte kontrollerat i webbläsare.
 - `findPaymentEvents` sorterar på `createdAt, id`, men lika tidsstämplar är inte testade. Även namnet `getMyPaymentStatuses_shouldReturnOnlyOwnPayments` beskriver inte tydligt vad testet verifierar.
 
 ### Servering av frontend (SPA-routing)

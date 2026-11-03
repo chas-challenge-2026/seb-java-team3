@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CreditCard } from "lucide-react";
 import ButtonLink from "../../../components/ui/buttons/ButtonLink";
@@ -7,10 +8,25 @@ import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
 import MyPaymentRow from "../components/MyPaymentRow";
+import StatusFilter from "../components/StatusFilter";
+import { useMarkChangedPaymentsSeen } from "../useChangedPaymentCount";
 import styles from "../components/AuditGrid.module.css";
 
 export default function MyPaymentsPage() {
-  const { data, isPending, isError, isFetching, refetch } = useQuery(myPaymentsQueryOptions);
+  const { data, dataUpdatedAt, isPending, isError, isFetching, refetch } = useQuery(myPaymentsQueryOptions);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const { mutate: markSeen } = useMarkChangedPaymentsSeen();
+
+  // Varje gång listan har hämtats har initiatorn sett besluten i den, så badgen nollas
+  useEffect(() => {
+    if (dataUpdatedAt > 0) {
+      markSeen();
+    }
+  }, [dataUpdatedAt, markSeen]);
+
+  const visiblePayments = statusFilter
+    ? data?.filter((payment) => payment.status === statusFilter) ?? []
+    : data ?? [];
 
   return (
     <Container maxWidth="xxl">
@@ -43,10 +59,15 @@ export default function MyPaymentsPage() {
               <p className={styles.description}>
                 Följ status och se vem som ska attestera betalningar du har skapat.
               </p>
+              <StatusFilter
+                statuses={data.map((payment) => payment.status)}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
             </div>
-            <div className={styles.count} aria-label={`${data.length} betalningar`}>
+            <div className={styles.count} aria-label={`${visiblePayments.length} betalningar`}>
               <CreditCard size={18} aria-hidden="true" />
-              <span>{data.length}</span> betalningar
+              <span>{visiblePayments.length}</span> betalningar
             </div>
           </header>
 
@@ -65,9 +86,17 @@ export default function MyPaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((payment) => (
-                  <MyPaymentRow key={payment.paymentId} payment={payment} />
-                ))}
+                {visiblePayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className={styles.stateText}>
+                      Inga betalningar med den statusen.
+                    </td>
+                  </tr>
+                ) : (
+                  visiblePayments.map((payment) => (
+                    <MyPaymentRow key={payment.paymentId} payment={payment} />
+                  ))
+                )}
               </tbody>
             </table>
           </div>
