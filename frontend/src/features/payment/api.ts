@@ -27,3 +27,17 @@ export async function createPayment(payment: PaymentFormData) {
 export async function getPaymentConfig() {
   return api("/api/payments/config", {}, paymentConfigSchema);
 }
+
+export async function importPayments(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return api(
+    "/api/payments/import",
+    {
+      method: "POST",
+      body: formData,
+    },
+    paymentResponseSchema.array(),
+  );
+}
