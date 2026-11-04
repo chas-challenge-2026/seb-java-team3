@@ -14,11 +14,11 @@ en gissning, och att våra avgränsningar är medvetna och motiverade.
 | 2 | "En eller flera personer... större belopp, attestansvarig och kanske VD." | Kedjan byggs som en ordnad lista av steg. Ursprungligt MVP fyllde ett steg; dubbel attest över 50 000 kr är nu byggd med två olika attestanter. VD är ingen egen roll och har ingen särskild urvalsregel. | ADR 0004, ADR 0016. | Ett steg i ursprungligt MVP; dubbel attest levererad som utökning |
 | 3 | Den som ska godkänna får ingen signal, håller reda själv, mail sväljs tyst. | Badge som räknar inloggad attestants väntande steg och gör mailen onödiga. | Epic Notifiering: badge (BUG-007, ADR 0008). | Ja (e-post är breddning) |
 | 4 | Fel kontonummer ger betalning i retur. "Kontrolleras redan när de matas in." | Validera IBAN vid inmatning: MOD97-kontrollsiffra (ISO 13616), inte bara format. BIC (ISO 9362). Delad kod. | Epic Kontonummerkontroll: IBAN-validering (BUG-003). | Ja (native C-modul är breddning) |
-| 5 | "Ladda upp en hel fil... lönekörning i stället för rad för rad." Filer 10-500 rader. | Filuppladdning med RFC 4180-parsning, allt-eller-inget-insert, filstorleksgräns. | Epic Batch/CSV (BUG-004/005/012). | Nej, efter MVP (se avvikelse A) |
+| 5 | "Ladda upp en hel fil... lönekörning i stället för rad för rad." Filer 10-500 rader. | Filuppladdning med RFC 4180-parsning, allt-eller-inget-insert, filstorleksgräns. | Epic Batch/CSV (BUG-004/005/012). | Nej i MVP; byggd till slutleveransen (#255), se avvikelse A |
 | 6 | "Visa vem som godkände vad och när... svart på vitt... från ax till limpa." | Kronologisk vy per betalning (aktör, händelse, tid, ordning) plus logg av alla beslutshändelser, skrivna atomärt. | Epic Audit/spårbarhet (BUG-008). Sluttentans-kriteriet. | Ja |
 | 7 | "Reglerat område... känsliga uppgifter... säkra och motståndskraftiga system." | Säker inloggning (ingen SQLi, BCrypt), rollstyrning, egna atteststeg, tenant-isolering. | Epic Auth/behörighet (BUG-001, 002, 011), tenant-filtrerad audit. | Ja (2FA är breddning; refresh-rotation är byggd, ADR 0012) |
 | 8 | "Flera personer kan arbeta med det här utan att det blir fel." | Samtidighetsskydd: atomär saldo-dragning, ingen dubbelgodkänning. | Godkänn-story: `@Transactional` (BUG-009), `@Version`. | Ja |
-| 9 | "Motståndskraftiga när det blir fel." | Atomicitet: betalning, saldo och audit lyckas eller rullas tillbaka tillsammans. Batch allt-eller-inget. | BUG-005/008/009. | Ja i kärnan (batch-delen är breddning) |
+| 9 | "Motståndskraftiga när det blir fel." | Atomicitet: betalning, saldo och audit lyckas eller rullas tillbaka tillsammans. Batch allt-eller-inget. | BUG-005/008/009. | Ja i kärnan; batch allt-eller-inget byggd efter MVP (#255) |
 | 10 | "Inte att det ska gå jättefort, det viktigaste är att den är pålitlig." Kvalitet viktigast. | Prioriteringsprincip: en stabil kärna slår fem halvfärdiga flöden. | `mvp.md`, ADR 0003, DoD i `ways-of-working.md`. | Styr allt |
 | 11 | "Inte uppfinna från noll, modernisera befintligt." Teknisk skuld. | Bygger v2 ovanpå befintligt v1. BUG-referenserna är den tekniska skuld som rättas. | Alla BUG-001 till 012 i backloggen. | - |
 | 12 | (Filmen nämner inte valuta.) | Allt hanteras i SEK. | `mvp.md`, utanför scope. | Utanför scope |
@@ -36,13 +36,15 @@ högst ("det får absolut inte gå fel", "det viktigaste är att den är pålitl
 kärna före ett halvfärdigt filflöde är därför en trogen läsning av hans egen prioritering
 (ADR 0003). Vi behöll däremot IBAN-valideringen i MVP, som också är en namngiven smärta,
 eftersom den är billig och central för att fånga fel tidigt.
-Risk: kunden kan efterfråga filuppladdning i demon. Åtgärd: ha motiveringen redo, och
-överväg en enkel (icke-native) CSV-import till slutleveransen så att ett uttalat kriterium
-inte helt saknas. Native prestanda-parsern förblir breddning.
+Uppföljning: batch-uppladdningen byggdes till slutleveransen (#255), när kärnan stod.
+En initiatör laddar upp en CSV-fil under Ny betalning, och hela filen importeras i en
+transaktion: en felaktig rad stoppar alla betalningar i filen. Filen får vara högst 1 MB och
+innehålla högst 500 betalningar, vilket täcker kundens 10–500 rader. Parsningen görs av den
+native CSV-parsern (RFC 4180).
 
 **Övrig breddning** (se [mvp.md](mvp.md) för nuläget): dubbel attest över 50 000 kr,
-native IBAN-validering och HMAC-kedjad audit-logg är byggda. Native CSV-parser finns,
-men uppladdningsflödet återstår. Ett särskilt VD-steg, fler trösklar, påminnelser via e-post
+native IBAN-validering, HMAC-kedjad audit-logg och native CSV-parser med batch-uppladdning
+är byggda. Ett särskilt VD-steg, fler trösklar, påminnelser via e-post
 (kö, retry), compliance-export och 2FA återstår. Prioriteringen utgår från kärnans
 "det får inte gå fel".
 

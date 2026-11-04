@@ -26,6 +26,42 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-11-04 — Uppladdningsvyn för CSV och rättade seed-IBAN (V15) — Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Ta reda på varför bara ett seed-konto klarade MOD97, väga två lösningar för hur avsändarkontot anges i CSV-filen, och bygga den lösning jag valde.
+- **Genererades:**
+  - Migreringen `V15__fix_seed_iban_check_digits.sql`, som räknar om kontrollsiffrorna för Lönekonto och Projektkonto utan att ändra V5.
+  - Giltiga mottagar-IBAN i `shared/example-batch.csv`.
+  - I uppladdningsvyn (`BatchPaymentUpload.tsx`): en lista med konto-id per konto, tydligare instruktioner och en bekräftelseruta som visar betalningarna innan de skapas.
+  - En förhandsvisning av CSV-filen i webbläsaren (`csvPreview.ts`) och tester för vyn och förhandsvisningen.
+- **Hur jag granskade/ändrade:**
+  - AI förklarade orsaken: seed-IBAN:erna hade fått sista siffran uppräknad utan att kontrollsiffrorna räknades om. Den föreslog en ny migrering i stället för att ändra V5, eftersom Flyway annars vägrar starta på stage och prod.
+  - AI gav två alternativ: kontonummer i filen, som kräver ändringar i den native parsern och JNA, eller konto-id som visas i vyn. Jag valde konto-id eftersom deadline var samma dag, och bestämde att uppladdningen skulle få samma bekräftelseruta som en enskild betalning.
+  - Jag kontrollerade resultatet på skärmdumpar av vyn, rutan och resultatet.
+  - Alla sviter kördes innan merge: backend 563/563, Vitest 293/293, native, E2E 9/9 och röktestet. Allt-eller-inget provades för hand mot Postgres: en fil med ett ogiltigt IBAN skapade inga betalningar.
+- **Valde bort:** Kontonummer i stället för konto-id i CSV-filen. Det krävde ändringar i C-parsern och JNA-mappningen för sent i projektet. Står som avgränsning i `docs/kanda-brister-och-avgransningar.md`.
+- **Spår:** commits på `develop` 2026-11-04
+
+---
+### 2026-11-04 — Slutgenomgång av dokumentationen inför leverans — Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Gå igenom dokumentationen mot koden, CI och miljöerna inför slutleveransen, och skriva de dokument som saknades.
+- **Genererades:**
+  - `docs/cto/Risk-feedforward.md` och `docs/ux/UX-feedforward.md`: vad vi prioriterade, vad vi avgränsade och varför.
+  - `docs/kanda-brister-och-avgransningar.md`.
+  - Sprintplaneringar för v10 och v12, och retros för v7, v9, v10 och v11. De bygger på sprintplanerna och vad som mergades varje vecka.
+  - Uppdaterade statusar och bevis i riskregistret (R-02, R-03, R-14, R-21 med flera), kontrollerade mot tester, GitHub Actions och prod/stage.
+  - Avsnitten "Så har vi bearbetat specialisternas feedforward" och "Fallback för demon" i README.
+  - Dagens testsiffror i `test-status.md`, och rättade länkar efter att filer flyttats.
+- **Hur jag granskade/ändrade:**
+  - Jag läste dokumenten och strök det som inte stämde med hur vi arbetat, bland annat rader i riskregistret.
+  - Jag fyllde själv i kvaldemons utfall och feedback i retron för v10.
+  - Jag flyttade filer till `docs/cto/`, `docs/ux/` och `docs/sprints/`, och bekräftade att teamet gått igenom poängen och CIA-märkningen i riskregistret.
+  - AI markerade det den inte kunde veta, till exempel filminlämningar, ägare och videolänken. Det fyllde jag i eller lät stå öppet.
+- **Valde bort:** AI:s förslag att lägga in `npm audit` i CI som en snabb kodfix, eftersom vi ville frysa koden. De står som avgränsningar i stället.
+- **Spår:** commits på `develop` 2026-11-04
+
+---
 ### 2026-11-02 — Koppling mot backend för användaradministration och borttagning av användare (#243) Marcus
 - **Verktyg:** Claude Code
 - **Använde AI till:** Att koppla frontend-sidan för användaradministration mot det riktiga API:t, nu när backend-delen (#242, ADR 0017) fanns, och att bygga ut backend med borttagning av användare, eftersom ta bort-knappen annars inte hade något att anropa. AI:n läste först `AdminUserController`, DTO:erna och ADR 0017 för att få det faktiska kontraktet, och jämförde det med mockdatan jag byggt tidigare. Jag bad sedan om borttagningen i backend, och AI:n läste hur användare hänger ihop med betalningar, atteststeg, refresh-token och audit innan den designade den.

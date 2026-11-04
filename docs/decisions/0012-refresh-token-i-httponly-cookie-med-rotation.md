@@ -6,7 +6,7 @@
 - **Berör:** Auth & behörighet, backend, frontend
 - **Relaterade issues:** #194, #195
 - **Ersätter delvis:** [ADR 0009](0009-jwt-i-localstorage-ersatter-httponly-cookie.md) (var token lagras). ADR 0009 har status "Delvis ersatt av ADR 0012".
-- **Relaterat:** [ADR 0011](0011-jwt-signeringsnyckeln-slumpas-vid-start.md), [ADR 0003](0003-mvp-scope-och-avgransningar.md), CTO-feedbacken i `docs/Risk-feedfoward.md` (punkt 8)
+- **Relaterat:** [ADR 0011](0011-jwt-signeringsnyckeln-slumpas-vid-start.md), [ADR 0003](0003-mvp-scope-och-avgransningar.md), CTO-feedbacken i `docs/cto/Risk-feedforward.md` (punkt 8)
 
 ## Kontext
 
@@ -17,7 +17,7 @@ När ADR:n skrevs hade vi en enda JWT (ADR 0009). Den gäller i 1 timme, är sta
 - **Det finns ingen bra livslängd.** Kort ger ständiga utloggningar, och lång ger en stulen token längre användbarhet.
 - **Varje omstart loggar ut alla** sedan ADR 0011 slumpar signeringsnyckeln vid start.
 
-Refresh-token-rotation har legat som "breddning" (ADR 0003, `docs/mvp.md`), men står som acceptanskriterium i `docs/backlog.md`: kort access-token, refresh-token med rotation där den gamla ogiltigförklaras, och en session som går att återkalla. CTO-feedbacken pekade ut JWT-hanteringen som det allvarligaste, och i `Risk-feedfoward.md` antecknade teamet att JWT ska ligga i en variabel i 15 minuter i frontend, med refresh via httpOnly-cookie. Teamet har beslutat att bygga det nu, i sprint v8.
+Refresh-token-rotation har legat som "breddning" (ADR 0003, `docs/mvp.md`), men står som acceptanskriterium i `docs/backlog.md`: kort access-token, refresh-token med rotation där den gamla ogiltigförklaras, och en session som går att återkalla. CTO-feedbacken pekade ut JWT-hanteringen som det allvarligaste, och i `Risk-feedforward.md` antecknade teamet att JWT ska ligga i en variabel i 15 minuter i frontend, med refresh via httpOnly-cookie. Teamet har beslutat att bygga det nu, i sprint v8.
 
 Förutsättningar:
 
@@ -81,7 +81,7 @@ Regler:
 ## Uppföljning
 
 - Klart: migrationen V8 mot riktig Postgres, cookie-attributen, rotation och att återanvändning spärrar familjen är verifierade live. Ett E2E-scenario där sidan laddas om och användaren förblir inloggad finns i `frontend/e2e/session.spec.ts`. Racet från granskningen (en gammal token och den aktuella används samtidigt) är reproducerat mot Postgres 12 före och efter låset, i båda ordningarna. Racet och flödet mot Postgres är körningar för hand, inte incheckade tester. Testcontainers finns nu i sviten (#193), så de kan checkas in.
-- Återstår: verifiering på stage (se punkt 8 i `docs/Risk-feedfoward.md`).
-- Klart: ADR 0009 har status "Delvis ersatt av ADR 0012", R-12 är uppdaterad i riskregistret (`docs/cto/Risk_register.md`), och `docs/mvp.md`, `docs/kravtolkning.md` och ADR 0003 anger att refresh-token-rotation är byggd.
+- Återstår: verifiering på stage (se punkt 8 i `docs/cto/Risk-feedforward.md`).
+- Klart: ADR 0009 har status "Delvis ersatt av ADR 0012", R-12 är uppdaterad i riskregistret (`docs/cto/Risk-register.md`), och `docs/mvp.md`, `docs/kravtolkning.md` och ADR 0003 anger att refresh-token-rotation är byggd.
 - Omvärdera vid behov: nådetid vid återanvändning, absolut tak för sessionen, ett städjobb för utgångna rader, och "logga ut överallt".
 - Ratebegränsning av login och refresh ingår inte här och följs upp som R-15 i riskregistret.

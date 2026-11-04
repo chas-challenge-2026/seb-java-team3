@@ -1,8 +1,7 @@
 # Sprint v11
 
 **Datum:** 2026-10-28  
-**Team Lead denna sprint:** ____  
-**Backlog-ägare:** ____  
+**Backlog-ägare:** Pontus
 **Närvarande:** Jonathan, Adnan, Markus, Pontus, Marcus, Mohammed
 
 ## Sprintmål
@@ -63,8 +62,8 @@
 
 ## Att bevaka
 
-- [ ] `test-status.md` och `README` ska vara uppdaterade innan slutleveransen.
-- [ ] Räkne-endpointen behöver vara klar innan frontend-badgen kan göras.
-- [ ] Seed-IBAN ska fixas så vi kan använda flera konton under demon.
-- [ ] Boka in fredagens F8-dialoger.
-- [ ] Alla tasks ska ha en ägare och ett estimat innan de flyttas till Ready.
+- [x] `test-status.md` och `README` ska vara uppdaterade innan slutleveransen.
+- [x] Räkne-endpointen behöver vara klar innan frontend-badgen kan göras.
+- [x] Seed-IBAN ska fixas så vi kan använda flera konton under demon.
+- [x] Boka in fredagens F8-dialoger.
+- [x] Alla tasks ska ha en ägare och ett estimat innan de flyttas till Ready.

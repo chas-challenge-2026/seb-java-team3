@@ -2,22 +2,21 @@
 
 Här finns en samlad bild av vad som är testat och vilka luckor som återstår. Teststödet anges med fil eller testnamn så att varje punkt går att kontrollera i koden. Uppdatera dokumentet när en task går till Done.
 
-**Senast uppdaterad:** 2026-11-03
-**Ansvarig denna sprint:** ____
+**Senast uppdaterad:** 2026-11-04
 
 ## 1. Läget just nu
 
 | Svit | Omfattning | Senaste besked |
 | --- | --- | --- |
-| Backend · JUnit | 55 klasser, 550 tester | Alla passerade 2026-11-03 med `mvn package` i Maven-container, native-bibliotek byggda och Postgres 12 via Testcontainers. Inga överhoppade tester. |
-| Frontend · Vitest | 33 filer, 274 tester | Alla passerade 2026-11-03, även efter ändringarna i Mina betalningar, initiatorns badge och genvägen till attestvyn; `npm run lint` och `npm run build` passerade också. |
-| Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla passerade 2026-11-03 i gcc-container med Check. Maven-CI kör nu samma svit före Java-testerna. |
-| Rök-test · byggd app | `scripts/smoke-spa.mjs`, 18 kontroller | Alla passerade mot Docker 2026-11-03, inklusive kontrollerna med token. |
-| E2E · Playwright | 6 filer, 9 tester: admin, dubbel attest, MVP, avvisningsorsak, session och smoke | Alla passerade mot isolerad Docker-stack 2026-11-03 med en Chromium-worker. |
+| Backend · JUnit | 57 klasser, 563 tester | Alla passerade 2026-11-04 med `mvn package` i Maven-container, native-bibliotek byggda och Postgres 12 via Testcontainers. Inga överhoppade tester. |
+| Frontend · Vitest | 35 filer, 293 tester | Alla passerade 2026-11-04, även efter konto-id och bekräftelseruta i uppladdningsvyn; `npm run lint` och `npm run build` passerade också. |
+| Native C · Check | 112 tester: `iban` 36, `csv` 37, `audit` 39 | Alla passerade 2026-11-04 i gcc-container med Check. Maven-CI kör samma svit före Java-testerna. |
+| Rök-test · byggd app | `scripts/smoke-spa.mjs`, 18 kontroller | Alla passerade mot Docker 2026-11-04, inklusive kontrollerna med token. |
+| E2E · Playwright | 6 filer, 9 tester: admin, dubbel attest, MVP, avvisningsorsak, session och smoke | Alla passerade mot lokal Docker-stack 2026-11-04 med en Chromium-worker. |
 
 Backend verifierades med en ren byggning för att få bort gamla kompilerade migrationsfiler. Därefter passerade hela `mvn package` med de slutliga ändringarna. Native-integrationen kördes med `-Djna.library.path` satt till de byggda biblioteken. Docker-bygget omfattade frontend, backend och native och användes av E2E och röktestet.
 
-`ApprovalServiceTransactionIntegrationTest`, `ApprovalConcurrencyIntegrationTest`, `TenantIsolationIntegrationTest`, `DualApprovalIntegrationTest` och nya `PaymentCreationIntegrationTest` kördes mot Postgres 12. De nya CI-stegen är konfigurerade men själva GitHub-körningen är ännu inte verifierad; ändringarna har inte pushats eller deployats. Tidigare manuella kontroller nedan behåller sina datum. Se [projektgenomgången](project-review.md) för åtgärder och kvarstående produktutökningar.
+`ApprovalServiceTransactionIntegrationTest`, `ApprovalConcurrencyIntegrationTest`, `TenantIsolationIntegrationTest`, `DualApprovalIntegrationTest` och nya `PaymentCreationIntegrationTest` kördes mot Postgres 12. I GitHub Actions passerade Java CI (med native-sviten) och Frontend CI (med E2E-jobbet och röktestet) på `develop` 2026-11-04. Tidigare manuella kontroller nedan behåller sina datum. Se [kända brister och avgränsningar](kanda-brister-och-avgransningar.md) för kvarstående brister och avgränsningar.
 
 **Status:** Grön = test finns och passerar; Delvis = delar är testade; Ej testad = test saknas; Röd = test finns men fallerar.  
 **Typer:** Unit = enhetstest; Int = integrationstest med exempelvis Spring, MockMvc eller H2; Komp = React-komponenttest; E2E = ett test som går genom hela användarflödet; Rök = kontroller mot en app som är igång, i Docker eller på stage.
@@ -145,7 +144,7 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 **Avgränsningar och kvar att testa**
 
 - IBAN-fallen omfattar giltiga svenska och tyska nummer, mellanslag och fel kontrollsiffra.
-- Seed-datans IBAN:er klarar inte MOD97, utom `SE4550000000058398257466`. Ett E2E-test som betalar till någon av de andra stoppas därför av valideringen, i formuläret eller med 400 från API:t.
+- Seed-kontonas IBAN klarar MOD97 sedan migrering V15, som rättade kontrollsiffrorna för Lönekonto och Projektkonto. Mottagarna i `shared/example-batch.csv` är också giltiga. Kontrollerat mot en lokal Docker-stack 2026-11-04.
 - BIC har bara två fall i regex-fallbacken. Native-modulen är byggd, och Check-testerna körs nu i Maven-CI före Java-sviten. CI bygger även biblioteken och skickar deras sökväg till Java-testerna. `normalize()` saknar bland annat tester för NUL och längd över 34 tecken.
 - Formulärvalideringen är testad, men fokus och tabbordning är inte det.
 
@@ -228,13 +227,13 @@ E2E-testet går genom hela användarflödet i webbläsaren: initiatören skapar 
 | Påminnelse via e-post med kö och retry | Ej testad | Inte byggt. |
 | Användaradministration för admin (lista, skapa, byta roll, ta bort) | Delvis | Backend och API-kopplad frontend är byggda. Frontendens enhets- och komponenttester passerar 2026-11-03; E2E för skapa/rollbyte/borttagning återstår. Admins översikt och route-spärrar är däremot verifierade i E2E. Se "Användaradministration". |
 | Dubbel attest över 50 000 kr | Grön | ADR 0016. Tröskeln, ordningen, spärren mot att samma person godkänner två gånger, avvisning och reservation körs mot Postgres i `DualApprovalIntegrationTest`. Gränsfallen ligger i `PaymentServiceTest`, och hela flödet i webbläsaren i `frontend/e2e/dual-approval.spec.ts`. |
-| Batch/CSV enligt RFC 4180 med allt-eller-inget | Delvis | Native-parsern i `native/csv` har 37 Check-tester, som nu körs i Maven-CI. Endpoint, vy och allt-eller-inget är inte byggda. |
+| Batch/CSV enligt RFC 4180 med allt-eller-inget | Delvis | Byggt i #255: `POST /api/payments/import` och uppladdningsvy under Ny betalning. Native-parsern i `native/csv` har 37 Check-tester. `CsvParserServiceTest` och `CsvPaymentImportServiceTest` testar parsning, rubrikrad, UTF-8, storleksgräns och att en felaktig rad stoppar hela filen innan någon betalning skapas; `RoleAuthorizationTest` att bara initiatören får importera; `BatchPaymentUpload.test.tsx` vyn: kontolistan med konto-id, bekräftelserutan som visar betalningarna innan något skickas, avbryt, felsvar från servern och okänt konto-id. `csvPreview.test.ts` testar förhandsvisningens CSV-läsning (citattecken, radbrytning i fält, BOM, fel rubrik, fel belopp, högst 500 rader). Manuellt mot lokal Docker-stack med Postgres 2026-11-04: `shared/example-batch.csv` skapade tre betalningar, och en fil där rad 2 hade ogiltigt IBAN skapade inga betalningar alls. Importtesterna i backend använder mockar, så ett incheckat rollback-test mot riktig databas och E2E återstår. Testerna från #255 och förhandsvisningen ingår inte i antalen ovan från 2026-11-03. |
 
 ## 5. Nästa testinsatser
 
 | Prioritet | Att göra | Varför |
 | --- | --- | --- |
-| 1 | Verifiera de nya GitHub-jobben efter push. | E2E, röktest och native-svit är inlagda i arbetsflödena och körda lokalt, men GitHub-körningen återstår. |
+| 1 | Checka in ett rollback-test mot Postgres och ett E2E-test för CSV-importen. | Allt-eller-inget är kontrollerat för hand mot Postgres 2026-11-04, men importtesterna i backend använder mockar. |
 | 2 | Lägg till E2E för skapa, byta roll och ta bort användare. | Komponent- och API-tester finns; admin-E2E verifierar läsvyer och route-spärrar. |
 | 3 | Testa e-postens unikhet och rolländring samtidigt som en betalning skapas mot Postgres. | Dubblettfångsten för användarskapande har fortfarande bara H2 och mockstöd för samtidighet. |
 | 4 | Checka in samtidighetstester för refresh-token mot Postgres. | De manuella körningarna och enhetstesterna finns, men det saknas ett incheckat test av själva racet. |

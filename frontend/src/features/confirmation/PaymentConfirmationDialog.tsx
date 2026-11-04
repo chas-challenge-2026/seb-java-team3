@@ -31,6 +31,8 @@ interface PaymentConfirmationDialogProps {
   error?: ReactNode;
   secondaryAction?: ReactNode;
   result?: ConfirmationResult;
+  // Visas under sammanfattningen före bekräftelsen, till exempel en lista med betalningar
+  children?: ReactNode;
 }
 
 export default function PaymentConfirmationDialog({
@@ -46,6 +48,7 @@ export default function PaymentConfirmationDialog({
   error,
   secondaryAction,
   result,
+  children,
 }: PaymentConfirmationDialogProps) {
   return (
     <Modal
@@ -69,6 +72,8 @@ export default function PaymentConfirmationDialog({
           </div>
         ))}
       </dl>
+
+      {!result && children}
 
       {error}
 

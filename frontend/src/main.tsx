@@ -6,11 +6,13 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "@tanstack/react-router";
 import { router } from "./router";
 import { applyTheme, getSavedTheme } from "./lib/theme";
+import { applyNavPosition, getSavedNavPosition } from "./lib/navPosition";
 import { onUserChanged } from "./lib/authSession";
 import "./index.css";
 import "./css/colors.css"
 import "./css/appLayout.css";
 applyTheme(getSavedTheme());
+applyNavPosition(getSavedNavPosition());
 
 // Någon har loggat in som en annan användare i en annan flik (refresh-cookien delas mellan flikar).
 // Ladda om, så att allt i den här fliken visar den användare som sessionen nu tillhör.

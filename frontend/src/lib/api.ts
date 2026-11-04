@@ -78,11 +78,13 @@ export async function api<T>(
 // skickades, så att den vid 401 kan se om en annan förfrågan redan har förnyat sessionen.
 async function send(path: string, options: RequestInit, token: string | null): Promise<Response> {
   try {
+    const isFormData =
+      typeof FormData !== "undefined" && options.body instanceof FormData;
     return await fetch(`${BASE_URL}${path}`, {
       ...options,
       credentials: path === LOGIN_PATH ? "same-origin" : "omit",
       headers: {
-        "Content-Type": "application/json",
+        ...(!isFormData ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },

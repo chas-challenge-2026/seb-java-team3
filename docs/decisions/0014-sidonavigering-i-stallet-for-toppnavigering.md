@@ -40,5 +40,7 @@ Vi behåller sidonavigeringen och bygger inte om till en toppnavigering. Den tid
 
 ## Uppföljning
 
+**Uppföljning 2026-11-04:** efter feedbacken från kvaldemon finns toppmenyn som ett val under Inställningar (#256). Sidomenyn är fortfarande standard, och valet sparas per webbläsare.
+
 - Följ upp i användartester och UX-feedback om användarna hittar rätt i menyn och om någon saknar en toppnavigering.
 - Omvärdera om antalet menyval växer så att listan blir svår att överblicka, eller om nya vyer behöver hela skärmbredden.

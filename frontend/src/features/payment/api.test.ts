@@ -68,4 +68,19 @@ describe("createPayment", () => {
     await expect(createPayment(payment)).rejects.toMatchObject({ status: 401 });
     expect(api).not.toHaveBeenCalled();
   });
+
+  describe("importPayments", () => {
+    it("sends the selected CSV file as multipart form data", async () => {
+      const { importPayments } = await import("./api");
+      const file = new File(["csv contents"], "payments.csv", { type: "text/csv" });
+
+      await importPayments(file);
+
+      const [path, options] = vi.mocked(api).mock.calls.at(-1)!;
+      expect(path).toBe("/api/payments/import");
+      expect(options?.method).toBe("POST");
+      expect(options?.body).toBeInstanceOf(FormData);
+      expect((options?.body as FormData).get("file")).toBe(file);
+    });
+  });
 });

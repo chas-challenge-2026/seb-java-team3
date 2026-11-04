@@ -5,7 +5,7 @@ import { useUser } from "../../../features/auth/useUser";
 import { useLogout } from "../../../features/auth/useLogout";
 import { useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
-import { getSavedTheme, transitionTheme, type Theme } from "../../../lib/theme";
+import SettingsModal from "./SettingsModal";
 
 import {
   LayoutDashboard,
@@ -13,9 +13,8 @@ import {
   CreditCardCheck,
   Timeline,
   Users,
-  Moon,
+  Settings,
   LogOut,
-  Sun,
 } from "lucide-react";
 import { usePendingApprovalCount } from "../../../features/attest/useApprovals";
 import { useChangedPaymentCount } from "../../../features/audit/useChangedPaymentCount";
@@ -26,16 +25,10 @@ const SideBar = () => {
   const { data: approvalCount } = usePendingApprovalCount(canReadApprovals);
   const { data: changedPaymentCount } = useChangedPaymentCount(user?.role === "INITIATOR");
   const handleLogout = useLogout();
-  const [theme, setTheme] = useState<Theme>(getSavedTheme);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const iconSize = 16;
   const currentPath = useRouterState({ select: (state) => state.location.pathname });
-
-  const handleThemeToggle = () => {
-    const nextTheme: Theme = theme === "light" ? "dark" : "light";
-    transitionTheme(nextTheme);
-    setTheme(nextTheme);
-  };
 
   return (
     <aside className={Styles.sideBar}>
@@ -101,9 +94,9 @@ const SideBar = () => {
         <nav aria-label="Kontomeny">
           <ul className={Styles.navList}>
           <SideBarItem
-            label={theme === "light" ? "Mörkt läge" : "Ljust läge"}
-            icon={theme === "light" ? <Moon size={iconSize} /> : <Sun size={iconSize} />}
-            onClick={handleThemeToggle}
+            label="Inställningar"
+            icon={<Settings size={iconSize} />}
+            onClick={() => setSettingsOpen(true)}
             iconOnlyOnMobile
           />
           <SideBarItem
@@ -122,6 +115,7 @@ const SideBar = () => {
           compact
         />
       </div>
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </aside>
   );
 };

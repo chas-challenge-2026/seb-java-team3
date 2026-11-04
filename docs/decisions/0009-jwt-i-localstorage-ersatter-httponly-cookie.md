@@ -49,5 +49,5 @@ Vi lagrar JWT i `localStorage` och skickar den i `Authorization`-headern. ADR 00
 
 - Lägg till Content-Security-Policy (frontend/deploy) för att minska XSS-risken. Följs upp i R-22.
 - Klart: beslutet är omvärderat. Refresh-token i HttpOnly-cookie kombineras nu med en kortlivad access-token i minnet (ADR 0012).
-- Klart: R-12 är stängd i riskregistret (`docs/cto/Risk_register.md`).
+- Klart: R-12 är stängd i riskregistret (`docs/cto/Risk-register.md`).
 - Kontrollerat 2026-11-02: frontendkoden använder inte `dangerouslySetInnerHTML` eller `innerHTML`. Kontrollera igen vid slutleverans.

@@ -6,7 +6,7 @@ Det här är v2, en ombyggnad av det avsiktligt trasiga v1-systemet. Backend är
 
 **Läs först:** [docs/README.md](docs/README.md) är kartan över all dokumentation, [docs/mvp.md](docs/mvp.md) beskriver vad som ingår i MVP och vad som medvetet skjutits upp, och [DRIFT.md](DRIFT.md) beskriver deploy.
 
-Frontendens installation, kodstruktur, session och testkommandon finns i [frontend/README.md](frontend/README.md). Åtgärder och kvarstående produktbegränsningar från kodgenomgången 2026-11-03 finns i [docs/project-review.md](docs/project-review.md).
+Frontendens installation, kodstruktur, session och testkommandon finns i [frontend/README.md](frontend/README.md). Kända brister och avgränsningar finns samlade i [docs/kanda-brister-och-avgransningar.md](docs/kanda-brister-och-avgransningar.md).
 
 ---
 
@@ -19,10 +19,12 @@ Frontendens installation, kodstruktur, session och testkommandon finns i [fronte
 | Säker inloggning (JWT, BCrypt) | alla | `/login` |
 | Översikt över konton och väntande attester | alla | `/` |
 | Skapa betalning, IBAN kontrolleras med MOD97 | initiator | `/payments/new` |
+| Ladda upp flera betalningar från en CSV-fil och bekräfta dem innan de skapas | initiator | `/payments/new`, fliken Ladda upp flera |
 | Följa status på egna betalningar | initiator | `/my-payments` |
 | Godkänna eller avvisa betalning, badge visar antal väntande | attestant | `/attest` |
 | Granskningslogg och tidslinje per betalning | attestant, admin | `/audit` |
 | Lista, skapa och ta bort användare, byta roll | admin | `/admin/users` (API: `/api/admin/users`) |
+| Välja ljust eller mörkt läge och sidomeny eller toppmeny | alla | Inställningar i menyn |
 
 Betalningar över tröskeln (`payment.approval.no-attestant-threshold`, 5000 kr) kräver attest, och betalningar över `payment.approval.two-attestant-threshold` (50 000 kr) kräver två olika attestanter i tur och ordning (ADR 0016). Betalningar från ett konto som tillhör ett annat företag nekas. En attestant kan bara hantera sina egna steg, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den. Admin är en administrativ roll som inte skapar, godkänner eller avvisar betalningar (ADR 0017).
 
@@ -51,7 +53,7 @@ Seed-användare (skapas av Flyway, alla tillhör samma företag):
 | Attestant 2 | eva@malmobygg.se | password123 |
 | Admin | sara@malmobygg.se | password123 |
 
-Kom ihåg att seed-datans IBAN:er inte klarar MOD97, utom `SE4550000000058398257466`. Använd t.ex. `DE89370400440532013000` som mottagare när du provar.
+Alla seed-konton har giltiga IBAN (MOD97). Lönekontot och Projektkontot fick rättade kontrollsiffror i migrering V15. Som mottagare kan du till exempel använda `SE3550000000054910000003` eller `DE89370400440532013000`. Ett exempel för batch-uppladdning finns i `shared/example-batch.csv`.
 
 ### Utveckla utan att bygga om imagen
 
@@ -94,7 +96,7 @@ Dev-värdena i `application.properties` får aldrig användas i stage eller prod
 
 ## Arkitektur
 
-Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V14). Inloggning ger en JWT som frontend håller i minnet och skickar i `Authorization`-headern, och en refresh-token i HttpOnly-cookie förnyar den (ADR 0009, ADR 0012). Rollerna kontrolleras med `@PreAuthorize`.
+Lagerdelad backend (ADR 0004): `controller` tar emot anrop och returnerar DTO:er, `service` håller affärslogiken och transaktionerna, `repository` är Spring Data JPA mot PostgreSQL. Databasschemat hanteras av Flyway (migrationerna V1–V15). Inloggning ger en JWT som frontend håller i minnet och skickar i `Authorization`-headern, och en refresh-token i HttpOnly-cookie förnyar den (ADR 0009, ADR 0012). Rollerna kontrolleras med `@PreAuthorize`.
 
 Frontend skickar `Idempotency-Key` vid betalningsskapande. Samma nyckel och uppgifter inom samma användare och företag returnerar samma betalning utan ny debitering eller audithändelse. Ändrade uppgifter med samma nyckel ger 409. Headern är valfri för kompatibilitet med äldre API-klienter; de måste skicka den för att få skyddet vid omförsök. Referenser stöds upp till 140 tecken och backend avvisar belopp som inte kan representeras exakt i ören.
 
@@ -121,7 +123,7 @@ seb-java-team3/
 │       │   ├── dto/              — Request/response-objekt
 │       │   ├── security/         — JWT-tjänst och -filter, rollhantering
 │       │   ├── exception/        — Felhantering
-│       │   └── infrastructure/   — JNA-wrappers mot native bibliotek (iban, audit)
+│       │   └── infrastructure/   — JNA-wrappers mot native bibliotek (iban, csv, audit)
 │       ├── src/main/resources/
 │       │   ├── db/migration/     — Flyway-migrationer
 │       │   ├── static/           — Statiska filer (React-bygget kopieras hit i Docker)
@@ -184,7 +186,7 @@ GitHub Actions kör native-sviten och `mvn package` med native-integration, samt
 | Modul | Status | Kopplad till backend |
 |-------|--------|----------------------|
 | `native/iban` — IBAN MOD97 och BIC | Klar, 36 tester | Ja, via JNA med Java-fallback |
-| `native/csv` — CSV-batchparser | Klar, 37 tester | Nej, väntar på batch-uppladdningen |
+| `native/csv` — CSV-batchparser | Klar, 37 tester | Ja, via JNA. `CsvPaymentImportService` använder den för batch-uppladdningen (`POST /api/payments/import`) |
 | `native/audit` — signerad granskningslogg | Klar, 39 tester | Ja, via JNA. `AuditService` skriver en signerad rad efter varje committad händelse, kedjan verifieras vid start och syns i `/actuator/health` |
 
 `cd native && make lib` bygger alla tre till `native/build/lib/`. Detaljer, API och format står i [native/README.md](native/README.md).
@@ -200,35 +202,47 @@ Alla 12 buggar från v1 står i [docs/v1/known-bugs.md](docs/v1/known-bugs.md). 
 | BUG-001 SQL-injektion i inloggning | Åtgärdad. JPA med parametriserade frågor, testad i `AuthServiceInjectionTest` |
 | BUG-002 MD5-lösenord | Åtgärdad. BCrypt, migration V7 |
 | BUG-003 IBAN saknar kontrollsiffror | Åtgärdad. MOD97 i native modul och i Java-fallback |
-| BUG-004 CSV-parser bryter på komma i fält | Native parser klar (RFC 4180), men inte kopplad till backend än |
-| BUG-005 Partiell batch-insert utan transaktion | Batch-uppladdning är inte byggd |
+| BUG-004 CSV-parser bryter på komma i fält | Åtgärdad. Native parser enligt RFC 4180, kopplad till batch-uppladdningen |
+| BUG-005 Partiell batch-insert utan transaktion | Åtgärdad. Hela filen importeras i en transaktion: en felaktig rad stoppar alla betalningar i filen |
 | BUG-006 Olika attesttrösklar | Åtgärdad. Ett konfigurerat värde som frontend hämtar från backend |
 | BUG-007 Notifieringar sväljs tyst | Delvis. Attest-badge finns, e-postpåminnelser med kö och retry är inte byggda |
 | BUG-008 Dubbel audit-logg | Åtgärdad. En audit-tabell som skrivs i samma transaktion som händelsen |
 | BUG-009 Saldo dras inte | Åtgärdad vid sista godkännandet, atomärt |
 | BUG-010 Hårdkodad uppkoppling | Åtgärdad. Konfiguration via `application.properties` och miljövariabler |
 | BUG-011 IDOR i attestkorgen | Åtgärdad. Ägarkontroll av attestssteg |
-| BUG-012 Ingen filstorleksgräns för batch | Batch-uppladdning är inte byggd |
+| BUG-012 Ingen filstorleksgräns för batch | Åtgärdad. Högst 1 MB och 500 betalningar per fil |
 
 ---
 
 ## Avgränsningar och kända brister
 
-Det här är medvetet inte byggt i MVP (ADR 0003, [docs/mvp.md](docs/mvp.md)):
+Alla avgränsningar och kända brister, med motivering och hänvisning till beslut och risker, finns samlade i [docs/kanda-brister-och-avgransningar.md](docs/kanda-brister-och-avgransningar.md). De viktigaste avgränsningarna (ADR 0003, [docs/mvp.md](docs/mvp.md)):
 
-- Batch/CSV-uppladdning med allt-eller-inget (parsern finns, endpointen och vyn saknas)
 - Påminnelser via e-post med kö och retry
 - Särskilt VD-steg och fler trösklar än dubbel attest över 50 000 kr (datamodellen stöder flera steg)
 - Förfallodatum på betalningar (ADR 0013)
 - Compliance-export, 2FA och valutaomvandling (allt hanteras i SEK)
 
-Kända brister (se [projektgenomgången](docs/project-review.md) för kodstöd och föreslagen uppföljning):
+---
 
-- Bara en av seed-datans IBAN:er (`SE4550000000058398257466`) klarar MOD97, så betalningar till de andra stoppas av valideringen.
-- Omtilldelning vid frånvarande attestant, inaktivering av användare och lösenordsbyte saknas.
-- Auditlistan visar de senaste 200 händelserna och saknar sidindelning.
+## Så har vi bearbetat specialisternas feedforward
 
-Kända brister i testerna står i [docs/test-status.md](docs/test-status.md).
+Vi har vägt varje punkt mot vad som händer om risken inträffar, kundvärde, tid kvar till leveransen och om ett annat skydd redan finns. Det som skyddar betalningsflödet och kundens data gick först. Resten avgränsade vi med en motivering.
+
+- **CTO (säkerhet):** BCrypt i stället för MD5, skydd mot SQL-injektion, atomära transaktioner, refresh-token i httpOnly-cookie med rotation, accessmatris och stängd eskalering för admin. GUID och `npm audit` i CI är avgränsade. [Detaljer](docs/cto/Risk-feedforward.md), [riskregistret](docs/cto/Risk-register.md).
+- **UX:** vem betalningen väntar på och "attest 1 av 2", mer information inför attesten, filter och "Automatiskt godkänd" i auditloggen samt översikt per roll. E-post, påminnelser och förfallodatum är avgränsade (ADR 0013). [Detaljer](docs/ux/UX-feedforward.md).
+- **DM:** alla kundbehov i [kravtolkningen](docs/kravtolkning.md) är byggda. Även batch/CSV, som först låg utanför MVP, kom med till slutleveransen.
+- **Kvaldemon:** ljust läge som standard, toppmeny som val i inställningarna och en granskningsruta innan man godkänner ([retro v10](docs/sprints/retro-review/sprint-retro-reviewv10.md)).
+
+---
+
+## Fallback för demon
+
+Om livedemon inte fungerar byter vi i den här ordningen:
+
+1. **Den andra miljön.** Prod: https://seb-java-team3.team.chas-challenge.comerit.se. Stage: https://seb-java-team3-dev.team.chas-challenge.comerit.se. Båda har samma seed-användare, se [DRIFT.md](DRIFT.md).
+2. **Lokal miljö.** Starta med `docker compose up --build` i `infra/`, se [Snabbstart](#snabbstart).
+3. **Skärmdumpar och presentation.** [docs/demo-fallback/](docs/demo-fallback/) innehåller presentationen (`00-Presentation_Powerpoint.pptx`) och skärmdumpar av hela kärnflödet i demoordning, från inloggning (`01`) till auditloggen (`11`). Demoplanen och manuset finns i [Kval-demo-plan.md](docs/demo-fallback/Kval-demo-plan.md).
 
 ---
 
@@ -238,5 +252,5 @@ Kända brister i testerna står i [docs/test-status.md](docs/test-status.md).
 - **Databas:** PostgreSQL 12
 - **Frontend:** React 19, TypeScript, Vite, TanStack Router och Query, Zod
 - **Native:** C99 (gcc), OpenSSL, OpenMP, anropas via JNA
-- **Test:** JUnit och H2, Vitest, Playwright, Check (C)
+- **Test:** JUnit, H2 och Testcontainers (Postgres), Vitest, Playwright, Check (C)
 - **Drift:** Docker Compose, GitHub Actions

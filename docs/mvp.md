@@ -37,8 +37,8 @@ Följande låg utanför ursprungligt MVP. Flera delar har sedan byggts; listan a
 - Avvisa betalning med kommentar (byggt efter MVP i #226 och #228: avvisningen tar emot ett valfritt meddelande, som sparas atomärt med beslutet och visas i Historik; godkännande tar inget meddelande)
 - Påminnelser via e-post (kö, retry)
 - Dubbel attest / attestant 2 (VD) och tröskeltrappa (dubbel attest över 50 000 kr byggt efter MVP, se ADR 0016; ett särskilt VD-steg och fler trösklar är inte byggda)
-- Batch/CSV-uppladdning
-- Native C-moduler: IBAN-validering och audit-signering är byggda och kopplade till backend; CSV-parsern är byggd men saknar endpoint och uppladdningsvy
+- Batch/CSV-uppladdning (byggd efter MVP i #255: en CSV-fil med högst 500 betalningar importeras allt-eller-inget via `POST /api/payments/import`)
+- Native C-moduler: IBAN-validering, audit-signering och CSV-parsern är byggda och kopplade till backend
 - Kontoöversikt/dashboard som egen vy (byggd med konton från API:t och rollanpassning; admin har en skrivskyddad attestöversikt)
 - Användaradministration (byggd i backend och frontend: lista, skapa, byta roll och ta bort användare utan historik; admin får inte tilldelas via API:t)
 - Compliance-export, 2FA, valutaomvandling
@@ -53,4 +53,4 @@ Refresh-token-rotation låg tidigare på den här listan men är nu byggd (ADR 0
 
 Hela MVP-flödet går att demonstrera live, end-to-end, och motsvarande rader i `test-status.md` är gröna.
 
-MVP-testets hantering av kvittodialogen är rättad och hela E2E-sviten med nio tester passerade mot en isolerad Docker-stack 2026-11-03. Sviten omfattar även dubbel attest och admins gränssnitt. Se [teststatus](test-status.md) och [projektgenomgången](project-review.md) för övrig verifiering och kvarstående produktbegränsningar.
+MVP-testets hantering av kvittodialogen är rättad och hela E2E-sviten med nio tester passerade mot en isolerad Docker-stack 2026-11-03. Sviten omfattar även dubbel attest och admins gränssnitt. Se [teststatus](test-status.md) för övrig verifiering och [kända brister och avgränsningar](kanda-brister-och-avgransningar.md) för kvarstående produktbegränsningar.

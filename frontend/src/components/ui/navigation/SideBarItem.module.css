@@ -70,36 +70,65 @@
 .danger { color: var(--danger-text-muted); }
 .danger:hover { background-color: var(--danger-bg-hover); color: var(--danger-text-strong); }
 
-@media (max-width: 1000px) {
-    .link {
+/* Toppläge är grundutseendet; sidoläget gäller på bred skärm när användaren inte
+   valt "alltid överst" (data-nav="top" på <html>, se lib/navPosition.ts) */
+.link {
+    width: auto;
+    min-height: 2.65rem;
+    padding: 0.55rem 0.7rem;
+    gap: 0.45rem;
+    white-space: nowrap;
+}
+
+.label {
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.iconOnlyOnMobile {
+    justify-content: center;
+    width: 2.6rem;
+    padding: 0.55rem;
+}
+
+.iconOnlyOnMobile .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (min-width: 1001px) {
+    :global(:root:not([data-nav="top"])) .link {
+        width: 100%;
+        min-height: 2.75rem;
+        padding: 0.6rem 0.75rem;
+        gap: 0.65rem;
+        white-space: normal;
+    }
+
+    :global(:root:not([data-nav="top"])) .label {
+        flex: 1;
+        font-size: 0.9rem;
+        white-space: normal;
+    }
+
+    :global(:root:not([data-nav="top"])) .iconOnlyOnMobile {
+        justify-content: flex-start;
+    }
+
+    :global(:root:not([data-nav="top"])) .iconOnlyOnMobile .label {
+        position: static;
         width: auto;
-        min-height: 2.65rem;
-        padding: 0.55rem 0.7rem;
-        gap: 0.45rem;
-        white-space: nowrap;
-    }
-
-    .label {
-        flex: 0 0 auto;
-        font-size: 0.82rem;
-        white-space: nowrap;
-    }
-
-    .iconOnlyOnMobile {
-        justify-content: center;
-        width: 2.6rem;
-        padding: 0.55rem;
-    }
-
-    .iconOnlyOnMobile .label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
+        height: auto;
+        margin: 0;
+        overflow: visible;
+        clip: auto;
     }
 }
