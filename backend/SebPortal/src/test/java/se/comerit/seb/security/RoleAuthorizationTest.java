@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.config.JwtSecurityConfig;
@@ -15,6 +16,7 @@ import se.comerit.seb.domain.Role;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.service.ApprovalService;
 import se.comerit.seb.service.AuditService;
+import se.comerit.seb.service.CsvPaymentImportService;
 import se.comerit.seb.service.PaymentService;
 
 import java.util.List;
@@ -24,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,6 +63,9 @@ class RoleAuthorizationTest {
 
     @MockBean
     private PaymentService paymentService;
+
+    @MockBean
+    private CsvPaymentImportService csvPaymentImportService;
 
     @MockBean
     private ApprovalThresholds approvalThresholds;
@@ -255,6 +261,28 @@ class RoleAuthorizationTest {
                         .contentType(APPLICATION_JSON)
                         .content(PAYMENT_REQUEST_JSON))
                 .andExpect(status().isForbidden());
+    }
+
+    // CSV-importen skapar betalningar och följer därför samma regel som POST /api/payments (ADR 0017).
+    @Test
+    void initiatorCanImportPayments() throws Exception {
+        mockMvc.perform(multipart("/api/payments/import").file(csvFile())
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void adminAndAttestantCannotImportPayments() throws Exception {
+        for (Role role : List.of(Role.ADMIN, Role.ATTESTANT)) {
+            mockMvc.perform(multipart("/api/payments/import").file(csvFile())
+                            .header("Authorization", "Bearer " + tokenFor(3L, 1L, role)))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    private static MockMultipartFile csvFile() {
+        return new MockMultipartFile("file", "betalningar.csv", "text/csv",
+                "from_account_id,to_iban,amount,reference\n1,SE4550000000058398257466,100.00,test\n".getBytes());
     }
 
     @Test
