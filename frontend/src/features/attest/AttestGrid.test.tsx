@@ -30,7 +30,13 @@ const step: AttestSteg = {
   fromAccountName: "Driftkonto",
   balanceAfterPayment: 87500,
   initiatorName: "Lisa Persson",
+  stepNumber: 1,
+  totalSteps: 1,
+  previousApprovals: [],
 };
+
+// Godkänn-knappen visar beloppet som godkänns
+const APPROVE_BUTTON = /^Godkänn 12\s500,00 SEK$/;
 
 type MutateOptions = { onSuccess?: () => void; onError?: (error: unknown) => void };
 
@@ -51,9 +57,31 @@ function mockApprovals(
   } as unknown as ReturnType<typeof useApprovals>);
 }
 
+async function openReview(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /granska betalning till/i }));
+}
+
 describe("AttestGrid", () => {
   beforeEach(() => {
     mockedUseApprovals.mockReset();
+  });
+
+  it("lets admin inspect a payment without approving or rejecting it", async () => {
+    const approve = vi.fn();
+    const reject = vi.fn();
+    mockApprovals(approve, { reject });
+    const user = userEvent.setup();
+    render(<AttestGrid readOnly />);
+
+    expect(screen.getByText("Väntande betalningar i företaget")).toBeInTheDocument();
+    await openReview(user);
+    const dialog = screen.getByRole("dialog", { name: "Betalningsöversikt" });
+    expect(within(dialog).getByText("Faktura 1042")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /Godkänn|Avvisa/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Tillbaka till attestöversikten" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(approve).not.toHaveBeenCalled();
+    expect(reject).not.toHaveBeenCalled();
   });
 
   it("shows which account is drawn from and who created the payment", () => {
@@ -90,11 +118,103 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(
       screen.getByText(/Betalningen till SE4550000000058398257466 på 12\s500,00 SEK är godkänd\./),
     ).toBeInTheDocument();
+  });
+
+  describe("dubbel attest", () => {
+    const firstOfTwo: AttestSteg = { ...step, totalSteps: 2 };
+
+    it("shows which attest in the chain the step is", async () => {
+      mockApprovals(vi.fn(), { data: [firstOfTwo] });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+      expect(within(row).getByText("Attest 1 av 2")).toBeInTheDocument();
+
+      await openReview(user);
+      expect(within(screen.getByRole("dialog")).getByText("1 av 2")).toBeInTheDocument();
+    });
+
+    describe("vem som redan har godkänt", () => {
+      const secondOfTwo: AttestSteg = {
+        ...step,
+        stepNumber: 2,
+        totalSteps: 2,
+        previousApprovals: [{ stepNumber: 1, approverName: "Johan Berg" }],
+      };
+
+      it("shows who approved the earlier attest in the review", async () => {
+        mockApprovals(vi.fn(), { data: [secondOfTwo] });
+        const user = userEvent.setup();
+        render(<AttestGrid />);
+
+        await openReview(user);
+
+        const dialog = within(screen.getByRole("dialog"));
+        expect(dialog.getByText("Attest 1 godkänd av")).toBeInTheDocument();
+        expect(dialog.getByText("Johan Berg")).toBeInTheDocument();
+      });
+
+      it("shows it when rejecting too", async () => {
+        mockApprovals(vi.fn(), { data: [secondOfTwo] });
+        const user = userEvent.setup();
+        render(<AttestGrid />);
+
+        await openReview(user);
+        await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
+
+        expect(within(screen.getByRole("dialog")).getByText("Johan Berg")).toBeInTheDocument();
+      });
+
+      it("shows nothing on the first attest", async () => {
+        mockApprovals(vi.fn(), { data: [firstOfTwo] });
+        const user = userEvent.setup();
+        render(<AttestGrid />);
+
+        await openReview(user);
+
+        expect(screen.queryByText(/godkänd av/)).not.toBeInTheDocument();
+      });
+    });
+
+    it("does not show a chain for a single attest", () => {
+      mockApprovals(vi.fn());
+      render(<AttestGrid />);
+
+      expect(screen.queryByText(/Attest 1 av 1/)).not.toBeInTheDocument();
+    });
+
+    // Den första attestanten ska inte tro att pengarna redan har gått iväg
+    it("says that the payment is not executed until the next attest is done", async () => {
+      mockApprovals((_id, options) => options.onSuccess?.(), { data: [firstOfTwo] });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      expect(screen.getByText(/Den genomförs först när attest 2 av 2 är klar\./)).toBeInTheDocument();
+      expect(screen.queryByText(/är godkänd\./)).not.toBeInTheDocument();
+    });
+
+    it("confirms the payment as approved on the last attest", async () => {
+      mockApprovals((_id, options) => options.onSuccess?.(), {
+        data: [{ ...step, stepNumber: 2, totalSteps: 2 }],
+      });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      expect(screen.getByText(/är godkänd\./)).toBeInTheDocument();
+    });
   });
 
   it("shows why an approval failed", async () => {
@@ -104,7 +224,8 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(
       screen.getByText(
@@ -119,9 +240,84 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    const dialog = screen.getByRole("dialog", { name: "Granska betalning" });
+    expect(mutate).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(mutate).toHaveBeenCalledWith(7, expect.any(Object));
+  });
+
+  describe("granska", () => {
+    it("shows one review button per payment instead of approve and reject", () => {
+      mockApprovals(vi.fn());
+      render(<AttestGrid />);
+
+      const row = screen.getByRole("row", { name: /SE4550000000058398257466/ });
+      expect(within(row).getByRole("button", { name: /granska betalning till/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /godkänn/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /avvisa/i })).not.toBeInTheDocument();
+    });
+
+    it("opens a dialog with a summary of the payment and both decisions", async () => {
+      mockApprovals(vi.fn());
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+
+      const dialog = screen.getByRole("dialog", { name: "Granska betalning" });
+      expect(within(dialog).getByText(/^12\s500,00 SEK$/)).toBeInTheDocument();
+      expect(within(dialog).getByText("SE4550000000058398257466")).toBeInTheDocument();
+      expect(within(dialog).getByText("Driftkonto")).toBeInTheDocument();
+      expect(within(dialog).getByText(/^87\s500,00 SEK$/)).toBeInTheDocument();
+      expect(within(dialog).getByText(/av Lisa Persson$/)).toBeInTheDocument();
+      expect(within(dialog).getByText("Faktura 1042")).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: APPROVE_BUTTON })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Avvisa betalning" })).toBeInTheDocument();
+      const decisionButtons = Array.from(dialog.querySelectorAll("button"))
+        .filter((button) => button.getAttribute("aria-label") !== "Stäng")
+        .map((button) => button.textContent?.trim().replace(/\s+/g, " "));
+      expect(decisionButtons).toEqual(["Avbryt", "Avvisa betalning", "Godkänn 12 500,00 SEK"]);
+    });
+
+    it("can be closed without deciding anything", async () => {
+      const mutate = vi.fn();
+      const rejectMutate = vi.fn();
+      mockApprovals(mutate, { reject: rejectMutate });
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Stäng" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(mutate).not.toHaveBeenCalled();
+      expect(rejectMutate).not.toHaveBeenCalled();
+    });
+
+    it("closes the dialog when the payment is approved", async () => {
+      mockApprovals((_id, options) => options.onSuccess?.());
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("keeps the dialog open and shows the error inside it when approval fails", async () => {
+      mockApprovals((_id, options) => options.onError?.(new ApiError(409, "Betalningen är redan hanterad.")));
+      const user = userEvent.setup();
+      render(<AttestGrid />);
+
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
+
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByRole("alert")).toHaveTextContent("Betalningen är redan hanterad.");
+    });
   });
 
   it("shows the confirmation inside the empty state when the last payment is approved", async () => {
@@ -148,7 +344,8 @@ describe("AttestGrid", () => {
     const user = userEvent.setup();
     render(<AttestGrid />);
 
-    await user.click(screen.getByRole("button", { name: /godkänn betalning/i }));
+    await openReview(user);
+    await user.click(screen.getByRole("button", { name: APPROVE_BUTTON }));
 
     expect(screen.getByRole("heading", { name: "Allt är klart" })).toBeInTheDocument();
     expect(
@@ -163,7 +360,8 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
 
       expect(screen.getByLabelText("Anledning (valfritt)")).toHaveFocus();
       expect(rejectMutate).not.toHaveBeenCalled();
@@ -175,9 +373,10 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
       await user.type(screen.getByLabelText("Anledning (valfritt)"), "Otillräckligt saldo");
-      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.click(screen.getByRole("button", { name: "Bekräfta avvisning" }));
 
       expect(rejectMutate).toHaveBeenCalledWith({ stepId: 7, comment: "Otillräckligt saldo" }, expect.anything());
       expect(
@@ -192,10 +391,12 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
-      await user.click(screen.getByRole("button", { name: "Avbryt" }));
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
+      await user.click(screen.getByRole("button", { name: "Tillbaka" }));
 
       expect(screen.queryByLabelText("Anledning (valfritt)")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: APPROVE_BUTTON })).toBeInTheDocument();
       expect(rejectMutate).not.toHaveBeenCalled();
     });
 
@@ -207,9 +408,10 @@ describe("AttestGrid", () => {
       const user = userEvent.setup();
       render(<AttestGrid />);
 
-      await user.click(screen.getByRole("button", { name: /avvisa betalning till/i }));
+      await openReview(user);
+      await user.click(screen.getByRole("button", { name: "Avvisa betalning" }));
       await user.type(screen.getByLabelText("Anledning (valfritt)"), "För lång");
-      await user.click(screen.getByRole("button", { name: "Avvisa betalningen" }));
+      await user.click(screen.getByRole("button", { name: "Bekräfta avvisning" }));
 
       expect(screen.getByText(/Kunde inte avvisa betalningen.*högst 255 tecken/)).toBeInTheDocument();
       expect(screen.getByLabelText("Anledning (valfritt)")).toHaveValue("För lång");

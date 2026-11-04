@@ -23,15 +23,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApprovalServiceTest {
+
+    // Den som skapat betalningarna i testerna. Skild från attestanterna, eftersom den som skapat en
+    // betalning aldrig får godkänna eller avvisa den (ADR 0017).
+    private static final Long INITIATOR_ID = 900L;
 
     @Test
     void finalApproval_shouldCompletePaymentDeductBalanceAndRecordAudit() {
@@ -54,7 +61,7 @@ class ApprovalServiceTest {
         String toIban = "SE8550000000054910000003";
 
         Payment payment = new Payment(
-                tenantId, accountId, toIban, paymentAmount, "Testfaktura", actorId);
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", INITIATOR_ID);
         ApprovalStep approvalStep = new ApprovalStep(actorId, 1);
         payment.addApprovalStep(approvalStep);
 
@@ -109,7 +116,7 @@ class ApprovalServiceTest {
         String toIban = "SE8550000000054910000003";
 
         Payment payment = new Payment(
-                tenantId, accountId, toIban, paymentAmount, "Testfaktura", actorId);
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", INITIATOR_ID);
         ApprovalStep approvalStep = new ApprovalStep(actorId, 1);
         payment.addApprovalStep(approvalStep);
 
@@ -150,7 +157,7 @@ class ApprovalServiceTest {
         String toIban = "SE8550000000054910000003";
 
         Payment payment = new Payment(
-                tenantId, accountId, toIban, paymentAmount, "Testfaktura", rightfulAttestantId);
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", INITIATOR_ID);
         ApprovalStep approvalStep = new ApprovalStep(rightfulAttestantId, 1);
         payment.addApprovalStep(approvalStep);
 
@@ -169,11 +176,9 @@ class ApprovalServiceTest {
         // Steget ska fortfarande vara PENDING — B lyckades inte ändra något
         assertEquals(ApprovalStepStatus.PENDING, approvalStep.getStatus());
 
-        // Ingen audit-post, inget kontosaldo ska ha rörts
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        // Ingen audit-post, inget kontosaldo ska ha rörts. verifyNoInteractions täcker alla varianter av
+        // record, oavsett hur många argument de tar.
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -196,7 +201,7 @@ class ApprovalServiceTest {
         String toIban = "SE8550000000054910000003";
 
         Payment payment = new Payment(
-                tenantId, accountId, toIban, paymentAmount, "Testfaktura", rightfulAttestantId);
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", INITIATOR_ID);
         ApprovalStep approvalStep = new ApprovalStep(rightfulAttestantId, 1);
         payment.addApprovalStep(approvalStep);
 
@@ -259,8 +264,11 @@ class ApprovalServiceTest {
         assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
         assertNull(payment.getExecutedAt());
 
-        // Saldot ska vara orört och ingen "godkänd betalning"-audit får ha skrivits
-        verifyNoInteractions(accountRepository, auditService);
+        // Saldot ska vara orört. Godkännandet loggas, men inte som en godkänd betalning.
+        verifyNoInteractions(accountRepository);
+        verify(auditService).record(eq(1L), eq(actorId), eq("APPROVE_STEP"), eq("PAYMENT"), eq(100L),
+                contains("Attest 1 av 2"));
+        verifyNoMoreInteractions(auditService);
     }
 
     @Test
@@ -326,7 +334,7 @@ class ApprovalServiceTest {
         String toIban = "SE8550000000054910000003";
 
         Payment payment = new Payment(
-                tenantId, accountId, toIban, paymentAmount, "Testfaktura", actorId);
+                tenantId, accountId, toIban, paymentAmount, "Testfaktura", INITIATOR_ID);
 
         ApprovalStep approvalStep1 = new ApprovalStep(actorId, 1);
         payment.addApprovalStep(approvalStep1);
@@ -354,10 +362,7 @@ class ApprovalServiceTest {
         assertEquals(ApprovalStepStatus.PENDING, approvalStep1.getStatus());
 
         // Ingen audit-post ska ha skapats
-        verify(auditService, times(0)).record(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -427,12 +432,70 @@ class ApprovalServiceTest {
         verifyNoInteractions(accountRepository, auditService);
     }
 
+    // Fyraögonprincipen: även den tilldelade attestanten nekas om hen själv skapat betalningen, till
+    // exempel efter en rolländring. Ingenting ändras och inget skrivs till audit.
+    @Test
+    void approve_shouldRefuseTheCreatorOfThePayment_evenWhenAssignedTheStep() {
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
+
+        Long actorId = 2L;
+        Payment payment = new Payment(
+                1L, 10L, "SE8550000000054910000003", new BigDecimal("200.00"), "Testfaktura", actorId);
+        ApprovalStep step = new ApprovalStep(actorId, 1);
+        payment.addApprovalStep(step);
+        ReflectionTestUtils.setField(payment, "id", 100L);
+        ReflectionTestUtils.setField(step, "id", 200L);
+        when(paymentRepository.findByApprovalStepIdForUpdate(200L)).thenReturn(Optional.of(payment));
+
+        se.comerit.seb.exception.ApprovalStepAccessDeniedException ex = assertThrows(
+                se.comerit.seb.exception.ApprovalStepAccessDeniedException.class,
+                () -> approvalService.approve(200L, actorId));
+
+        assertEquals("Du kan inte godkänna en betalning som du själv har skapat.", ex.getMessage());
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertNull(step.getDecidedAt());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
+    @Test
+    void reject_shouldRefuseTheCreatorOfThePayment_evenWhenAssignedTheStep() {
+        PaymentRepository paymentRepository = mock(PaymentRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        AuditService auditService = mock(AuditService.class);
+        ApprovalService approvalService =
+                new ApprovalService(paymentRepository, accountRepository, auditService, mock(UserRepository.class));
+
+        Long actorId = 2L;
+        Payment payment = new Payment(
+                1L, 10L, "SE8550000000054910000003", new BigDecimal("200.00"), "Testfaktura", actorId);
+        ApprovalStep step = new ApprovalStep(actorId, 1);
+        payment.addApprovalStep(step);
+        ReflectionTestUtils.setField(payment, "id", 100L);
+        ReflectionTestUtils.setField(step, "id", 200L);
+        when(paymentRepository.findByApprovalStepIdForUpdate(200L)).thenReturn(Optional.of(payment));
+
+        se.comerit.seb.exception.ApprovalStepAccessDeniedException ex = assertThrows(
+                se.comerit.seb.exception.ApprovalStepAccessDeniedException.class,
+                () -> approvalService.reject(200L, actorId, "Fel betalning"));
+
+        assertEquals("Du kan inte avvisa en betalning som du själv har skapat.", ex.getMessage());
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertNull(step.getComment());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        verifyNoInteractions(accountRepository, auditService);
+    }
+
     // Bygger en betalning med ett väntande steg åt attestanten (steg-id 200, betalning-id 100),
     // redo att godkännas.
     private static Payment paymentWithPendingStep(Long attestantId, Long tenantId, Long fromAccountId) {
         Payment payment = new Payment(
                 tenantId, fromAccountId, "SE8550000000054910000003",
-                new BigDecimal("200.00"), "Testfaktura", attestantId);
+                new BigDecimal("200.00"), "Testfaktura", INITIATOR_ID);
         ApprovalStep step = new ApprovalStep(attestantId, 1);
         payment.addApprovalStep(step);
 

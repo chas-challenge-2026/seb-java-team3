@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CreditCard } from "lucide-react";
 import ButtonLink from "../../../components/ui/buttons/ButtonLink";
@@ -6,20 +7,30 @@ import LoadErrorMessage from "../../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../../components/ui/feedback/LoadingMessage";
 import Container from "../../../components/ui/layout/Container";
 import { myPaymentsQueryOptions } from "../queries/auditQueryOptions";
-import {
-  formatAmount,
-  formatAttestant,
-  formatAuditStatus,
-  formatDateTime,
-  formatRejectionReason,
-} from "../utils/formatters";
+import MyPaymentRow from "../components/MyPaymentRow";
+import StatusFilter from "../components/StatusFilter";
+import { useMarkChangedPaymentsSeen } from "../useChangedPaymentCount";
 import styles from "../components/AuditGrid.module.css";
 
 export default function MyPaymentsPage() {
-  const { data, isPending, isError, isFetching, refetch } = useQuery(myPaymentsQueryOptions);
+  const { data, dataUpdatedAt, isPending, isError, isFetching, refetch } = useQuery(myPaymentsQueryOptions);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const { mutate: markSeen } = useMarkChangedPaymentsSeen();
+
+  // Varje gång listan har hämtats har initiatorn sett besluten i den, så badgen nollas
+  useEffect(() => {
+    if (dataUpdatedAt > 0) {
+      markSeen();
+    }
+  }, [dataUpdatedAt, markSeen]);
+
+  const visiblePayments = statusFilter
+    ? data?.filter((payment) => payment.status === statusFilter) ?? []
+    : data ?? [];
 
   return (
     <Container maxWidth="xxl">
+      <h1 style={{textAlign: "center", marginBottom: "2rem"}}>Mina betalningar</h1>
       {isPending ? (
         <LoadingMessage message="Laddar dina betalningar…" />
       ) : isError ? (
@@ -48,10 +59,15 @@ export default function MyPaymentsPage() {
               <p className={styles.description}>
                 Följ status och se vem som ska attestera betalningar du har skapat.
               </p>
+              <StatusFilter
+                statuses={data.map((payment) => payment.status)}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
             </div>
-            <div className={styles.count} aria-label={`${data.length} betalningar`}>
+            <div className={styles.count} aria-label={`${visiblePayments.length} betalningar`}>
               <CreditCard size={18} aria-hidden="true" />
-              <span>{data.length}</span> betalningar
+              <span>{visiblePayments.length}</span> betalningar
             </div>
           </header>
 
@@ -70,35 +86,17 @@ export default function MyPaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((payment) => (
-                  <tr key={payment.paymentId}>
-                    <td data-label="Skapad" className={`${styles.date} ${styles.noWrap}`}>
-                      {formatDateTime(payment.createdAt)}
-                    </td>
-                    <td data-label="Referens" className={styles.reference}>
-                      {payment.reference?.trim() || "-"}
-                    </td>
-                    <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
-                      {formatAmount(payment.amount, payment.currency)}
-                    </td>
-                    <td data-label="Från konto" className={`${styles.date} ${styles.noWrap}`}>{payment.fromAccountName ?? "-"}</td>
-                    <td data-label="Mottagarkonto" className={`${styles.reference} ${styles.noWrap}`}>
-                      {payment.toIban ?? "-"}
-                    </td>
-                    <td data-label="Status" className={styles.noWrap}>
-                      <span className={styles.status}>{formatAuditStatus(payment.status)}</span>
-                    </td>
-                    <td data-label="Attestant" className={styles.date}>
-                      {formatAttestant(payment)}
-                      {formatRejectionReason(payment) && (
-                        <div className={styles.rejectionReason}>”{formatRejectionReason(payment)}”</div>
-                      )}
-                    </td>
-                    <td data-label="Utförd" className={`${styles.date} ${styles.noWrap}`}>
-                      {formatDateTime(payment.executedAt)}
+                {visiblePayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className={styles.stateText}>
+                      Inga betalningar med den statusen.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  visiblePayments.map((payment) => (
+                    <MyPaymentRow key={payment.paymentId} payment={payment} />
+                  ))
+                )}
               </tbody>
             </table>
           </div>

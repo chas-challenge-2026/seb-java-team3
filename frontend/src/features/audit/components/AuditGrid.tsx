@@ -2,19 +2,12 @@ import { useState } from "react";
 import { Clock3 } from "lucide-react";
 import styles from "./AuditGrid.module.css";
 import AuditGridRow from "./AuditGridRow";
+import StatusFilter from "./StatusFilter";
 import type { AuditEntry } from "../types";
 
 type AuditGridProps = {
   entries: AuditEntry[];
 };
-
-// Statusfiltret. Värdena är betalningens status från backend; null betyder alla.
-const STATUS_FILTERS: { key: string | null; label: string }[] = [
-  { key: null, label: "Alla" },
-  { key: "PENDING_APPROVAL", label: "Väntar attest" },
-  { key: "COMPLETED", label: "Genomförda" },
-  { key: "REJECTED", label: "Avvisade" },
-];
 
 export default function AuditGrid({ entries }: AuditGridProps) {
   const [expandedPayments, setExpandedPayments] = useState<Set<string>>(
@@ -25,10 +18,6 @@ export default function AuditGrid({ entries }: AuditGridProps) {
   const visibleEntries = statusFilter
     ? entries.filter((entry) => entry.statusKey === statusFilter)
     : entries;
-
-  function countFor(key: string | null): number {
-    return key ? entries.filter((entry) => entry.statusKey === key).length : entries.length;
-  }
 
   function togglePayment(paymentId: string) {
     setExpandedPayments((current) => {
@@ -50,21 +39,13 @@ export default function AuditGrid({ entries }: AuditGridProps) {
         <div>
           <h2>Auditlogg</h2>
           <p className={styles.description}>
-            Senaste händelsen per betalning. Öppna en rad för saldon, referens och historik.
+            Senaste händelsen per betalning samt användarhändelser. Öppna en betalning för saldon, referens och historik.
           </p>
-          <div className={styles.filters} role="group" aria-label="Filtrera på status">
-            {STATUS_FILTERS.map((filter) => (
-              <button
-                key={filter.label}
-                type="button"
-                className={styles.filterButton}
-                aria-pressed={statusFilter === filter.key}
-                onClick={() => setStatusFilter(filter.key)}
-              >
-                {filter.label} <span>{countFor(filter.key)}</span>
-              </button>
-            ))}
-          </div>
+          <StatusFilter
+            statuses={entries.map((entry) => entry.statusKey)}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
         </div>
         <div className={styles.count} aria-label={`${visibleEntries.length} händelser`}>
           <Clock3 size={18} aria-hidden="true" />
@@ -82,7 +63,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
               <th>Status</th>
               <th>Belopp</th>
               <th>Från konto</th>
-              <th>Betalning</th>
+              <th>Gäller</th>
             </tr>
           </thead>
           <tbody>
@@ -94,8 +75,8 @@ export default function AuditGrid({ entries }: AuditGridProps) {
               </tr>
             ) : (
               visibleEntries.map((entry) => {
-                const isExpanded = expandedPayments.has(entry.paymentId);
-                const detailsId = `payment-audit-${entry.paymentId}`;
+                const isExpanded = entry.paymentId !== null && expandedPayments.has(entry.paymentId);
+                const detailsId = `payment-audit-${entry.id}`;
 
                 return (
                   <AuditGridRow
@@ -103,7 +84,7 @@ export default function AuditGrid({ entries }: AuditGridProps) {
                     entry={entry}
                     detailsId={detailsId}
                     isExpanded={isExpanded}
-                    onToggle={() => togglePayment(entry.paymentId)}
+                    onToggle={() => { if (entry.paymentId !== null) togglePayment(entry.paymentId); }}
                   />
                 );
               })

@@ -29,8 +29,13 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
-    - name: Build with Maven
-      run: mvn -B package --file backend/SebPortal/pom.xml
+    - name: Build and test native libraries
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential check libssl-dev
+        make -C native test lib
+    - name: Build with Maven (including native integration)
+      run: mvn -B package --file backend/SebPortal/pom.xml -Djna.library.path=${{ github.workspace }}/native/build/lib
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph

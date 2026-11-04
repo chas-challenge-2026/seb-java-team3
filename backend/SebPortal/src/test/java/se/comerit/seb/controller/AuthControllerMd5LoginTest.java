@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import se.comerit.seb.config.JwtSecurityConfig;
+import se.comerit.seb.config.PasswordEncoderConfig;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
 import se.comerit.seb.repository.UserRepository;
@@ -36,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // RefreshTokenService är mockad: refresh-token prövas för sig i AuthControllerRefreshTest.
 @WebMvcTest(AuthController.class)
 @Import({JwtSecurityConfig.class, JwtService.class, JwtUserContext.class, RoleAccessDeniedHandler.class,
-        AuthService.class, RefreshCookies.class})
+        AuthService.class, PasswordEncoderConfig.class, RefreshCookies.class})
 class AuthControllerMd5LoginTest {
 
     private static final String EMAIL = "lisa@malmobygg.se";

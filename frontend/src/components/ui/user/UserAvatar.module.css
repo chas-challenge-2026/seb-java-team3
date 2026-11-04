@@ -58,22 +58,40 @@
     line-height: 1.2;
 }
 
-@media (max-width: 1000px) {
-    .avatarContainerCompact {
-        width: auto;
-        height: auto;
-        padding: 0;
+/* Compact (i navbaren) följer samma regel som SideBar: toppläge är grundutseendet,
+   sidoläget gäller på bred skärm när användaren inte valt "alltid överst" (data-nav="top") */
+.avatarContainerCompact {
+    width: auto;
+    height: auto;
+    padding: 0;
+}
+
+.avatarContainerCompact .textWrapper {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (min-width: 1001px) {
+    :global(:root:not([data-nav="top"])) .avatarContainerCompact {
+        width: 100%;
+        height: 4rem;
+        padding: 0 0.75rem;
     }
 
-    .avatarContainerCompact .textWrapper {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
+    :global(:root:not([data-nav="top"])) .avatarContainerCompact .textWrapper {
+        position: static;
+        width: auto;
+        height: auto;
+        margin: 0;
+        overflow: visible;
+        clip: auto;
+        white-space: normal;
     }
 }

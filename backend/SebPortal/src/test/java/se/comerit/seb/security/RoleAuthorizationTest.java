@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import se.comerit.seb.config.ApprovalThresholds;
 import se.comerit.seb.config.JwtSecurityConfig;
@@ -15,6 +16,7 @@ import se.comerit.seb.domain.Role;
 import se.comerit.seb.repository.PaymentRepository;
 import se.comerit.seb.service.ApprovalService;
 import se.comerit.seb.service.AuditService;
+import se.comerit.seb.service.CsvPaymentImportService;
 import se.comerit.seb.service.PaymentService;
 
 import java.util.List;
@@ -24,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,6 +63,9 @@ class RoleAuthorizationTest {
 
     @MockBean
     private PaymentService paymentService;
+
+    @MockBean
+    private CsvPaymentImportService csvPaymentImportService;
 
     @MockBean
     private ApprovalThresholds approvalThresholds;
@@ -136,10 +142,25 @@ class RoleAuthorizationTest {
     }
 
     @Test
-    void adminCanRejectPayments() throws Exception {
+    void attestantCanRejectPayments() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/reject", 10L)
+                        .header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
+                .andExpect(status().isNoContent());
+    }
+
+    // ADR 0017: admin är en administrativ roll och fattar inga beslut om betalningar.
+    @Test
+    void adminCannotApprovePayments() throws Exception {
+        mockMvc.perform(post("/api/approvals/{stepId}/approve", 10L)
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCannotRejectPayments() throws Exception {
         mockMvc.perform(post("/api/approvals/{stepId}/reject", 10L)
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -202,12 +223,10 @@ class RoleAuthorizationTest {
     }
 
     @Test
-    void adminCanViewMyPayments() throws Exception {
-        when(auditService.getMyPaymentStatuses(any())).thenReturn(List.of());
-
+    void adminCannotViewMyPayments() throws Exception {
         mockMvc.perform(get("/api/my-payments")
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -234,12 +253,78 @@ class RoleAuthorizationTest {
                 .andExpect(status().isCreated());
     }
 
+    // ADR 0017: admin är en administrativ roll och flyttar inga pengar.
     @Test
-    void adminCanCreatePayment() throws Exception {
+    void adminCannotCreatePayment() throws Exception {
         mockMvc.perform(post("/api/payments")
                         .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN))
                         .contentType(APPLICATION_JSON)
                         .content(PAYMENT_REQUEST_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    // CSV-importen skapar betalningar och följer därför samma regel som POST /api/payments (ADR 0017).
+    @Test
+    void initiatorCanImportPayments() throws Exception {
+        mockMvc.perform(multipart("/api/payments/import").file(csvFile())
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void adminAndAttestantCannotImportPayments() throws Exception {
+        for (Role role : List.of(Role.ADMIN, Role.ATTESTANT)) {
+            mockMvc.perform(multipart("/api/payments/import").file(csvFile())
+                            .header("Authorization", "Bearer " + tokenFor(3L, 1L, role)))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    private static MockMultipartFile csvFile() {
+        return new MockMultipartFile("file", "betalningar.csv", "text/csv",
+                "from_account_id,to_iban,amount,reference\n1,SE4550000000058398257466,100.00,test\n".getBytes());
+    }
+
+    @Test
+    void adminCannotReadPaymentConfig() throws Exception {
+        mockMvc.perform(get("/api/payments/config")
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void attestantCannotReadPaymentConfig() throws Exception {
+        mockMvc.perform(get("/api/payments/config").header("Authorization", "Bearer " + tokenFor(2L, 1L, Role.ATTESTANT)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void initiatorCannotReadPaymentAuditTimeline() throws Exception {
+        mockMvc.perform(get("/api/payments/1/audit").header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCannotViewChangedPaymentCount() throws Exception {
+        mockMvc.perform(get("/api/payments/changed-count")
+                        .header("Authorization", "Bearer " + tokenFor(3L, 1L, Role.ADMIN)))
+                .andExpect(status().isForbidden());
+    }
+
+    // Sedd-status för initiatorns badge: bara initiatorn har en badge att nollställa
+    @Test
+    void initiatorCanMarkChangedPaymentsSeen() throws Exception {
+        mockMvc.perform(post("/api/payments/changed-count/seen")
+                        .header("Authorization", "Bearer " + tokenFor(1L, 1L, Role.INITIATOR)))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void adminAndAttestantCannotMarkChangedPaymentsSeen() throws Exception {
+        for (Role role : new Role[] {Role.ADMIN, Role.ATTESTANT}) {
+            mockMvc.perform(post("/api/payments/changed-count/seen")
+                            .header("Authorization", "Bearer " + tokenFor(3L, 1L, role)))
+                    .andExpect(status().isForbidden());
+        }
     }
 }

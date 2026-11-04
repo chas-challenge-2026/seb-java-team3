@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import se.comerit.seb.domain.Account;
 import se.comerit.seb.domain.ApprovalStep;
+import se.comerit.seb.domain.ApprovalStepStatus;
 import se.comerit.seb.domain.Payment;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
@@ -123,6 +124,49 @@ class ApprovalServicePendingApprovalsTest {
 
         assertEquals(1, approvals.size());
         assertEquals(shared.getApprovalSteps().get(0).getId(), approvals.get(0).id());
+    }
+
+    // ADR 0016: nästa attestant ser vem som redan har godkänt, och det är den som faktiskt beslutade
+    @Test
+    void showsWhoApprovedTheEarlierAttest() {
+        Long adminWhoDecided = 30L;
+        Payment payment = payment(100L, 1L, INITIATOR_ID, OTHER_ATTESTANT_ID, ATTESTANT_ID);
+        approve(payment.getApprovalSteps().get(0), adminWhoDecided);
+        when(paymentRepository.findPendingApprovalsForAttestant(TENANT, ATTESTANT_ID)).thenReturn(List.of(payment));
+        when(userRepository.findAllById(List.of(INITIATOR_ID, adminWhoDecided)))
+                .thenReturn(List.of(user(adminWhoDecided, TENANT, "Sara Ek")));
+
+        PendingApprovalResponse approval = approvalService.getPendingApprovals(attestant).get(0);
+
+        assertEquals(2, approval.stepNumber());
+        assertEquals(List.of(new PendingApprovalResponse.PreviousApproval(1, "Sara Ek")), approval.previousApprovals());
+    }
+
+    @Test
+    void firstAttest_hasNoEarlierApprovals() {
+        when(paymentRepository.findPendingApprovalsForAttestant(TENANT, ATTESTANT_ID))
+                .thenReturn(List.of(payment(100L, 1L, INITIATOR_ID, ATTESTANT_ID, OTHER_ATTESTANT_ID)));
+
+        assertEquals(List.of(), approvalService.getPendingApprovals(attestant).get(0).previousApprovals());
+    }
+
+    @Test
+    void anEarlierApproverFromAnotherCompany_isNeverNamed() {
+        Long outsiderId = 31L;
+        Payment payment = payment(100L, 1L, INITIATOR_ID, OTHER_ATTESTANT_ID, ATTESTANT_ID);
+        approve(payment.getApprovalSteps().get(0), outsiderId);
+        when(paymentRepository.findPendingApprovalsForAttestant(TENANT, ATTESTANT_ID)).thenReturn(List.of(payment));
+        when(userRepository.findAllById(List.of(INITIATOR_ID, outsiderId)))
+                .thenReturn(List.of(user(outsiderId, OTHER_TENANT, "Annan Firma")));
+
+        PendingApprovalResponse approval = approvalService.getPendingApprovals(attestant).get(0);
+
+        assertEquals("Okänd attestant", approval.previousApprovals().get(0).approverName());
+    }
+
+    private static void approve(ApprovalStep step, Long decidedBy) {
+        step.setStatus(ApprovalStepStatus.APPROVED);
+        step.setDecidedBy(decidedBy);
     }
 
     @Test

@@ -30,10 +30,17 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     await initiator.getByLabel("Referens").fill(reference);
     await initiator.getByRole("button", { name: "Skicka betalning" }).click();
 
+    const paymentConfirmation = initiator.getByRole("dialog", { name: "Bekräfta betalning" });
+    await expect(paymentConfirmation).toBeVisible();
+    await paymentConfirmation.getByRole("button", { name: "Bekräfta och skicka betalning" }).click();
+
     await expect(
-      initiator.getByRole("heading", { name: "Betalningen har skickats" }),
+      initiator.getByRole("dialog", { name: "Betalningen har skickats" }),
     ).toBeVisible();
-    await expect(initiator.getByText("Väntar på attest", { exact: true })).toBeVisible();
+    await expect(initiator.getByRole("dialog", { name: "Betalningen har skickats" })
+      .getByText("Väntar på attest", { exact: true })).toBeVisible();
+    await initiator.getByRole("dialog", { name: "Betalningen har skickats" })
+      .getByRole("button", { name: "Gå till Översikt", exact: true }).click();
   });
 
   await test.step("betalningen väntar på attest i Mina betalningar", async () => {
@@ -62,7 +69,11 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
 
     const row = rowWith(attestant, reference);
     await expect(row).toContainText(RECIPIENT_IBAN);
-    await row.getByRole("button", { name: /Godkänn betalning/ }).click();
+    await row.getByRole("button", { name: /Granska betalning/ }).click();
+    const dialog = attestant.getByRole("dialog", { name: "Granska betalning" });
+    await expect(dialog).toContainText(RECIPIENT_IBAN);
+    await dialog.getByRole("button", { name: /^Godkänn 5\s500,50 SEK$/ }).click();
+    await expect(dialog).toBeHidden();
 
     await expect(attestant.getByText(/är godkänd\./).first()).toBeVisible();
     await expect(rowWith(attestant, reference)).toHaveCount(0);
@@ -105,13 +116,14 @@ test("MVP-tråden: en betalning över tröskeln skapas, attesteras och syns i au
     await expect(row).not.toContainText("Ej utförd");
   });
 
-  // Saldot läses från GET /api/accounts, eftersom dashboarden fortfarande visar mockade konton.
-  // Lägg till en kontroll i UI:t när saldovyn hämtar från backend.
+  // API-kontrollen verifierar det lagrade saldot före och efter betalningen.
   await test.step("saldot på kontot har dragits med exakt beloppet", async () => {
     const balanceAfter = await accountBalanceInOre(initiator, ACCOUNT_NAME);
 
     expect(balanceBefore - balanceAfter).toBe(AMOUNT_ORE);
   });
+  await attestant.context().close();
+  await initiator.context().close();
 });
 
 // Hämtar saldot med initiatörens egen token, så tenant-filtret i backend gäller som i appen.

@@ -29,8 +29,8 @@ export function Dashboard() {
           <UserAvatarDashboard name={user?.name ?? "Användare"} />
           {user?.role === "ADMIN" ? (
             <>
-              <DashboardAccountsAndPayments />
-              <DashboardApprovals />
+              <DashboardAccounts standalone showNewPayment={false} />
+              <DashboardApprovals readOnly />
             </>
           ) : user?.role === "ATTESTANT" ? (
             <>

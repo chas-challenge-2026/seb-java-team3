@@ -11,12 +11,12 @@ en gissning, och att våra avgränsningar är medvetna och motiverade.
 | # | Kundens behov (ur filmen) | Vår tolkning | Var i backloggen | MVP? |
 |---|---------------------------|--------------|------------------|------|
 | 1 | Betalningar godkänns idag via mail/lapp, av fel person, i fel ordning. "Rätt person i rätt ordning." | Approval-kedja som triggas av tröskel, ordnade steg, genomförs inte förrän rätt attestant godkänt. | Epic Betalning/godkännandekedja: skapa betalning, tröskel ger kedja (#83, BUG-006), godkänn. | Ja |
-| 2 | "En eller flera personer... större belopp, attestansvarig och kanske VD." | Kedjan byggs som en ordnad lista av steg. MVP fyller ett steg. VD blir attestant i andra steget, inte egen roll. | ADR 0004. Story "två attestanter (VD)". | Delvis: kärna nu, VD-steg är breddning |
+| 2 | "En eller flera personer... större belopp, attestansvarig och kanske VD." | Kedjan byggs som en ordnad lista av steg. Ursprungligt MVP fyllde ett steg; dubbel attest över 50 000 kr är nu byggd med två olika attestanter. VD är ingen egen roll och har ingen särskild urvalsregel. | ADR 0004, ADR 0016. | Ett steg i ursprungligt MVP; dubbel attest levererad som utökning |
 | 3 | Den som ska godkänna får ingen signal, håller reda själv, mail sväljs tyst. | Badge som räknar inloggad attestants väntande steg och gör mailen onödiga. | Epic Notifiering: badge (BUG-007, ADR 0008). | Ja (e-post är breddning) |
 | 4 | Fel kontonummer ger betalning i retur. "Kontrolleras redan när de matas in." | Validera IBAN vid inmatning: MOD97-kontrollsiffra (ISO 13616), inte bara format. BIC (ISO 9362). Delad kod. | Epic Kontonummerkontroll: IBAN-validering (BUG-003). | Ja (native C-modul är breddning) |
 | 5 | "Ladda upp en hel fil... lönekörning i stället för rad för rad." Filer 10-500 rader. | Filuppladdning med RFC 4180-parsning, allt-eller-inget-insert, filstorleksgräns. | Epic Batch/CSV (BUG-004/005/012). | Nej, efter MVP (se avvikelse A) |
 | 6 | "Visa vem som godkände vad och när... svart på vitt... från ax till limpa." | Kronologisk vy per betalning (aktör, händelse, tid, ordning) plus logg av alla beslutshändelser, skrivna atomärt. | Epic Audit/spårbarhet (BUG-008). Sluttentans-kriteriet. | Ja |
-| 7 | "Reglerat område... känsliga uppgifter... säkra och motståndskraftiga system." | Säker inloggning (ingen SQLi, BCrypt), rollstyrning, egna atteststeg, tenant-isolering. | Epic Auth/behörighet (BUG-001, 002, 011), tenant-filtrerad audit. | Ja (2FA, refresh-rotation är breddning) |
+| 7 | "Reglerat område... känsliga uppgifter... säkra och motståndskraftiga system." | Säker inloggning (ingen SQLi, BCrypt), rollstyrning, egna atteststeg, tenant-isolering. | Epic Auth/behörighet (BUG-001, 002, 011), tenant-filtrerad audit. | Ja (2FA är breddning; refresh-rotation är byggd, ADR 0012) |
 | 8 | "Flera personer kan arbeta med det här utan att det blir fel." | Samtidighetsskydd: atomär saldo-dragning, ingen dubbelgodkänning. | Godkänn-story: `@Transactional` (BUG-009), `@Version`. | Ja |
 | 9 | "Motståndskraftiga när det blir fel." | Atomicitet: betalning, saldo och audit lyckas eller rullas tillbaka tillsammans. Batch allt-eller-inget. | BUG-005/008/009. | Ja i kärnan (batch-delen är breddning) |
 | 10 | "Inte att det ska gå jättefort, det viktigaste är att den är pålitlig." Kvalitet viktigast. | Prioriteringsprincip: en stabil kärna slår fem halvfärdiga flöden. | `mvp.md`, ADR 0003, DoD i `ways-of-working.md`. | Styr allt |
@@ -40,26 +40,11 @@ Risk: kunden kan efterfråga filuppladdning i demon. Åtgärd: ha motiveringen r
 överväg en enkel (icke-native) CSV-import till slutleveransen så att ett uttalat kriterium
 inte helt saknas. Native prestanda-parsern förblir breddning.
 
-**Övrig breddning** (byggs när kärnan står, se `mvp.md`): dubbel attest och VD-steg med
-tröskeltrappa, påminnelser via e-post (kö, retry), native C/C++-moduler, manipuleringssäker
-logg (HMAC), compliance-export, refresh-token-rotation, 2FA. Alla är motiverade av kunden
-men underordnade kärnans "det får inte gå fel".
-
-## B. Öppna tolkningsfrågor att bekräfta med kund/PL
-
-Filmen ger inget entydigt svar på dessa. Vi antar ett rimligt default och bekräftar,
-hellre det än att bygga på en tyst gissning.
-
-**Ser en initiator historik?** Filmen nämner bara spårbarhet ur bankens och attestantens
-perspektiv, aldrig initiatorns. Default: initiator ser sina egna betalningars status,
-men inte audit-loggen och inte andras betalningar. Spärras i backend (403), inte bara i UI.
-Bekräftas med PL.
-
-**Tröskel: strikt `>` eller `>=`?** Vad som händer på exakt tröskelbeloppet avgör om en
-betalning kan slinka igenom oattesterad. Kräver ADR och gränsfall-test.
-
-**Tröskeltrappa:** "en eller flera" godkännare, vilken beloppsnivå kräver hur många
-attestanter (attestant 1 plus VD)? Bekräftas innan breddningen byggs.
+**Övrig breddning** (se [mvp.md](mvp.md) för nuläget): dubbel attest över 50 000 kr,
+native IBAN-validering och HMAC-kedjad audit-logg är byggda. Native CSV-parser finns,
+men uppladdningsflödet återstår. Ett särskilt VD-steg, fler trösklar, påminnelser via e-post
+(kö, retry), compliance-export och 2FA återstår. Prioriteringen utgår från kärnans
+"det får inte gå fel".
 
 ## Hur detta används
 

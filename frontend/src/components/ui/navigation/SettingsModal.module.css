@@ -1,0 +1,26 @@
+.settings { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.group { margin: 0; padding: 0; border: 0; min-width: 0; }
+
+.group legend {
+    padding: 0;
+    margin-bottom: 0.6rem;
+    color: var(--text-heading);
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.options { display: flex; gap: 1.5rem; }
+
+.option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.option input { accent-color: var(--btn-primary); cursor: pointer; }
+
+.hint { margin-top: 0.4rem; color: var(--text-muted); font-size: 0.82rem; }

@@ -18,6 +18,7 @@ function userWithRole(role: UserRole): UserResponse {
 // Samma rollistor som routerna i router.tsx använder.
 const ATTEST_ROLES: UserRole[] = ["ATTESTANT", "ADMIN"];
 const PAYMENT_ROLES: UserRole[] = ["INITIATOR", "ADMIN"];
+const ADMIN_ONLY: UserRole[] = ["ADMIN"];
 
 describe("requireRole", () => {
   let queryClient: QueryClient;
@@ -30,6 +31,8 @@ describe("requireRole", () => {
   it.each([
     { role: "INITIATOR" as const, allowed: ATTEST_ROLES },
     { role: "ATTESTANT" as const, allowed: PAYMENT_ROLES },
+    { role: "INITIATOR" as const, allowed: ADMIN_ONLY },
+    { role: "ATTESTANT" as const, allowed: ADMIN_ONLY },
   ])("sends $role back to / when the route only allows $allowed", async ({ role, allowed }) => {
     mockedFetchCurrentUser.mockResolvedValue(userWithRole(role));
 
@@ -47,6 +50,7 @@ describe("requireRole", () => {
     { role: "ADMIN" as const, allowed: ATTEST_ROLES },
     { role: "INITIATOR" as const, allowed: PAYMENT_ROLES },
     { role: "ADMIN" as const, allowed: PAYMENT_ROLES },
+    { role: "ADMIN" as const, allowed: ADMIN_ONLY },
   ])("lets $role through when the route allows $allowed", async ({ role, allowed }) => {
     const user = userWithRole(role);
     mockedFetchCurrentUser.mockResolvedValue(user);

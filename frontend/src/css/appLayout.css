@@ -1,6 +1,14 @@
 .appLayout {
     display: flex;
+    flex-direction: column;
     min-height: 100vh;
+}
+
+/* Sidonavigering på bred skärm, om inte användaren valt "alltid överst" */
+@media (min-width: 1001px) {
+    :root:not([data-nav="top"]) .appLayout {
+        flex-direction: row;
+    }
 }
 
 .main {
@@ -20,12 +28,6 @@
     width: 100%;
     padding-top: 1rem;
     animation: pageEnter 180ms ease-out both;
-}
-
-@media (max-width: 1000px) {
-    .appLayout {
-        flex-direction: column;
-    }
 }
 
 @keyframes pageEnter {

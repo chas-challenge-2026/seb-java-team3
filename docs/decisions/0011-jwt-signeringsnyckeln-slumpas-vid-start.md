@@ -1,11 +1,11 @@
 # ADR 0011 — JWT-signeringsnyckeln slumpas vid start
 
-- **Status:** Föreslagen
+- **Status:** Accepterad
 - **Datum:** 2026-10-06
-- **Deltagare:** Jonathan Isaksson · drivande: Jonathan Isaksson
+- **Deltagare:** Jonathan Isaksson, Team SEB 3 · drivande: Jonathan Isaksson
 - **Berör:** Auth & behörighet, drift
 - **Relaterade issues:** #194
-- **Relaterat:** [ADR 0009](0009-jwt-i-localstorage-ersatter-httponly-cookie.md), CTO-feedbacken i `docs/Risk-feedfoward.md` (punkt 8: JWT-nyckel, rotation, läckt nyckel)
+- **Relaterat:** [ADR 0009](0009-jwt-i-localstorage-ersatter-httponly-cookie.md), [ADR 0012](0012-refresh-token-i-httponly-cookie-med-rotation.md), CTO-feedbacken i `docs/Risk-feedfoward.md` (punkt 8: JWT-nyckel, rotation, läckt nyckel)
 
 ## Kontext
 
@@ -39,15 +39,15 @@ Ingen JWT-hemlighet finns i repot. Om `jwt.secret` saknas slumpar `JwtService` e
 - En egen nyckel kan fortfarande sättas via `JWT_SECRET`, och en för kort eller läckt hemlighet ger ett tydligt startfel.
 
 **Negativa / risker**
-- Varje omstart (varje push till `develop` eller `main`) gör alla token ogiltiga, så användarna måste logga in igen. → Märks inte när refresh token finns (planerad, #195), eftersom den kan sparas i databasen och överleva omstart.
+- Varje omstart (varje push till `develop` eller `main`) gör alla access-token ogiltiga. → Märks inte sedan refresh token infördes (#195, ADR 0012): den sparas i databasen och överlever omstarten, och frontend förnyar tyst.
 - Fungerar bara med en instans. Två instanser får olika nycklar och nekar varandras token. → Då behövs en delad nyckel via `JWT_SECRET` eller en nyckel lagrad i databasen.
 - Den gamla hemligheten ligger kvar i git-historiken och räknas som bränd. En miljö som fortfarande kör gammal kod accepterar förfalskade token tills den byggts om. → Deploya så fort ändringen är mergad.
-- Skyddar inte mot stulna token (XSS, R-13) eller mot att någon når serverns minne.
-- Seed-användarna med lösenordet `password123` är en separat, accepterad risk: de är avsiktligt publika i README för demon. → Go-live: ta bort seeden och byt lösenord.
+- Skyddar inte mot stulna token (XSS, R-12 och R-22) eller mot att någon når serverns minne.
+- Seed-användarna med lösenordet `password123` är en separat, accepterad risk (R-20): de är avsiktligt publika i README för demon. → Go-live: ta bort seeden och byt lösenord.
 
 ## Uppföljning
 
-- Refresh token (#195) gör att en omstart inte märks för användarna. Designen beskrivs i en egen ADR.
-- Lägg risken "committad JWT-hemlighet" i riskregistret när det checkas in (#201), med status Mitigerad.
-- Omvärdera vid behov: om plattformen får stöd för hemligheter, sätt `JWT_SECRET` i drift. Om vi får fler än en instans, eller om inloggningar ska överleva omstart, lagra nyckeln i databasen med `kid`.
+- Klart: refresh token (#195) gör att en omstart inte märks för användarna. Designen beskrivs i ADR 0012.
+- Klart: risken "committad JWT-hemlighet" finns i riskregistret som R-17 (`docs/cto/Risk_register.md`), med status Mitigated.
+- Omvärdera vid behov: om plattformen får stöd för hemligheter, sätt `JWT_SECRET` i drift och skicka vidare den i `infra/docker-compose.yml`, som inte gör det i dag. Om vi får fler än en instans, eller om inloggningar ska överleva omstart, lagra nyckeln i databasen med `kid`.
 - Före go-live: kontrollera att ingen hemlighet finns i repot (`git grep -i "jwt.secret"` ska bara hitta kod och dokumentation) och att seed-användarna är borttagna.

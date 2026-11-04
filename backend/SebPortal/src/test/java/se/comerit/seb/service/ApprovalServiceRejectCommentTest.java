@@ -2,6 +2,8 @@ package se.comerit.seb.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import se.comerit.seb.domain.ApprovalStep;
 import se.comerit.seb.domain.ApprovalStepStatus;
@@ -20,13 +22,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-// Avvisa från attestkorgen: attestantens kommentar sparas på steget och syns i auditloggen.
-// Kolumnen rymmer 255 tecken, så en längre kommentar ska ge 400 och inte ett databasfel.
+// Avvisa från attestkorgen: attestantens kommentar sparas på steget och på auditraden, både i beskrivningen
+// och i en egen kolumn (#228).
+// Kolumnen rymmer 255 tecken, så en längre kommentar ska ge 400 och inte ett databasfel. Samma sak gäller
+// kontrolltecken, som Postgres inte alltid tar emot.
 class ApprovalServiceRejectCommentTest {
 
     private static final Long TENANT = 1L;
@@ -61,7 +66,8 @@ class ApprovalServiceRejectCommentTest {
         assertEquals("Otillräckligt saldo", step.getComment());
         assertEquals(PaymentStatus.REJECTED, payment.getStatus());
         verify(auditService).record(eq(TENANT), eq(ATTESTANT_ID), eq("REJECT_PAYMENT"), eq("PAYMENT"), eq(100L),
-                eq("Betalning avvisad: 270000.00 SEK till SE8550000000054910000003. Kommentar: Otillräckligt saldo"));
+                eq("Betalning avvisad: 270000.00 SEK till SE8550000000054910000003. Kommentar: Otillräckligt saldo"),
+                eq("Otillräckligt saldo"));
     }
 
     @Test
@@ -70,7 +76,7 @@ class ApprovalServiceRejectCommentTest {
 
         assertNull(step.getComment());
         verify(auditService).record(eq(TENANT), eq(ATTESTANT_ID), eq("REJECT_PAYMENT"), eq("PAYMENT"), eq(100L),
-                eq("Betalning avvisad: 270000.00 SEK till SE8550000000054910000003"));
+                eq("Betalning avvisad: 270000.00 SEK till SE8550000000054910000003"), isNull());
     }
 
     @Test
@@ -96,6 +102,26 @@ class ApprovalServiceRejectCommentTest {
         verifyNoInteractions(auditService);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"Fel\u0000konto", "\u0000", "\u0007", "\u001c"})
+    void commentWithAControlCharacter_isRejectedWithoutChangingAnything(String comment) {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> approvalService.reject(STEP_ID, ATTESTANT_ID, comment));
+
+        assertEquals("Kommentaren innehåller ogiltiga tecken.", error.getMessage());
+        assertEquals(ApprovalStepStatus.PENDING, step.getStatus());
+        assertEquals(PaymentStatus.PENDING_APPROVAL, payment.getStatus());
+        assertNull(step.getComment());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void commentWithLineBreaksAndTabs_isKept() {
+        approvalService.reject(STEP_ID, ATTESTANT_ID, "Fel konto\r\nSe ärende\t12");
+
+        assertEquals("Fel konto\r\nSe ärende\t12", step.getComment());
+    }
+
     @Test
     void rejection_doesNotTouchAnyAccount() {
         AccountRepository accountRepository = mock(AccountRepository.class);
@@ -106,6 +132,7 @@ class ApprovalServiceRejectCommentTest {
 
         // Avvisning drar inga pengar; reservationen släpps av sig själv när betalningen inte längre väntar
         verifyNoInteractions(accountRepository);
-        verify(auditService).record(anyLong(), anyLong(), anyString(), anyString(), anyLong(), anyString());
+        verify(auditService).record(anyLong(), anyLong(), anyString(), anyString(), anyLong(), anyString(),
+                eq("Fel mottagare"));
     }
 }

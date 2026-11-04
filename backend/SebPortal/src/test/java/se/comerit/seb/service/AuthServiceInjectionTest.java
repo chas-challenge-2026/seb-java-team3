@@ -9,6 +9,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
+import se.comerit.seb.config.PasswordEncoderConfig;
 import se.comerit.seb.domain.Role;
 import se.comerit.seb.domain.User;
 import se.comerit.seb.repository.UserRepository;
@@ -21,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 // kunna slå igenom om queryn byggdes med strängkonkatenering. Kontrolltestet först bevisar att
 // testet inte är tomt: korrekta uppgifter loggar in.
 @DataJpaTest
-@Import(AuthService.class)
+@Import({AuthService.class, PasswordEncoderConfig.class})
 @TestPropertySource(properties = {
         "spring.flyway.enabled=false",
         "spring.jpa.hibernate.ddl-auto=create-drop"

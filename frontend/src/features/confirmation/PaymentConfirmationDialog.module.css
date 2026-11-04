@@ -1,0 +1,151 @@
+.summary {
+  margin: 0 0 1.25rem;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--bg-primary);
+}
+
+.resultNotice {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border-default);
+  border-radius: 0.7rem;
+  background: var(--bg-subtle);
+  color: var(--accent-muted);
+}
+
+.resultNotice svg {
+  flex: 0 0 auto;
+}
+
+.resultNotice strong {
+  color: var(--text-heading);
+  font-size: 0.86rem;
+}
+
+.resultNotice p {
+  margin-top: 0.15rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.resultBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--bg-subtle);
+  color: var(--accent-muted);
+  animation: resultBannerEnter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.resultBanner strong {
+  color: var(--text-heading);
+  font-size: 0.95rem;
+}
+
+.resultIcon {
+  display: inline-flex;
+  animation: resultIconPop 520ms cubic-bezier(0.2, 1.5, 0.5, 1) 100ms both;
+}
+
+.resultIcon svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+@keyframes resultBannerEnter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes resultIconPop {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-18deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+.summary div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.summary div:last-child {
+  border-bottom: 0;
+}
+
+.summary dt {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.summary dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.summary .amount {
+  font-size: 1.1rem;
+  font-weight: 750;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.actions > button {
+  flex: 0 1 auto;
+  min-width: 0;
+  height: auto;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.actions .cancel {
+  margin-right: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resultBanner,
+  .resultIcon {
+    animation: none;
+  }
+}

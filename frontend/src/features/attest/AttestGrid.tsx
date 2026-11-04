@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import styles from "./AttestGrid.module.css";
 import Button from "../../components/ui/buttons/Button";
 import Input from "../../components/ui/forms/Input";
@@ -9,6 +9,8 @@ import LoadErrorMessage from "../../components/ui/feedback/LoadErrorMessage";
 import LoadingMessage from "../../components/ui/feedback/LoadingMessage";
 import { CircleCheck, Clock3, PartyPopper, TriangleAlert } from "lucide-react"
 import Container from "../../components/ui/layout/Container";
+import Modal from "../../components/ui/overlay/Modal";
+import PaymentConfirmationDialog from "../confirmation/PaymentConfirmationDialog";
 import { formatDateTime } from "../../lib/dateTime";
 import { formatAmount } from "../audit/utils/formatters";
 import { isApiError } from "../../error/api.error";
@@ -22,29 +24,67 @@ type ApprovalFeedback = {
   text: string;
 };
 
-export default function AttestGrid() {
+// Med ett enda steg finns ingen kedja att visa
+function formatStepProgress(step: AttestSteg): string | null {
+  return step.totalSteps > 1 ? `${step.stepNumber} av ${step.totalSteps}` : null;
+}
+
+function previousApprovalDetails(step: AttestSteg) {
+  return step.previousApprovals.map((approval) => ({
+    label: `Attest ${approval.stepNumber} godkänd av`,
+    value: approval.approverName,
+  }));
+}
+
+function approvedText(step: AttestSteg): string {
+  const amount = formatAmount(step.belopp, step.currency);
+
+  return step.stepNumber < step.totalSteps
+    ? `Du har godkänt betalningen till ${step.mottagare} på ${amount}. Den genomförs först när attest ${step.stepNumber + 1} av ${step.totalSteps} är klar.`
+    : `Betalningen till ${step.mottagare} på ${amount} är godkänd.`;
+}
+
+export default function AttestGrid({ readOnly = false }: { readOnly?: boolean }) {
   const { data, isLoading, isError, isFetching, refetch, approve, reject } = useApprovals();
   const [feedback, setFeedback] = useState<ApprovalFeedback | null>(null);
-  // Steget vars avvisning håller på att fyllas i, och anledningen som skrivits
-  const [rejectingStepId, setRejectingStepId] = useState<number | null>(null);
+  // Steget som granskas i rutan, och om avvisningen håller på att fyllas i
+  const [reviewingStepId, setReviewingStepId] = useState<number | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
 
-  function startReject(step: AttestSteg) {
+  function openReview(step: AttestSteg) {
+    setFeedback(null);
+    setIsRejecting(false);
+    setRejectComment("");
+    setReviewingStepId(step.id);
+  }
+
+  function closeReview() {
+    // Ett fel visas i rutan och gäller bara medan den är öppen
+    setFeedback(null);
+    setReviewingStepId(null);
+    setIsRejecting(false);
+    setRejectComment("");
+  }
+
+  function startReject() {
     setFeedback(null);
     setRejectComment("");
-    setRejectingStepId(step.id);
+    setIsRejecting(true);
   }
 
   function cancelReject() {
-    setRejectingStepId(null);
+    setFeedback(null);
+    setIsRejecting(false);
     setRejectComment("");
   }
 
   function handleReject(step: AttestSteg) {
+    if (readOnly) return;
     setFeedback(null);
     reject.mutate({ stepId: step.id, comment: rejectComment }, {
       onSuccess: () => {
-        cancelReject();
+        closeReview();
         setFeedback({
           type: "success",
           text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är avvisad.`,
@@ -62,13 +102,12 @@ export default function AttestGrid() {
   }
 
   function handleApprove(step: AttestSteg) {
+    if (readOnly) return;
     setFeedback(null);
     approve.mutate(step.id, {
       onSuccess: () => {
-        setFeedback({
-          type: "success",
-          text: `Betalningen till ${step.mottagare} på ${formatAmount(step.belopp, step.currency)} är godkänd.`,
-        });
+        closeReview();
+        setFeedback({ type: "success", text: approvedText(step) });
       },
       onError: (error) => {
         setFeedback({
@@ -84,6 +123,7 @@ export default function AttestGrid() {
   // När sista betalningen godkänts visas bekräftelsen i "Allt är klart"-kortet istället för ovanför
   const isAllApproved = !isLoading && !isError && !data?.length;
   const showFeedbackInCard = isAllApproved && feedback?.type === "success";
+  const reviewingStep = data?.find((step) => step.id === reviewingStepId);
 
   let content;
 
@@ -121,8 +161,10 @@ export default function AttestGrid() {
       <section className={styles.card} aria-label="Väntande attesteringar">
         <header className={styles.header}>
           <div>
-            <h2>Väntar på din attest</h2>
-            <p className={styles.description}>Granska betalningarna och fatta beslut när du är redo.</p>
+            <h2>{readOnly ? "Väntande betalningar i företaget" : "Väntar på din attest"}</h2>
+            <p className={styles.description}>{readOnly
+              ? "Här ser du företagets attestkorg. Beslut fattas av den tilldelade attestanten."
+              : "Granska betalningarna och fatta beslut när du är redo."}</p>
           </div>
           <div className={styles.count} aria-label={`${data.length} väntande attesteringar`}>
             <Clock3 size={18} aria-hidden="true" />
@@ -145,14 +187,8 @@ export default function AttestGrid() {
               </tr>
             </thead>
             <tbody>
-              {data.map((m) => {
-                const pending = approve.isPending && approve.variables === m.id;
-                const rejecting = rejectingStepId === m.id;
-                const rejectPending = reject.isPending && reject.variables?.stepId === m.id;
-                const reasonId = `reject-reason-${m.id}`;
-                return (
-                  <Fragment key={m.id}>
-                  <tr>
+              {data.map((m) => (
+                  <tr key={m.id}>
                     <td data-label="Mottagarkonto" className={styles.noWrap}>
                       <div className={styles.recipient}>
                         <strong>{m.mottagare}</strong>
@@ -166,7 +202,12 @@ export default function AttestGrid() {
                           : formatAmount(m.balanceAfterPayment, m.currency)}
                       </span>
                     </td>
-                    <td data-label="Typ" className={styles.noWrap}><span className={styles.type}>{m.typ}</span></td>
+                    <td data-label="Typ" className={styles.noWrap}>
+                      <span className={styles.type}>{m.typ}</span>
+                      {formatStepProgress(m) && (
+                        <span className={styles.stepProgress}>Attest {formatStepProgress(m)}</span>
+                      )}
+                    </td>
                     <td data-label="Belopp" className={`${styles.amount} ${styles.noWrap}`}>
                       {formatAmount(m.belopp, m.currency)}
                     </td>
@@ -178,70 +219,26 @@ export default function AttestGrid() {
                     <td data-label="Åtgärd">
                       <div className={styles.actions}>
                         <Button
-                          onClick={() => handleApprove(m)}
-                          disabled={pending}
-                          className={styles.approve}
-                          buttonStyle="icon-only"
-                          icon="check"
+                          onClick={() => openReview(m)}
+                          className={styles.review}
+                          buttonStyle="icon-text"
+                          icon="chevron"
                           variant="primary"
-                          aria-label={`Godkänn betalning till ${m.mottagare}`}
-                          title={pending ? "Godkänner…" : "Godkänn"}
-                        />
-                        <Button
-                          onClick={() => (rejecting ? cancelReject() : startReject(m))}
-                          disabled={pending || rejectPending}
-                          className={styles.reject}
-                          buttonStyle="icon-only"
-                          icon="x"
-                          variant="secondary"
-                          aria-label={`Avvisa betalning till ${m.mottagare}`}
-                          aria-expanded={rejecting}
-                          aria-controls={reasonId}
-                          title="Avvisa"
-                        />
+                          aria-label={`Granska betalning till ${m.mottagare}`}
+                          aria-haspopup="dialog"
+                        >
+                          Granska
+                        </Button>
                       </div>
                     </td>
                   </tr>
-                  {rejecting && (
-                    <tr className={styles.rejectRow}>
-                      <td colSpan={8}>
-                        <form
-                          id={reasonId}
-                          className={styles.rejectForm}
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            handleReject(m);
-                          }}
-                        >
-                          <Input
-                            label="Anledning (valfritt)"
-                            placeholder="Till exempel: otillräckligt saldo"
-                            value={rejectComment}
-                            maxLength={MAX_COMMENT_LENGTH}
-                            onChange={(event) => setRejectComment(event.target.value)}
-                            autoFocus
-                          />
-                          <div className={styles.rejectActions}>
-                            <Button type="button" variant="secondary" onClick={cancelReject} disabled={rejectPending}>
-                              Avbryt
-                            </Button>
-                            <Button type="submit" variant="dark" disabled={rejectPending}>
-                              {rejectPending ? "Avvisar…" : "Avvisa betalningen"}
-                            </Button>
-                          </div>
-                        </form>
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
         <footer className={styles.footer}>
           <CircleCheck size={17} aria-hidden="true" />
-          Kontrollera alltid mottagare och belopp innan du godkänner.
+          {readOnly ? "Översikten är skrivskyddad." : "Kontrollera alltid mottagare och belopp innan du godkänner."}
           Beräknat saldo gäller efter denna betalning och kan ändras av andra transaktioner.
         </footer>
       </section>
@@ -250,6 +247,173 @@ export default function AttestGrid() {
   }
 
   const FeedbackIcon = feedback?.type === "error" ? TriangleAlert : CircleCheck;
+  // Medan rutan är öppen är resten av sidan inaktiv, så ett fel visas i rutan
+  const showFeedbackInModal = Boolean(reviewingStep) && feedback?.type === "error";
+
+  let reviewModal = null;
+
+  if (reviewingStep) {
+    const step = reviewingStep;
+    const approvePending = approve.isPending && approve.variables === step.id;
+    const rejectPending = reject.isPending && reject.variables?.stepId === step.id;
+    const busy = approvePending || rejectPending;
+
+    if (readOnly) {
+      reviewModal = (
+        <Modal title="Betalningsöversikt" description="Beslut fattas av den tilldelade attestanten." onClose={closeReview}>
+          <dl className={styles.reviewSummary}>
+            {[
+              { label: "Belopp", value: formatAmount(step.belopp, step.currency) },
+              { label: "Till", value: step.mottagare },
+              { label: "Från konto", value: step.fromAccountName ?? "–" },
+              { label: "Skapad av", value: step.initiatorName ?? "–" },
+              { label: "Referens", value: step.reference || "–" },
+              ...(formatStepProgress(step) ? [{ label: "Attest", value: formatStepProgress(step) }] : []),
+              ...previousApprovalDetails(step),
+            ].map((detail) => <div key={detail.label}><dt>{detail.label}</dt><dd>{detail.value}</dd></div>)}
+          </dl>
+          <Button onClick={closeReview}>Tillbaka till attestöversikten</Button>
+        </Modal>
+      );
+    } else if (isRejecting) {
+      reviewModal = (
+        <Modal
+          title="Avvisa betalning"
+          description="Betalningen genomförs inte. Initiatören ser anledningen i sin historik."
+          onClose={closeReview}
+          dismissible={!busy}
+        >
+          <dl className={styles.reviewSummary}>
+            <div>
+              <dt>Belopp</dt>
+              <dd className={styles.reviewAmount}>{formatAmount(step.belopp, step.currency)}</dd>
+            </div>
+            <div>
+              <dt>Till</dt>
+              <dd className={styles.recipient}><strong>{step.mottagare}</strong></dd>
+            </div>
+            <div>
+              <dt>Från konto</dt>
+              <dd>{step.fromAccountName ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Saldo efter betalning</dt>
+              <dd>
+                {step.balanceAfterPayment == null
+                  ? "Kan inte beräknas"
+                  : formatAmount(step.balanceAfterPayment, step.currency)}
+              </dd>
+            </div>
+            <div>
+              <dt>Typ</dt>
+              <dd>{step.typ}</dd>
+            </div>
+            {formatStepProgress(step) && (
+              <div>
+                <dt>Attest</dt>
+                <dd>{formatStepProgress(step)}</dd>
+              </div>
+            )}
+            {previousApprovalDetails(step).map((detail) => (
+              <div key={detail.label}>
+                <dt>{detail.label}</dt>
+                <dd>{detail.value}</dd>
+              </div>
+            ))}
+            <div>
+              <dt>Skapad</dt>
+              <dd>{formatDateTime(step.createdAt)}{step.initiatorName ? ` av ${step.initiatorName}` : ""}</dd>
+            </div>
+            <div>
+              <dt>Referens</dt>
+              <dd>{step.reference || "–"}</dd>
+            </div>
+          </dl>
+
+          {showFeedbackInModal && feedback && (
+            <p className={`${styles.feedback} ${styles.feedbackError} ${styles.reviewError}`} role="alert">
+              <TriangleAlert size={18} aria-hidden="true" />
+              {feedback.text}
+            </p>
+          )}
+
+          <form
+            className={styles.rejectForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleReject(step);
+            }}
+          >
+            <Input
+              label="Anledning (valfritt)"
+              placeholder="Till exempel: otillräckligt saldo"
+              value={rejectComment}
+              maxLength={MAX_COMMENT_LENGTH}
+              onChange={(event) => setRejectComment(event.target.value)}
+              autoFocus
+            />
+            <div className={styles.reviewActions}>
+              <Button type="button" variant="secondary" onClick={cancelReject} disabled={rejectPending}>
+                Tillbaka
+              </Button>
+              <Button type="submit" className={styles.reject} disabled={rejectPending}>
+                {rejectPending ? "Avvisar…" : "Bekräfta avvisning"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      );
+    } else {
+      reviewModal = (
+        <PaymentConfirmationDialog
+          title="Granska betalning"
+          description="Kontrollera mottagare och belopp innan du fattar beslut."
+          details={[
+            { label: "Belopp", value: formatAmount(step.belopp, step.currency) },
+            { label: "Till", value: <strong>{step.mottagare}</strong> },
+            { label: "Från konto", value: step.fromAccountName ?? "-" },
+            {
+              label: "Saldo efter betalning",
+              value: step.balanceAfterPayment == null
+                ? "Kan inte beräknas"
+                : formatAmount(step.balanceAfterPayment, step.currency),
+            },
+            { label: "Typ", value: step.typ },
+            ...(formatStepProgress(step) ? [{ label: "Attest", value: formatStepProgress(step) }] : []),
+            ...previousApprovalDetails(step),
+            {
+              label: "Skapad",
+              value: `${formatDateTime(step.createdAt)}${step.initiatorName ? ` av ${step.initiatorName}` : ""}`,
+            },
+            { label: "Referens", value: step.reference || "–" },
+          ]}
+          confirmLabel={approvePending ? "Godkänner…" : `Godkänn ${formatAmount(step.belopp, step.currency)}`}
+          onConfirm={() => handleApprove(step)}
+          onCancel={closeReview}
+          isConfirming={approvePending}
+          confirmDisabled={busy}
+          error={showFeedbackInModal && feedback ? (
+            <p className={`${styles.feedback} ${styles.feedbackError} ${styles.reviewError}`} role="alert">
+              <TriangleAlert size={18} aria-hidden="true" />
+              {feedback.text}
+            </p>
+          ) : undefined}
+          secondaryAction={
+            <Button
+              type="button"
+              onClick={startReject}
+              disabled={busy}
+              className={styles.reject}
+              buttonStyle="icon-text"
+              icon="x"
+            >
+              Avvisa betalning
+            </Button>
+          }
+        />
+      );
+    }
+  }
 
   return (
     <>
@@ -257,7 +421,7 @@ export default function AttestGrid() {
           betalningen godkänts och tabellen byts mot det tomma läget. Då döljs
           det visuellt eftersom samma text visas i kortet */}
       <div className={styles.feedbackRegion} aria-live="polite">
-        {feedback && (
+        {feedback && !showFeedbackInModal && (
           <p
             className={
               showFeedbackInCard
@@ -273,6 +437,7 @@ export default function AttestGrid() {
         )}
       </div>
       {content}
+      {reviewModal}
     </>
   );
 }

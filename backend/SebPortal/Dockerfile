@@ -33,8 +33,9 @@ RUN mvn package -DskipTests -q
 
 # ---- Stage 4: runtime ----
 FROM eclipse-temurin:21-jre-jammy
-# libauditsigner.so är länkad mot libcrypto.so.3 (libssl3, matchar libssl-dev i native-build)
-RUN apt-get update && apt-get install -y --no-install-recommends libssl3 \
+# libauditsigner.so är länkad mot libcrypto.so.3 (libssl3, matchar libssl-dev i native-build).
+# libcsvparser.so är byggd med OpenMP (-fopenmp) och behöver libgomp.so.1 (libgomp1).
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 RUN mkdir -p /app/audit

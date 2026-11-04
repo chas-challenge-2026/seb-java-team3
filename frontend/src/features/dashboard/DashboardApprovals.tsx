@@ -3,11 +3,12 @@ import { formatAmount } from "../audit/utils/formatters";
 import { formatDateTime } from "../../lib/dateTime";
 import { ArrowRight, Clock3, PartyPopper, TriangleAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import ButtonLink from "../../components/ui/buttons/ButtonLink";
 import styles from "./DashboardApprovals.module.css";
 
 const MAX_VISIBLE_APPROVALS = 3;
 
-export default function DashboardApprovals() {
+export default function DashboardApprovals({ readOnly = false }: { readOnly?: boolean }) {
   const { data, isPending, isError, isFetching, refetch } = useApprovals();
 
   if (isPending) {
@@ -51,15 +52,23 @@ export default function DashboardApprovals() {
         <div>
           <h2 id="dashboard-approvals-title">Betalningar som väntar på attest</h2>
           <p>
-            {data.length === 1
+            {readOnly ? "Företagets betalningar som väntar på attest." : data.length === 1
               ? "Du har en betalning att granska."
               : `Du har ${data.length} betalningar att granska.`}
           </p>
         </div>
-        <span className={styles.count}>
-          <Clock3 size={16} aria-hidden="true" />
-          {data.length} väntande
-        </span>
+        <div className={styles.headerActions}>
+          <span className={styles.count}>
+            <Clock3 size={16} aria-hidden="true" />
+            {data.length} väntande
+          </span>
+          {/* Genväg för attestanten. Admin kan inte attestera och får bara länken längst ned. */}
+          {!readOnly && (
+            <ButtonLink to="/attest" variant="primary">
+              Gå till attestering <ArrowRight size={16} aria-hidden="true" />
+            </ButtonLink>
+          )}
+        </div>
       </header>
 
       <ul className={styles.list}>

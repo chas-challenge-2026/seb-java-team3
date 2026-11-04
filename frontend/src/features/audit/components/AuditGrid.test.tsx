@@ -8,6 +8,7 @@ function entry(id: string, reference: string, statusKey: string, status: string)
   return {
     id,
     paymentId: id,
+    beskrivning: "Betalning skapad",
     tid: "2026-10-15 10:00",
     vem: "Lisa Persson",
     handelse: "Betalning skapad",
@@ -64,5 +65,22 @@ describe("AuditGrid", () => {
     render(<AuditGrid entries={entries} />);
 
     expect(screen.getAllByText("Driftkonto")).toHaveLength(3);
+  });
+
+  it("keeps user events as readable rows without a payment toggle, even when IDs collide", async () => {
+    const user = userEvent.setup();
+    const userEventEntry = {
+      ...entries[0], id: "4", paymentId: null, betalning: "Användare #1",
+      handelse: "Användarroll ändrad", beskrivning: "Anna: Initiator → Attestant", statusKey: null,
+    };
+    render(<AuditGrid entries={[entries[0], userEventEntry]} />);
+
+    const row = screen.getByRole("row", { name: /Användare #1/ });
+    expect(row).not.toHaveAttribute("tabindex");
+    expect(row).not.toHaveAttribute("aria-expanded");
+    expect(screen.getByText("Anna: Initiator → Attestant")).toBeInTheDocument();
+    await user.click(row);
+    expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(1);
+    expect(screen.queryByText("Saldon och betalningsuppgifter")).not.toBeInTheDocument();
   });
 });

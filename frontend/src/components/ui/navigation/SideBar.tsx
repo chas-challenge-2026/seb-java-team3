@@ -5,34 +5,30 @@ import { useUser } from "../../../features/auth/useUser";
 import { useLogout } from "../../../features/auth/useLogout";
 import { useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
-import { getSavedTheme, transitionTheme, type Theme } from "../../../lib/theme";
+import SettingsModal from "./SettingsModal";
 
 import {
   LayoutDashboard,
   CreditCard,
   CreditCardCheck,
   Timeline,
-  Moon,
+  Users,
+  Settings,
   LogOut,
-  Sun,
 } from "lucide-react";
 import { usePendingApprovalCount } from "../../../features/attest/useApprovals";
+import { useChangedPaymentCount } from "../../../features/audit/useChangedPaymentCount";
 
 const SideBar = () => {
   const { data: user } = useUser();
-  const canApprove = user?.role === "ATTESTANT" || user?.role === "ADMIN";
-  const { data: approvalCount } = usePendingApprovalCount(canApprove);
+  const canReadApprovals = user?.role === "ATTESTANT" || user?.role === "ADMIN";
+  const { data: approvalCount } = usePendingApprovalCount(canReadApprovals);
+  const { data: changedPaymentCount } = useChangedPaymentCount(user?.role === "INITIATOR");
   const handleLogout = useLogout();
-  const [theme, setTheme] = useState<Theme>(getSavedTheme);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const iconSize = 16;
   const currentPath = useRouterState({ select: (state) => state.location.pathname });
-
-  const handleThemeToggle = () => {
-    const nextTheme: Theme = theme === "light" ? "dark" : "light";
-    transitionTheme(nextTheme);
-    setTheme(nextTheme);
-  };
 
   return (
     <aside className={Styles.sideBar}>
@@ -49,7 +45,7 @@ const SideBar = () => {
             route="/"
             active={currentPath === "/"}
           />
-          {user && user.role !== "ATTESTANT" && (
+          {user?.role === "INITIATOR" && (
             <SideBarItem
               label="Ny Betalning"
               icon={<CreditCard size={iconSize} />}
@@ -59,7 +55,7 @@ const SideBar = () => {
           )}
           {user && user.role !== "INITIATOR" && (
             <SideBarItem
-              label="Attestera"
+              label={user.role === "ADMIN" ? "Attestöversikt" : "Attestera"}
               badge={approvalCount && approvalCount > 0 ? approvalCount : undefined}
               icon={<CreditCardCheck size={iconSize} />}
               route={"/attest"}
@@ -70,6 +66,7 @@ const SideBar = () => {
             (user.role === "INITIATOR" ? (
               <SideBarItem
                 label="Mina betalningar"
+                badge={changedPaymentCount && changedPaymentCount > 0 ? changedPaymentCount : undefined}
                 icon={<Timeline size={iconSize} />}
                 route={"/my-payments"}
                 active={currentPath === "/my-payments"}
@@ -82,6 +79,14 @@ const SideBar = () => {
                 active={currentPath === "/audit"}
               />
             ))}
+          {user?.role === "ADMIN" && (
+            <SideBarItem
+              label="Användare"
+              icon={<Users size={iconSize} />}
+              route={"/admin/users"}
+              active={currentPath === "/admin/users"}
+            />
+          )}
           </ul>
         </nav>
       </div>
@@ -89,9 +94,9 @@ const SideBar = () => {
         <nav aria-label="Kontomeny">
           <ul className={Styles.navList}>
           <SideBarItem
-            label={theme === "light" ? "Mörkt läge" : "Ljust läge"}
-            icon={theme === "light" ? <Moon size={iconSize} /> : <Sun size={iconSize} />}
-            onClick={handleThemeToggle}
+            label="Inställningar"
+            icon={<Settings size={iconSize} />}
+            onClick={() => setSettingsOpen(true)}
             iconOnlyOnMobile
           />
           <SideBarItem
@@ -110,6 +115,7 @@ const SideBar = () => {
           compact
         />
       </div>
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </aside>
   );
 };

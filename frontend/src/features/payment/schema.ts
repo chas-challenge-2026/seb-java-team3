@@ -40,7 +40,8 @@ export const paymentAmountSchema = z
       .string()
       .min(1, "Ange ett belopp.")
       .regex(/^\d+(\.\d{1,2})?$/, "Ange ett giltigt belopp med högst två decimaler.")
-      .refine((value) => Number(value) > 0, "Beloppet måste vara större än 0."),
+      .refine((value) => Number(value) > 0, "Beloppet måste vara större än 0.")
+      .refine((value) => Number(value) <= 9999999999999.99, "Beloppet är för stort."),
   );
 
 export const paymentReferenceSchema = z
@@ -59,7 +60,7 @@ export type PaymentFormValues = z.infer<typeof paymentFormSchema>;
 export const createPaymentRequestSchema = z.object({
   fromAccountId: z.number().int().positive(),
   toIban: z.string().refine(isValidIban, "Ogiltig IBAN."),
-  amount: z.number().positive(),
+  amount: z.number().positive().max(9999999999999.99),
   reference: z.string().max(140),
 });
 
@@ -77,6 +78,7 @@ export type PaymentResponse = z.infer<typeof paymentResponseSchema>;
 
 export const paymentConfigSchema = z.object({
   approvalThreshold: z.number().positive(),
+  twoAttestantThreshold: z.number().positive(),
 });
 
 export type PaymentConfig = z.infer<typeof paymentConfigSchema>;

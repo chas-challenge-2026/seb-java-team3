@@ -9,11 +9,12 @@ import { AuthErrorView } from "./features/auth/AuthErrorView";
 
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { Login } from "./pages/Login";
-import { UITestPage } from "./pages/UIComponentTests";
+// import { UITestPage } from "./pages/UIComponentTests";
 import { NewPayment } from "./features/payment/NewPayment"
 import AuditPage from "./features/audit/pages/AuditPage"
 import MyPaymentsPage from "./features/audit/pages/MyPaymentsPage";
 import AttestPage from "./pages/AttestPage";
+import UsersPage from "./features/users/UsersPage";
 
 import type { QueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -44,16 +45,16 @@ const authRoute = createRoute({
   errorComponent: AuthErrorView,
 });
 
-const uiTestRoute = createRoute({
-  getParentRoute: () => authRoute,
-  path: "/uitest",
-  component: UITestPage,
-});
+// const uiTestRoute = createRoute({
+//   getParentRoute: () => authRoute,
+//   path: "/uitest",
+//   component: UITestPage,
+// });
 
 const newPaymentRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/payments/new",
-  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR"]),
   component: NewPayment,
 });
 
@@ -73,7 +74,7 @@ const auditRoute = createRoute({
 const myPaymentsRoute = createRoute({
   getParentRoute: () => authRoute,
   path: "/my-payments",
-  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR", "ADMIN"]),
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["INITIATOR"]),
   component: MyPaymentsPage,
 });
 
@@ -84,16 +85,24 @@ const attestRoute = createRoute({
   component: AttestPage,
 })
 
+const adminUsersRoute = createRoute({
+  getParentRoute: () => authRoute,
+  path: "/admin/users",
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ["ADMIN"]),
+  component: UsersPage,
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
 
   authRoute.addChildren([
     dashboardRoute,
-    uiTestRoute,
+    // uiTestRoute,
     newPaymentRoute,
     auditRoute,
     myPaymentsRoute,
     attestRoute,
+    adminUsersRoute,
   ]),
 ]);
 

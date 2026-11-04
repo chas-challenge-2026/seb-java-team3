@@ -24,12 +24,14 @@ import se.comerit.seb.security.AuthenticatedUserContext;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class AuditService {
@@ -37,6 +39,7 @@ public class AuditService {
     private static final String SYSTEM_USER_NAME = "Systemet";
     private static final List<String> ATTESTANT_VISIBLE_ACTIONS = List.of(
             "CREATE_PAYMENT",
+            "APPROVE_STEP",
             "APPROVE_PAYMENT",
             "REJECT_PAYMENT"
     );
@@ -62,13 +65,22 @@ public class AuditService {
     @Transactional(propagation = Propagation.MANDATORY)
     public AuditEntry record(Long tenantId, Long userId, String action,
                              String entityType, Long entityId, String description) {
+        return record(tenantId, userId, action, entityType, entityId, description, null);
+    }
+
+    // comment: attestantens meddelande vid avvisning (#228). MANDATORY gör att raden
+    // bara kan skrivas inuti beslutets transaktion, så meddelandet sparas med beslutet eller inte alls.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public AuditEntry record(Long tenantId, Long userId, String action,
+                             String entityType, Long entityId, String description, String comment) {
         AuditEntry entry = new AuditEntry(
                 tenantId,
                 userId,
                 action,
                 entityType,
                 entityId,
-                description
+                description,
+                comment
         );
 
         AuditEntry saved = auditRepository.save(entry);
@@ -106,8 +118,7 @@ public class AuditService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        Map<Long, String> userNamesById = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getName));
+        Map<Long, String> userNamesById = userNamesInTenant(user.tenantId(), userIds);
 
         List<Long> paymentIds = entries.stream()
                 .filter(entry -> "PAYMENT".equalsIgnoreCase(entry.getEntityType()))
@@ -126,7 +137,9 @@ public class AuditService {
 
         return entries.stream()
                 .map(entry -> {
-                    Optional<Payment> payment = Optional.ofNullable(paymentsById.get(entry.getEntityId()));
+                    Optional<Payment> payment = "PAYMENT".equalsIgnoreCase(entry.getEntityType())
+                            ? Optional.ofNullable(paymentsById.get(entry.getEntityId()))
+                            : Optional.empty();
 
                     return AuditEntryResponse.from(
                             entry,
@@ -150,7 +163,7 @@ public class AuditService {
             Long paymentId
     ) {
         Payment payment = paymentRepository.findByIdAndTenantIdWithApprovalSteps(paymentId, user.tenantId())
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+                .orElseThrow(() -> new IllegalArgumentException("Betalningen hittades inte."));
 
         List<AuditEntry> auditEntries = auditRepository.findPaymentEvents(user.tenantId(), paymentId);
 
@@ -167,13 +180,12 @@ public class AuditService {
 
         if (user.isAdmin()) {
             payment.getApprovalSteps().stream()
-                    .map(ApprovalStep::getAttestantId)
+                    .flatMap(step -> Stream.of(step.getAttestantId(), step.getDecidedBy()))
                     .filter(id -> id != null)
                     .forEach(userIds::add);
         }
 
-        Map<Long, String> userNamesById = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getName));
+        Map<Long, String> userNamesById = userNamesInTenant(user.tenantId(), userIds);
 
         List<TimelineEvent> events = new ArrayList<>();
 
@@ -186,6 +198,7 @@ public class AuditService {
                     userNamesById.getOrDefault(entry.getUserId(), SYSTEM_USER_NAME),
                     entry.getAction(),
                     entry.getDescription(),
+                    entry.getComment(),
                     null
             ));
         }
@@ -203,9 +216,10 @@ public class AuditService {
                         2,
                         step.getId(),
                         "APPROVAL_STEP-" + step.getId(),
-                        userNamesById.getOrDefault(step.getAttestantId(), SYSTEM_USER_NAME),
+                        userNamesById.getOrDefault(stepActorId(payment, step), SYSTEM_USER_NAME),
                         eventType,
                         description,
+                        step.getComment(),
                         step.getStepNumber()
                 ));
             }
@@ -225,6 +239,7 @@ public class AuditService {
                     event.actor(),
                     event.eventType(),
                     event.description(),
+                    event.comment(),
                     event.timestamp(),
                     event.stepNumber(),
                     payment.getStatus().name(),
@@ -238,7 +253,7 @@ public class AuditService {
         return response;
     }
 
-    @PreAuthorize("hasAnyRole('INITIATOR', 'ADMIN')")
+    @PreAuthorize("hasRole('INITIATOR')")
     @Transactional(readOnly = true)
     public List<MyPaymentStatusResponse> getMyPaymentStatuses(AuthenticatedUserContext user) {
         List<Payment> payments = paymentRepository
@@ -246,15 +261,13 @@ public class AuditService {
 
         List<Long> attestantIds = payments.stream()
                 .flatMap(payment -> payment.getApprovalSteps().stream())
-                .map(ApprovalStep::getAttestantId)
+                .flatMap(step -> Stream.of(step.getAttestantId(), step.getDecidedBy()))
                 .filter(id -> id != null)
                 .distinct()
                 .collect(Collectors.toList());
 
         // Attestanterna tillhör samma företag som betalningen; namnen slås upp en gång för hela listan
-        Map<Long, String> attestantNamesById = userRepository.findAllById(attestantIds).stream()
-                .filter(attestant -> user.tenantId().equals(attestant.getTenantId()))
-                .collect(Collectors.toMap(User::getId, User::getName));
+        Map<Long, String> attestantNamesById = userNamesInTenant(user.tenantId(), attestantIds);
 
         Map<Long, String> accountNamesById = accountNamesForTenant(user.tenantId());
 
@@ -263,10 +276,29 @@ public class AuditService {
                 .collect(Collectors.toList());
     }
 
+    // Bara det egna företagets användare namnges (R-04). En auditrad eller ett steg som pekar på en
+    // användare hos ett annat företag (bara möjligt med felaktig data) visas som en okänd användare.
+    private Map<Long, String> userNamesInTenant(Long tenantId, Collection<Long> userIds) {
+        return userRepository.findAllById(userIds).stream()
+                .filter(candidate -> tenantId.equals(candidate.getTenantId()))
+                .collect(Collectors.toMap(User::getId, User::getName));
+    }
+
     // Bara det egna företagets konton slås upp, så ett annat företags konto kan aldrig namnges (R-04)
     private Map<Long, String> accountNamesForTenant(Long tenantId) {
         return accountRepository.findByTenantIdOrderByIdAsc(tenantId).stream()
                 .collect(Collectors.toMap(account -> account.getId().longValue(), Account::getAccountName));
+    }
+
+    // Den som beslutade om steget, annars den som steget väntar på. Null (Systemet) för ett senare steg som
+    // stängdes när ett tidigare steg avvisades: den tilldelade attestanten beslutade ingenting. Ett ensamt
+    // steg utan beslutsfattare är från före V12 och visas som tidigare, med den tilldelade attestanten.
+    private static Long stepActorId(Payment payment, ApprovalStep step) {
+        if (step.getDecidedBy() != null) {
+            return step.getDecidedBy();
+        }
+        boolean closedByEarlierStep = step.getDecidedAt() != null && payment.getApprovalSteps().size() > 1;
+        return closedByEarlierStep ? null : step.getAttestantId();
     }
 
     // Genomförd utan atteststeg: beloppet låg under tröskeln, så betalningen godkändes automatiskt
@@ -283,6 +315,7 @@ public class AuditService {
             String actor,
             String eventType,
             String description,
+            String comment,
             Integer stepNumber
     ) {}
 }

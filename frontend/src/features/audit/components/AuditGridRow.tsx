@@ -18,22 +18,23 @@ export default function AuditGridRow({
 }: AuditGridRowProps) {
   const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
   const actorInitials = getInitials(entry.vem);
+  const isPayment = entry.paymentId !== null;
 
   return (
     <>
       <tr
-        className={styles.clickableRow}
-        tabIndex={0}
-        role="button"
-        aria-expanded={isExpanded}
-        aria-controls={detailsId}
-        onClick={onToggle}
-        onKeyDown={(event) => {
+        className={isPayment ? styles.clickableRow : undefined}
+        tabIndex={isPayment ? 0 : undefined}
+        role={isPayment ? "button" : undefined}
+        aria-expanded={isPayment ? isExpanded : undefined}
+        aria-controls={isPayment ? detailsId : undefined}
+        onClick={isPayment ? onToggle : undefined}
+        onKeyDown={isPayment ? (event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             onToggle();
           }
-        }}
+        } : undefined}
       >
         <td data-label="Tid" className={`${styles.date} ${styles.noWrap}`}>
           {entry.tid}
@@ -48,6 +49,7 @@ export default function AuditGridRow({
         </td>
         <td data-label="Händelse" className={styles.eventCell}>
           {entry.handelse}
+          {!isPayment && <p>{entry.beskrivning}</p>}
         </td>
         <td data-label="Status" className={styles.noWrap}>
           <span className={styles.status}>{entry.status}</span>
@@ -60,12 +62,12 @@ export default function AuditGridRow({
         </td>
         <td data-label="Betalning" className={styles.paymentCell}>
           <span className={styles.paymentLabel}>
-            <ChevronIcon size={18} aria-hidden="true" />
+            {isPayment && <ChevronIcon size={18} aria-hidden="true" />}
             {entry.betalning}
           </span>
         </td>
       </tr>
-      {isExpanded && (
+      {isExpanded && entry.paymentId !== null && (
         <tr className={styles.detailsRow}>
           <td colSpan={7}>
             <PaymentAuditDetails

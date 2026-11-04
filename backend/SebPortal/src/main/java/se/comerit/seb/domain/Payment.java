@@ -10,7 +10,8 @@ import java.util.List;
 
 
 @Entity
-@Table(name = "payments")
+@Table(name = "payments", uniqueConstraints = @UniqueConstraint(
+        name = "payments_request_key_unique", columnNames = {"tenant_id", "created_by", "idempotency_key"}))
 public class Payment {
 
     @Id
@@ -32,8 +33,11 @@ public class Payment {
     @Column(name = "currency", length = 3)
     private String currency = "SEK";
 
-    @Column(name = "reference", length = 100)
+    @Column(name = "reference", length = 140)
     private String reference;
+
+    @Column(name = "idempotency_key", length = 128, updatable = false)
+    private String idempotencyKey;
 
     @Convert(converter = PaymentStatusConverter.class)
     @Column(name = "status", length = 30)
@@ -107,6 +111,9 @@ public class Payment {
 
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
+
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
 
     public PaymentStatus getStatus() { return status; }
     public void setStatus(PaymentStatus status) { this.status = status; }

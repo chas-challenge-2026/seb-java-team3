@@ -26,6 +26,65 @@ Kopiera raderna mellan strecken, klistra in högst upp i loggen, fyll i. Radera 
 
 ## Logg
 
+### 2026-11-02 — Koppling mot backend för användaradministration och borttagning av användare (#243) Marcus
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att koppla frontend-sidan för användaradministration mot det riktiga API:t, nu när backend-delen (#242, ADR 0017) fanns, och att bygga ut backend med borttagning av användare, eftersom ta bort-knappen annars inte hade något att anropa. AI:n läste först `AdminUserController`, DTO:erna och ADR 0017 för att få det faktiska kontraktet, och jämförde det med mockdatan jag byggt tidigare. Jag bad sedan om borttagningen i backend, och AI:n läste hur användare hänger ihop med betalningar, atteststeg, refresh-token och audit innan den designade den.
+- **Genererades:**
+  - Frontend: riktiga anrop i `features/users/api.ts` (`GET`, `POST`, `PATCH /{id}/role` och `DELETE /{id}`) i stället för mocken. Mocken hade gissat `PUT` för rollbyte, men backend använder `PATCH`. Schemat följer backends regler: lösenord minst 12 tecken och högst 72 **byte**, namn och e-post högst 100 tecken. `api.test.ts` kontrollerar nu sökväg, metod och body i stället för att testa mocken.
+  - Backend: `DELETE /api/admin/users/{userId}` (`AdminUserController`, `UserAdminService.deleteUser`) med 204, 403 för en administratör, 404 för en användare utanför företaget och 409 när användaren har historik. Nya repository-frågor (`existsByCreatedBy`, `existsByAttestantId`, `existsByDecidedBy`, `deleteAllForUser`), `UserDeleteConflictException` med handler, och en audit-rad `DELETE_USER` med namn och e-post.
+  - 10 nya backendtester (service, controller och hela kedjan mot H2 med två företag) och ett nytt frontendtest för 409-meddelandet. Dokumentationen är uppdaterad i ADR 0017, `docs/accessmatris.md` och README.
+  - Verifiering: Java och Maven finns inte lokalt, så AI:n körde backend i Maven-imagen via Docker. Användartesterna är 96/96 gröna. Hela backendsviten gav 442 tester utan fel i själva testerna, men 4 Testcontainers-klasser (`DualApprovalIntegrationTest`, `TenantIsolationIntegrationTest`, `ApprovalConcurrencyIntegrationTest`, `ApprovalServiceTransactionIntegrationTest`) kunde inte starta eftersom de behöver Docker inifrån containern. Dem körs i CI. Frontend: `tsc`, ESLint och 252 Vitest-tester gröna.
+- **Hur jag granskade/ändrade:** Jag körde appen och fick först "Kunde inte nå servern". AI:n kollade proxyn (port 8084), containerstatus och loggar, och det visade sig att backend bara inte hunnit starta. Efter omladdning fungerade flödet. Jag bestämde att borttagningen skulle byggas i backend i stället för att ta bort knappen, efter att AI:n hade flaggat att backend saknade endpointen. Jag läste också igenom AI:ns förklaring av varför användare med historik inte kan tas bort, och godtog den begränsningen.
+- **Valde bort (om något):**
+  - Att låta borttagningen radera en användare med betalningar eller atteststeg. Historiken (vem som skapade och godkände vad) måste bevaras, och en radering skulle antingen krascha på främmande nycklar eller tappa spårbarheten. Därför går det bara att ta bort en användare som aldrig gjort något. De seedade demoanvändarna kan alltså inte tas bort. Att kunna avsluta ett konto med historik kräver en inaktivering (spärrflagga som inloggningen kontrollerar), som är ett eget beslut och en egen migration.
+  - Att ta bort ta bort-knappen i frontend när backend saknade endpointen. AI:n hann först göra det, men jag valde i stället att bygga endpointen, och knappen kom tillbaka.
+  - Att åtgärda att ett redan utfärdat access-token gäller i upp till 15 minuter efter att användaren tagits bort. Det är samma beteende som efter en rolländring (ADR 0012) och är dokumenterat i ADR 0017.
+  - Frontend-ändringarna i #243 för betalningsroutes och audit-vyn (admin släpps fortfarande in på `/payments/new`, `/my-payments` och `/attest`, och användarhändelser kan inte expanderas). De ingick inte i det här steget.
+- **Spår:** Branch `feature/admin-userlist-connection`, ej committat än · issue #242, #243
+
+### 2026-11-02 — Användaradministration för admin (frontend, mockdata) och sidtitlar Marcus
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att bygga frontend-delen av användaradministrationen för admin innan backend finns, med mockdata som ska bytas mot riktiga anrop senare. AI:n läste först hur appen är uppbyggd (router, sidomeny, betalningsformuläret, auditloggens tabell, `Modal`, `Select` och Zod-scheman) och byggde sedan ovanpå det så att sidan följer resten av designen. Jag styrde sedan resultatet i flera steg: från listan och formuläret bredvid varandra till en lista med en modal för att skapa användare, rollbyte, borttagning, smalare layout och sidtitlar. Därefter bad jag AI:n skriva tester och den här loggposten.
+- **Genererades:**
+  - Ny route `/admin/users` som begränsas till ADMIN med `requireRole`, och menylänken "Användare" som bara visas för admin (`router.tsx`, `SideBar.tsx`, `SideBarItem.tsx`).
+  - `src/features/users/`: `UsersPage`, `UserList` (tabell med laddning, fel och tom lista), `UserRoleCell` (rollbyte), `CreateUserModal` (formulär med Zod-validering, backendfel vid e-postfältet, låst knapp medan anropet pågår och bekräftelsevy efter skapande), `DeleteUserModal` (bekräftelse om att borttagningen är permanent), `schema.ts`, `roles.ts`, `usersQueryOptions.ts` och CSS.
+  - `api.ts` med mockad `listUsers`, `createUser`, `updateUserRole` och `deleteUser`. Mocken har samma signaturer som de riktiga anropen ska få, så vid kopplingen byts bara innehållet ut. Sökvägarna i kommentaren (`/api/admin/users` m.fl.) är AI:ns gissningar och måste stämmas av mot backend.
+  - Små ändringar i befintlig kod: `Select` fick `compact` och `ariaLabel` för att fungera i en tabellcell, och sidtitlar (`<h1>`) lades till på Historik och Ny betalning. Titeln på Mina betalningar ändrades från "Historik" till "Mina betalningar".
+  - 36 nya tester (228 totalt): schema, mock-API, lista, rollbyte, skapa-modal och menylänkens synlighet, samt nya fall i `requireRole.test.ts` för en route som bara släpper in ADMIN.
+  - Verifiering: `tsc`, ESLint och hela Vitest-sviten gröna. Testerna hittade ett fel i AI:ns egen kod: `createUser` anropades med ett extra argument eftersom TanStack Query v5 skickar med kontext till `mutationFn`. Det hade blivit ett problem först när anropet kopplas mot riktig backend.
+- **Hur jag granskade/ändrade:** Jag gick igenom varje version av sidan och gav ändringar utifrån hur den såg ut. Första versionen hade listan och formuläret som två kort bredvid varandra, och jag bad om att listan skulle vara det primära med en "Skapa användare"-knapp och en modal som matchar attest- och betalningsmodalerna. Jag bad om att dropdownen skulle använda vår egen `Select` i stället för en vanlig `<select>`, att sidan skulle göras smalare, att gapet mellan dropdown och ta bort-knapp skulle minskas och att listans höjd skulle anpassa sig efter antalet användare. Jag la också märke till att rubriken på Ny betalning låg högre upp än på de andra sidorna, och den justerades. Jag bad AI:n skriva testerna efter att ha frågat om de behövdes. [Fyll i här vad du själv kontrollerat, t.ex. att du provat flödet i webbläsaren och ändrat något i koden för att se testerna bli röda.]
+- **Valde bort (om något):**
+  - Att låta admin skapa nya admin-konton och att ändra eller ta bort adminkontot. Det finns bara ett, och det skyddas i formuläret, i rollcellen och i mocken. Backend måste ändå upprätthålla regeln, eftersom frontend inte kan garantera den.
+  - En vanlig `<select>` för rollbyte i tabellen. Den ersattes av vår egen `Select` för att det ska vara enhetligt.
+  - En ny titel på Översikt och Attestera. `Översikt` har en bortkommenterad h1 och en hälsning, och Attestera heter "Attestkorg" men menylänken "Attestera". Ingen av dem ändrades.
+- **Spår:** Branch `feature/improved-admin`, commitat. Issue #243
+
+
+### 2026-10-29 — Test av tenant-isolering och två rättade läckor (R-04) Pontus Ingenius
+- **Verktyg:** Claude Code
+- **Använde AI till:** Att täcka bristen "Isoleringen mellan företag saknar heltäckande tester" (R-04 i `docs/test-status.md`, där bara konton hade test av faktisk filtrering). AI:n gick igenom alla endpoints som bär företagsdata och hur varje fråga filtrerar på `tenantId`, skrev testet, körde det och kontrollerade med mutationsprov att det fångar fel. Testet hittade två läckor, och efter att jag bett om det rättade AI:n dem.
+- **Genererades:**
+  - `TenantIsolationIntegrationTest` · 13 tester: hela appen över HTTP med riktiga JWT mot Postgres 12 (Testcontainers), utan mockar. Två företag körs mot varandra över konton, auditlogg, tidslinje, mina betalningar, attestkorgen och antal, godkänn, avvisa och skapa betalning. All text hos ett företag har en markör (`BOLAG_A`/`BOLAG_B`), så att varje svar kan sökas igenom efter läckage. Fixturen har också rader som korsar företagsgränsen, så att det är tenant-villkoret som prövas och inte bara att användar-id:n skiljer sig.
+  - Rättelse i `AuditService`: användarnamnen i auditloggen och tidslinjen slogs upp utan tenant-villkor. Nu namnges bara det egna företagets användare (`userNamesInTenant`).
+  - Rättelse i `ApprovalService`: godkänn och avvisa kontrollerade status före företag. Ett annat företags steg gav därför 403 eller 409 beroende på status, vilket avslöjade om steg-id:t fanns och om det var behandlat. Nu kontrolleras företaget först, och ett annat företags steg ger samma 400 som ett steg som inte finns.
+  - `ApprovalApiControllerOwnershipTest` är uppdaterat till 400, och `docs/test-status.md` till Grön för R-04. AI:n skrev också commit-meddelande och PR-beskrivning.
+  - Verifiering:
+    - Mutationsprov: tolv tenant-skydd togs bort ett i taget i en kopia av koden, och för vart och ett föll minst ett test.
+    - Mot koden före rättelserna föll 6 tester, och felmeddelandena visade båda läckorna.
+    - Med rättelserna är hela backendsviten grön: 271 tester, 5 överhoppade utan `libauditsigner.so`.
+    - Första versionen använde en ogiltig IBAN, så testet "betalning från annat företags konto nekas" blev grönt av fel skäl (IBAN-felet, inte kontot). Det upptäcktes vid första körningen, och testet kräver nu kontots felmeddelande. Av samma skäl kräver attesttestet att svaret är identiskt med ett steg som inte finns, inte bara en felkod.
+- **Hur jag granskade/ändrade:** användarnamn i AuditService.java. Kommentera bort raden .filter(candidate -> tenantId.equals(candidate.getTenantId())) i userNamesInTenant.
+Förväntat: auditLogAndTimeline_neverNameAnotherCompanysUser blir rött med expected: <Systemet> but was: <BOLAG_B Admin>.
+
+Kontroll 2: steg hos ett annat företag i ApprovalService.java. Ändra filtret i findPaymentOfStepForUpdate till .filter(payment -> true).
+Förväntat: approveAndReject_ofAnotherCompanysStep_... blir rött med 409 eller 204 i stället för 400.
+
+- **Valde bort (om något):**
+  - Att lägga tenant-villkoret i själva låsfrågan `findByApprovalStepIdForUpdate`. De interna anropen `approve/reject(stepId, actorId)` har ingen inloggad användare och använder samma fråga, så kontrollen görs i stället direkt efter uppslaget.
+  - Att ge en användare från ett annat företag en egen text som "Okänd användare". Den visas som "Systemet", samma text som en okänd användare redan får.
+  - Behörighetstestet för `/api/my-payments`. Det står kvar som nästa testinsats.
+- **Spår:** Commit `1e94f05`, branch `test-isolering`, PR #
+
 ### 2026-10-08 — Tester för badge, rollskydd, route-skydd och tidslinjens ordning (#196, #197, #198) Pontus Ingenius
 - **Verktyg:** Claude Code
 - **Använde AI till:** Att skriva testerna för tre test-issues utifrån issuetexterna, köra dem och kontrollera att de faktiskt fångar fel. Att ta reda på var logiken som skulle testas låg: badgens 0-regel ligger i `SideBar`, inte i `SideBarItem`, och tidslinjens ordning bestäms på två ställen (`ORDER BY` i `AuditRepository.findPaymentEvents` och sorteringen i `AuditService.getPaymentAuditTimeline`).

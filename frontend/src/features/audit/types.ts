@@ -6,7 +6,8 @@ export type {
 
 export type AuditEntry = {
   id: string;
-  paymentId: string;
+  paymentId: string | null;
+  beskrivning: string;
   tid: string;
   vem: string;
   handelse: string;
