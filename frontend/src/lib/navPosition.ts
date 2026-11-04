@@ -4,8 +4,13 @@ export type NavPosition = "side" | "top";
 
 const navPositionStorageKey = "seb-nav-position";
 
+// localStorage kan kasta (blockerad lagring, privat läge) – då gäller standardläget
 export function getSavedNavPosition(): NavPosition {
-  return window.localStorage.getItem(navPositionStorageKey) === "top" ? "top" : "side";
+  try {
+    return window.localStorage.getItem(navPositionStorageKey) === "top" ? "top" : "side";
+  } catch {
+    return "side";
+  }
 }
 
 // CSS läser data-nav på <html>
@@ -17,6 +22,10 @@ export function applyNavPosition(position: NavPosition, persist = false) {
   }
 
   if (persist) {
-    window.localStorage.setItem(navPositionStorageKey, position);
+    try {
+      window.localStorage.setItem(navPositionStorageKey, position);
+    } catch {
+      // Kan inte sparas – valet gäller bara den här sidvisningen
+    }
   }
 }
