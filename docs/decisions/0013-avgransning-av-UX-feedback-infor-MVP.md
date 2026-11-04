@@ -4,7 +4,7 @@
 - **Datum:** 2026-10-15
 - **Deltagare:** Team SEB 3 · drivande: Pontus Ingenius
 - **Berör:** UX / MVP / Betalningar och attestflöde
-- **Relaterade issues:** Ej specificerade
+- **Relaterade issues:**
 
 ## Kontext
 
@@ -13,7 +13,6 @@ Under genomgången av UX-feedback identifierades flera funktioner och förbättr
 Med begränsad utvecklingstid behöver vi prioritera de funktioner som är nödvändiga för MVP och avgränsa sådant som innebär ytterligare komplexitet eller utökad funktionalitet.
 
 De identifierade områdena är:
-- Visning av atteststatus, exempelvis "Väntar attest 1 av 2" eller "1 av 1".
 - Förfallodatum på betalningar.
 - E-postnotifieringar.
 

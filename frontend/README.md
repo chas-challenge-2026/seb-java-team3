@@ -54,7 +54,7 @@ Alla sidor utom `/login` kräver inloggning. Backend kontrollerar behörigheten 
 
 Admin får inte skapa, godkänna eller avvisa betalningar, enligt [ADR 0017](../docs/decisions/0017-admin-ar-en-administrativ-roll.md). Backend kontrollerar roller, företag och ägarskap; spärrarna i [src/router.tsx](src/router.tsx) styr navigeringen.
 
-Admin ser konton, företagets skrivskyddade attestöversikt, historik och användaradministration. Ny betalning och Mina betalningar är bara tillgängliga för initiatorn. Se [accessmatrisen](../docs/accessmatris.md) och [projektgenomgången](../docs/project-review.md).
+Admin ser konton, företagets skrivskyddade attestöversikt, historik och användaradministration. Ny betalning och Mina betalningar är bara tillgängliga för initiatorn. Se [accessmatrisen](../docs/accessmatris.md) och [kända brister och avgränsningar](../docs/kanda-brister-och-avgransningar.md).
 
 ### Betalningsflödet
 

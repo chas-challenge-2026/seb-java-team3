@@ -5,7 +5,7 @@
 - **Deltagare:** Jonathan Isaksson, Team SEB 3 · drivande: Jonathan Isaksson
 - **Berör:** Auth & behörighet, drift
 - **Relaterade issues:** #194
-- **Relaterat:** [ADR 0009](0009-jwt-i-localstorage-ersatter-httponly-cookie.md), [ADR 0012](0012-refresh-token-i-httponly-cookie-med-rotation.md), CTO-feedbacken i `docs/Risk-feedfoward.md` (punkt 8: JWT-nyckel, rotation, läckt nyckel)
+- **Relaterat:** [ADR 0009](0009-jwt-i-localstorage-ersatter-httponly-cookie.md), [ADR 0012](0012-refresh-token-i-httponly-cookie-med-rotation.md), CTO-feedbacken i `docs/cto/Risk-feedforward.md` (punkt 8: JWT-nyckel, rotation, läckt nyckel)
 
 ## Kontext
 
@@ -48,6 +48,6 @@ Ingen JWT-hemlighet finns i repot. Om `jwt.secret` saknas slumpar `JwtService` e
 ## Uppföljning
 
 - Klart: refresh token (#195) gör att en omstart inte märks för användarna. Designen beskrivs i ADR 0012.
-- Klart: risken "committad JWT-hemlighet" finns i riskregistret som R-17 (`docs/cto/Risk_register.md`), med status Mitigated.
+- Klart: risken "committad JWT-hemlighet" finns i riskregistret som R-17 (`docs/cto/Risk-register.md`), med status Mitigated.
 - Omvärdera vid behov: om plattformen får stöd för hemligheter, sätt `JWT_SECRET` i drift och skicka vidare den i `infra/docker-compose.yml`, som inte gör det i dag. Om vi får fler än en instans, eller om inloggningar ska överleva omstart, lagra nyckeln i databasen med `kid`.
 - Före go-live: kontrollera att ingen hemlighet finns i repot (`git grep -i "jwt.secret"` ska bara hitta kod och dokumentation) och att seed-användarna är borttagna.

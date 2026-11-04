@@ -105,7 +105,7 @@ Spärrarna i `frontend/src/router.tsx` styr bara navigeringen. Skyddet ligger i 
 | Auditlogg | `/audit` | Nej | Nej | Ja | Ja |
 | Användaradministration | `/admin/users` | Nej | Nej | Nej | Ja, kopplad till `/api/admin/users` för lista, skapa, rollbyte och borttagning |
 
-`/uitest` är bortkommenterad i routern och ingår inte i det aktiva routeträdet. Admins navigation och dashboard använder bara tillåtna vyer och anrop. `frontend/e2e/admin.spec.ts` verifierar omdirigering från initiatorns routes, att förbjudna API-anrop uteblir och att attestöversikten saknar beslutsknappar. Användarhändelser i historiken kan inte öppna en betalningstidslinje. Se [projektgenomgången](project-review.md).
+`/uitest` är bortkommenterad i routern och ingår inte i det aktiva routeträdet. Admins navigation och dashboard använder bara tillåtna vyer och anrop. `frontend/e2e/admin.spec.ts` verifierar omdirigering från initiatorns routes, att förbjudna API-anrop uteblir och att attestöversikten saknar beslutsknappar. Användarhändelser i historiken kan inte öppna en betalningstidslinje. Se [kända brister och avgränsningar](kanda-brister-och-avgransningar.md).
 
 ## Permission escalation
 

@@ -1,20 +1,14 @@
 # Risk Register
 
-Bygger på fliken **Risk register** i `RMR SEB(3).xlsx`. Statusen är kontrollerad mot koden 2026-11-02, på `develop` (commit `b3113c0`). R-18 är uppdaterad samma dag, efter kodändringen som åtgärdar den.
-
-**Viktigt:** statusen gäller koden på `develop`. Prod kör fortfarande v1-koden från `main`, se R-14.
-
 Poängen är Sannolikhet × Konsekvens, med skalan i arbetsboken: 1–4 Low, 5–9 Medium, 10–15 High, 16–25 Critical. CIA anger vad risken främst hotar: C (confidentiality), I (integrity) och A (availability). Ett streck betyder att CIA inte är tillämpligt.
-
-Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu inte har gått igenom.
 
 ## Översikt
 
 | ID | Risk | Kategori | Risknivå | Kvarstående risknivå | CIA | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | R-01 | Dubbelgodkännande under samtidig last: samma betalning godkänns/utförs två gånger | Technical / architectural | High | Medium | I | Mitigated |
-| R-02 | Icke-atomärt utförande: saldo dras men status/audit-post uteblir (eller tvärtom) | Technical / architectural | High | Medium | I | In progress |
-| R-03 | IDOR: en attestant godkänner en annan attestants steg | Security | High | Medium | I | In progress |
+| R-02 | Icke-atomärt utförande: saldo dras men status/audit-post uteblir (eller tvärtom) | Technical / architectural | High | Medium | I | Mitigated |
+| R-03 | IDOR: en attestant godkänner en annan attestants steg | Security | High | Medium | I | Mitigated |
 | R-04 | Tenant-läckage: en kunds betalnings-/auditdata syns för en annan kund | Compliance / legal | High | Medium | C | Mitigated |
 | R-05 | Stor betalning betalas ut oattesterad: tröskel-trigger missar eller är dubbeldefinierad | Technical / architectural | High | Medium | I | Mitigated |
 | R-06 | Säkerhetshål i inloggning: SQL-injektion eller knäckbar lösenordslagring | Security | High | Medium | C, I | Mitigated |
@@ -22,17 +16,17 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 | R-08 | Bus factor: bara en person behärskar en kritisk del (t.ex. auth eller native-modul) | People / knowledge | Medium | Low | A | In progress |
 | R-09 | Fel kontonummer når utbetalning (validering bara på format) | Operational | Medium | Low | I | Mitigated |
 | R-10 | CTO/UX-feedforward tvingar fram sen omprioritering (v7/v8) | Schedule / delivery | Medium | Medium | – | Closed |
-| R-11 | Batch/CSV förväntas i demon men är breddning (ej byggd) | Schedule / delivery | Low | Low | – | Accepted |
+| R-11 | Batch/CSV förväntas i demon men är breddning | Schedule / delivery | Low | Low | – | Closed |
 | R-12 | Access-token lagras i localStorage, läsbar för JavaScript | Security | Medium | Low | C | Closed |
 | R-13 | Livedemon strular under kvaldemon (miljö nere, inloggning krånglar, nätverk) | Operational | Medium | Low | A | Closed |
-| R-14 | Prod kör en gammal version: åtgärderna i det här registret finns inte i prod | Schedule / delivery | Critical | Low | C, I | Open |
+| R-14 | Prod kör en gammal version: åtgärderna i det här registret finns inte i prod | Schedule / delivery | Critical | Low | C, I | Mitigated |
 | R-15 | Inloggningen saknar begränsning av antal försök | Security | High | Medium | C | Open |
 | R-16 | Sekventiella id:n avslöjar volymer och gör id:n lätta att gissa | Security | Medium | Low | C | Open |
 | R-17 | Committad JWT-hemlighet gör det möjligt att förfalska token | Security | Critical | Medium | C, I | Mitigated |
 | R-18 | Felsvar läcker interna id:n till klienten | Security | Medium | Low | C | Mitigated |
 | R-19 | Sårbara beroenden upptäcks inte | Third-party & data | High | Medium | C, I, A | In progress |
 | R-20 | Utvecklingsvärden följer med till drift | Security | High | Low | C, I | Accepted |
-| R-21 | Native-, E2E- och röktester körs inte i CI | Technical / architectural | Medium | Low | I, A | Open |
+| R-21 | Native-, E2E- och röktester körs inte i CI | Technical / architectural | Medium | Low | I, A | Mitigated |
 | R-22 | Skadlig kod kan agera i sessionen eftersom CSP saknas | Security | Medium | Low | C, I | Open |
 | R-23 | Plattformsversioner utan säkerhetsuppdateringar | Third-party & data | Medium | Low | C, I, A | Open |
 
@@ -65,10 +59,10 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Inkonsistent tillstånd, logg med luckor, går inte att bevisa vad som hänt
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Allt i samma `@Transactional`. `AuditService.record` kräver en pågående transaktion (`MANDATORY`). Rollback-test mot Postgres 12
-- **Bevis:** `ApprovalServiceTransactionIntegrationTest` (godkännande, 2/2 gröna 2026-11-02)
-- **Kvar:** Rollback-test för avvisning finns i PR #244, som inte är mergad. Sätt status till Mitigated efter merge. Direktbetalningar under tröskeln saknar rollback-test mot riktig databas, men går genom samma transaktion
+- **Bevis:** `ApprovalServiceTransactionIntegrationTest` (godkännande och avvisning med meddelande, #244, 4/4 gröna 2026-11-04)
+- **Kvar:** Direktbetalningar under tröskeln och CSV-importen (#255) saknar incheckat rollback-test mot riktig databas, men går genom samma transaktion. CSV-importens allt-eller-inget är kontrollerat manuellt mot Postgres 2026-11-04: en fil med ett ogiltigt IBAN på rad 2 skapade inga betalningar
 - **Ansvarig:** Backend
-- **Status:** In progress
+- **Status:** Mitigated
 
 | Bedömning | Sannolikhet | Konsekvens | Poäng | Nivå |
 | --- | ---: | ---: | ---: | --- |
@@ -85,9 +79,9 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Ägarskapskontroll ur security context; negativt 403-test för fel attestant
 - **Bevis:** `ApprovalApiControllerOwnershipTest` (9/9 gröna 2026-11-02), `DualApprovalIntegrationTest` (dubbel attest)
-- **Kvar:** Hålet där en admin kunde skapa en betalning med ett atteststeg och godkänna den själv är stängt i #242 (ADR 0017): admin kan varken skapa, godkänna eller avvisa betalningar, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den, oavsett roll. Bevis: `RoleAuthorizationTest`, `ApprovalApiControllerOwnershipTest` och `ApprovalServiceTest`. Postgres-testerna `DualApprovalIntegrationTest` och `TenantIsolationIntegrationTest` är omskrivna men inte körda lokalt; sätt status när CI är grön. Se `docs/accessmatris.md`
+- **Kvar:** Hålet där en admin kunde skapa en betalning med ett atteststeg och godkänna den själv är stängt i #242 (ADR 0017): admin kan varken skapa, godkänna eller avvisa betalningar, och den som skapat en betalning kan aldrig själv godkänna eller avvisa den, oavsett roll. Bevis: `RoleAuthorizationTest`, `ApprovalApiControllerOwnershipTest` och `ApprovalServiceTest`. Postgres-testerna `DualApprovalIntegrationTest` och `TenantIsolationIntegrationTest` är gröna lokalt (hela backend-sviten 563/563 2026-11-04) och i Java-CI. Se `docs/accessmatris.md`
 - **Ansvarig:** Backend
-- **Status:** In progress
+- **Status:** Mitigated
 
 | Bedömning | Sannolikhet | Konsekvens | Poäng | Nivå |
 | --- | ---: | ---: | ---: | --- |
@@ -103,7 +97,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Dataläcka mellan bankkunder, GDPR-brott, allvarligt förtroendetapp
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Tenant ur JWT, isolering by default; negativt cross-tenant-test över HTTP mot Postgres 12
-- **Bevis:** `TenantIsolationIntegrationTest` (13/13 gröna 2026-11-02). Mutationsprovet i `docs/test-status.md` visar att testet faller när ett tenant-skydd tas bort
+- **Bevis:** `TenantIsolationIntegrationTest` (14/14 gröna 2026-11-04). Mutationsprovet i `docs/test-status.md` visar att testet faller när ett tenant-skydd tas bort
 - **Ansvarig:** Backend
 - **Status:** Mitigated
 
@@ -141,7 +135,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Parameteriserat/JPA; BCrypt; test som matar injektionsförsök och nekas
 - **Bevis:** `AuthServiceInjectionTest` (12/12 gröna 2026-11-02), `AuthServiceMd5Test`, `V7PasswordMigrationTest`
-- **Kvar:** Gäller `develop`, inte prod (R-14). Stage är inte kontrollerad för kvarvarande MD5-hashar. Antal inloggningsförsök begränsas inte (R-15)
+- **Kvar:** Prod kör v2 med BCrypt sedan 2026-11-03 (R-14). Stage är inte kontrollerad för kvarvarande MD5-hashar. Antal inloggningsförsök begränsas inte (R-15)
 - **Ansvarig:** Backend
 - **Status:** Mitigated
 
@@ -159,7 +153,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Icke-bidragande medlemmar riskerar underkänt; kunskap samlas hos få
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Namngiven ägare per task, synligt på tavlan; dokumentera bidrag; PL-avstämning
-- **Kvar:** Sprint v11 har ägare per task, men Team Lead saknas. Sprint v10 och retros efter v8 saknas i `docs/sprints`. Flera git-identiteter försvårar spårningen
+- **Kvar:** Sprintplaneringar v6–v12 och retros v6–v11 finns i `docs/sprints`. Sprint v11 har ägare per task, men Team Lead står inte ifylld i v11 och v12. Flera git-identiteter försvårar spårningen
 - **Ansvarig:** Team Lead
 - **Status:** In progress
 
@@ -177,7 +171,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Frånvaro hos nyckelperson blockerar leveransen
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Parvis genomgång, PR-review, dokumentera i README/ADR så fler kan ta vid
-- **Kvar:** En person står för 9 av 10 commits i `native/`. Auth har två personer
+- **Kvar:** En person står för 9 av 10 commits i `native/` och för alla commits i JNA-kopplingen (`infrastructure/`). Auth har två personer
 - **Ansvarig:** Team Lead
 - **Status:** In progress
 
@@ -196,7 +190,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** MOD97 (ISO 13616) i formuläret och i backend, med native-validering i C och Java som reserv; tester med kända ogiltiga IBAN
 - **Bevis:** `IbanValidatorServiceTest` (5/5 gröna 2026-11-02), `native/iban/iban_validator_test.c`, `payment/schema.test.ts`
-- **Kvar:** Betalningen har inget BIC-fält, så BIC-valideringen används inte i flödet. MOD97 finns i tre implementationer (C, Java, TypeScript). 4 av 5 IBAN i seed-datan klarar inte MOD97
+- **Kvar:** Betalningen har inget BIC-fält, så BIC-valideringen används inte i flödet. MOD97 finns i tre implementationer (C, Java, TypeScript). Seed-datans konto-IBAN rättades i migrering V15 (2026-11-04), så alla seed-konton klarar MOD97
 - **Ansvarig:** Backend/Frontend
 - **Status:** Mitigated
 
@@ -213,7 +207,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Orsak/sårbarhet:** Teknisk och UX-återkoppling kommer efter att mycket redan byggts
 - **Konsekvens/påverkan:** Omtag och tappat momentum nära slutleveransen
 - **Åtgärdsstrategi:** Tolerate
-- **Åtgärd/kontroll:** Omprioriteringen är gjord (`docs/Risk-feedfoward.md`, ADR 0013). Det som återstår av feedbacken följs upp i R-16 till R-19
+- **Åtgärd/kontroll:** Omprioriteringen är gjord (`docs/cto/Risk-feedforward.md`, ADR 0013). Det som återstår av feedbacken följs upp i R-16 till R-19
 - **Ansvarig:** Team Lead
 - **Status:** Closed
 
@@ -222,7 +216,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 | Ursprunglig risk | 3 | 2 | 6 | Medium |
 | Kvarstående risk | 3 | 2 | 6 | Medium |
 
-### R-11 – Batch/CSV förväntas i demon men är breddning (ej byggd)
+### R-11 – Batch/CSV förväntas i demon men är breddning
 
 - **Tillgång/system:** Batch/CSV-import
 - **Kategori:** Schedule / delivery
@@ -230,9 +224,9 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Orsak/sårbarhet:** Kunden nämnde filuppladdning som återkommande behov; vi la den utanför MVP
 - **Konsekvens/påverkan:** Leveransen upplevs missa ett uttalat kundkriterium
 - **Åtgärdsstrategi:** Tolerate
-- **Åtgärd/kontroll:** Ha motivering redo (kravtolkning.md, avsnitt A). Native-parsern finns, men endpoint och vy saknas. Sprint v11 tar inte in större funktioner, så ingen CSV-import byggs till slutleveransen
+- **Åtgärd/kontroll:** Ha motivering redo (kravtolkning.md, avsnitt A). Batch-uppladdningen byggdes till slutleveransen (#255, 2026-11-04): `POST /api/payments/import` med native-parsern, allt-eller-inget i en transaktion och högst 1 MB och 500 betalningar per fil
 - **Ansvarig:** Team Lead
-- **Status:** Accepted
+- **Status:** Closed
 
 | Bedömning | Sannolikhet | Konsekvens | Poäng | Nivå |
 | --- | ---: | ---: | ---: | --- |
@@ -267,7 +261,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Tappad demotid, sämre intryck på kundnytta och trygghet, i värsta fall ingen demo
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Plan B: förinspelad Loom av hela kärnflödet + skärmdumpar, öppna i flik. Lokal miljö som andra reserv. Genrep mot skarp miljö innan. Teknikcheck 08.30 på plats
-- **Kvar:** Kvaldemon var planerad till 2026-10-22 och datumet har passerat. Utfallet är inte dokumenterat i repot. Driftläget inför slutleveransen följs upp i R-14
+- **Kvar:** Kvaldemon hölls 2026-10-22 och utfallet och feedbacken står i `docs/sprints/retro-review/sprint-retro-reviewv10.md`. Fallback-material (presentation och skärmdumpar av kärnflödet) finns i `docs/demo-fallback/`. Driftläget inför slutleveransen följs upp i R-14
 - **Ansvarig:** Team
 - **Status:** Closed
 
@@ -281,12 +275,13 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Tillgång/system:** Stage och prod (Coolify), `main`
 - **Kategori:** Schedule / delivery
 - **CIA:** C, I
-- **Orsak/sårbarhet:** `main` ligger 372 commits efter `develop`. Prod saknar dagens API:er, och `main` har kvar v1-koden med bland annat `DashboardController`, som byggde SQL genom att lägga ihop strängar
-- **Konsekvens/påverkan:** Den publika prod-adressen visar inte det vi levererat och innehåller kända sårbarheter. Stage svarade dessutom 503 vid kontroll 2026-11-02, trots lyckad deploy
+- **Orsak/sårbarhet:** `main` låg 372 commits efter `develop` (2026-11-02), med kvar v1-koden och bland annat `DashboardController`, som byggde SQL genom att lägga ihop strängar
+- **Konsekvens/påverkan:** Den publika prod-adressen visar inte det vi levererat och innehåller kända sårbarheter
 - **Åtgärdsstrategi:** Treat
-- **Åtgärd/kontroll:** Få igång stage och verifiera. Merga sedan `develop` till `main`. Prod-databasen är skapad av `seed.sql`, så Flyway stoppar troligen utan en nollställning via techsupport
+- **Åtgärd/kontroll:** `develop` mergades till `main` 2026-11-03 (#254), och techsupport nollställde prod-databasen. Prod och stage svarar `UP` på `/actuator/health` 2026-11-04, och prod serverar v2-frontenden
+- **Kvar:** Det som mergats till `develop` efter releasen (CSV-importen #255, inställningsmenyn #256, uppladdningsvyns konto-id och bekräftelseruta samt migrering V15) mergas till `main` efter kodfrysningen 2026-11-04
 - **Ansvarig:** Team
-- **Status:** Open
+- **Status:** Mitigated
 
 | Bedömning | Sannolikhet | Konsekvens | Poäng | Nivå |
 | --- | ---: | ---: | ---: | --- |
@@ -319,6 +314,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Id:n går att gissa och avslöjar volymer. Tenant-kontrollerna (R-04) hindrar åtkomst över företagsgränsen
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Lägg till en publik UUID-kolumn och behåll heltal som primärnyckel
+- **Kvar:** Uppladdningsvyn för CSV visar sedan 2026-11-04 kontots id, eftersom filen anger avsändarkontot med id. Det är ett medvetet val i stället för kontonummer i filen, se `docs/cto/Risk-feedforward.md`, punkt 3
 - **Ansvarig:** Backend
 - **Status:** Open
 
@@ -374,7 +370,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Konsekvens/påverkan:** Kända sårbarheter kan följa med ut utan att någon märker det
 - **Åtgärdsstrategi:** Treat
 - **Åtgärd/kontroll:** Sårbara frontendberoenden är uppdaterade inom tillåtna versionsintervall. Låt CI falla på höga sårbarheter i produktionsberoenden
-- **Bevis:** `npm audit --omit=dev` ger 0 sårbarheter 2026-11-02 (före uppdateringen 2 höga). Totalt 15 medelallvarliga, före uppdateringen 21 varav 6 höga
+- **Bevis:** `npm audit --omit=dev` ger 0 sårbarheter 2026-11-02 och 2026-11-04 (före uppdateringen 2 höga). Totalt 15 medelallvarliga, före uppdateringen 21 varav 6 höga
 - **Kvar:** CI-steget saknas. De 15 medelallvarliga finns i utvecklingsverktyg (`vitest`, `eslint`, `typescript-eslint` och deras beroenden) och når inte produktionsbygget
 - **Ansvarig:** Frontend
 - **Status:** In progress
@@ -392,7 +388,7 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Orsak/sårbarhet:** Seed-användare med `password123`, databaslösenordet `seb123` i det publika repot, och en dev-nyckel som standard för auditsignering med signeringskravet avstängt. Miljövariablerna på stage är inte kontrollerade
 - **Konsekvens/påverkan:** Vem som helst kan logga in i en publik miljö med seed-konton. Den signerade loggen är inte manipuleringssäker om dev-nyckeln används
 - **Åtgärdsstrategi:** Tolerate
-- **Åtgärd/kontroll:** Seed-användarna är accepterade för demon (ADR 0011). Före go-live: ta bort seeden, byt lösenord och sätt `AUDIT_SIGNING_KEY` och `AUDIT_SIGNING_REQUIRED=true`
+- **Åtgärd/kontroll:** Seed-användarna är accepterade för demon (ADR 0011). Enligt techsupport (2026-11-03) är `AUDIT_SIGNING_KEY` satt med en slumpad nyckel per miljö och `AUDIT_SIGNING_REQUIRED=true` på stage och prod. Före go-live: ta bort seeden och byt lösenord
 - **Ansvarig:** Team
 - **Status:** Accepted
 
@@ -409,9 +405,10 @@ Poängen för R-14 till R-23 och all CIA-märkning är förslag som teamet ännu
 - **Orsak/sårbarhet:** `maven.yml` och `frontend.yml` kör bara JUnit, Vitest, lint och build. Native C-sviten, E2E och rök-testet körs för hand
 - **Konsekvens/påverkan:** Ett fel i C-koden eller i hela användarflödet kan mergas utan att upptäckas
 - **Åtgärdsstrategi:** Treat
-- **Åtgärd/kontroll:** Lägg till native-sviten och E2E i CI
+- **Åtgärd/kontroll:** `maven.yml` bygger och kör native-sviten (`make -C native test lib`) före Java-testerna. `frontend.yml` har ett E2E-jobb som startar en isolerad Docker-stack och kör Playwright och rök-testet
+- **Bevis:** Java CI och Frontend CI gröna på GitHub för `develop` 2026-11-04 (commit `39c79c6`)
 - **Ansvarig:** Team
-- **Status:** Open
+- **Status:** Mitigated
 
 | Bedömning | Sannolikhet | Konsekvens | Poäng | Nivå |
 | --- | ---: | ---: | ---: | --- |

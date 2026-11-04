@@ -5,9 +5,9 @@
 - **Deltagare:** Team SEB 3 · drivande: Jonathan Isaksson
 - **Berör:** Auth & behörighet, betalning och godkännandekedja, audit
 - **Relaterade issues:** #242, #243, #80
-- **Relaterat:** [ADR 0012](0012-refresh-token-i-httponly-cookie-med-rotation.md), kundbehov 1 och 7 i `docs/kravtolkning.md`, CTO-feedbacken punkt 2 och 4 i `docs/Risk-feedfoward.md`
+- **Relaterat:** [ADR 0012](0012-refresh-token-i-httponly-cookie-med-rotation.md), kundbehov 1 och 7 i `docs/kravtolkning.md`, CTO-feedbacken punkt 2 och 4 i `docs/cto/Risk-feedforward.md`
 
-**Uppföljning 2026-11-03:** frontendens route-spärrar, navigation och dashboard är anpassade och admins attestvy är skrivskyddad. Användarsidan är API-kopplad. Audit-vyn skiljer användarhändelser från betalningar. Backendens Postgres-svit och frontendens admin-E2E passerar; se [projektgenomgången](../project-review.md) och [teststatus](../test-status.md). Beslutets ursprungliga konsekvenser och uppföljningslista nedan beskriver läget när det fattades.
+**Uppföljning 2026-11-03:** frontendens route-spärrar, navigation och dashboard är anpassade och admins attestvy är skrivskyddad. Användarsidan är API-kopplad. Audit-vyn skiljer användarhändelser från betalningar. Backendens Postgres-svit och frontendens admin-E2E passerar; se [kända brister och avgränsningar](../kanda-brister-och-avgransningar.md) och [teststatus](../test-status.md). Beslutets ursprungliga konsekvenser och uppföljningslista nedan beskriver läget när det fattades.
 
 ## Kontext
 

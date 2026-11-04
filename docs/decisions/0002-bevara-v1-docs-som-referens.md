@@ -1,8 +1,8 @@
 # ADR 0002 — Bevara v1-dokumentation som referens
 
-- **Status:** Förslagen
+- **Status:** Accepterad
 - **Datum:** 2026-08-26
-- **Deltagare:** drivande: Pontus Ingenius 
+- **Deltagare:** Hela teamet drivande: Pontus Ingenius 
 - **Berör:** Dokumentationsstruktur / repo
 - **Relaterade issues:** #
 
